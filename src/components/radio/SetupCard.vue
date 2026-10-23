@@ -23,6 +23,8 @@
 import { Eye, EyeOff } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
+import OnAir from '@/components/radio/OnAir.vue';
+import { hubOrigin } from '@/radio/discover';
 import { useRadio } from '@/store/radio';
 import { useSettings, validHotspot } from '@/store/settings';
 
@@ -39,6 +41,13 @@ const show = ref(false);
 const touched = ref(false);
 
 const idValid = computed(() => /^\d+$/.test(hotspot.value) && validHotspot(Number(hotspot.value)));
+const hubLink = computed(() => {
+  try {
+    return hubOrigin(host.value || 'dmrhub.net').origin;
+  } catch {
+    return 'https://dmrhub.net';
+  }
+});
 const canConnect = computed(() => idValid.value && password.value !== '' && host.value.trim() !== '');
 
 function connect(): void {
@@ -112,8 +121,9 @@ void props;
         {{ radio.link === 'connecting' ? 'Connecting' : 'Connect' }}
       </button>
       <span class="text-[13px] text-radio-muted">
-        No hotspot yet? Register one on <a :href="`https://${host || 'dmrhub.net'}`" target="_blank" rel="noopener">your hub</a>. It shows the password once.
+        No hotspot yet? Register one on <a :href="hubLink" target="_blank" rel="noopener">your hub</a>. It shows the password once.
       </span>
     </form>
+    <OnAir v-if="compact" :host="host" compact />
   </section>
 </template>

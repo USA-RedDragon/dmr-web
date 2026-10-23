@@ -24,6 +24,7 @@ import { useEventListener, useMediaQuery, useWakeLock } from '@vueuse/core';
 import { computed, watch } from 'vue';
 
 import LastHeard from '@/components/radio/LastHeard.vue';
+import OnAir from '@/components/radio/OnAir.vue';
 import LinkNotice from '@/components/radio/LinkNotice.vue';
 import MicDialogs from '@/components/radio/MicDialogs.vue';
 import RadioPanel from '@/components/radio/RadioPanel.vue';
@@ -91,6 +92,7 @@ function onLogin(): void {
     <aside class="flex min-w-0 grow flex-col gap-4">
       <LinkNotice v-if="showNotice" />
       <SetupCard v-if="showSetup && radio.link !== 'failed' && radio.supported" />
+      <OnAir v-if="showSetup && !radio.heard.length" :host="store.settings.hub.host" />
       <section v-if="!showSetup || radio.heard.length" class="grow rounded-[20px] border border-radio-line bg-radio-surface p-[22px]">
         <LastHeard :entries="radio.heard" :limit="12" />
       </section>
