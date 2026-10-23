@@ -97,17 +97,22 @@ type txState struct {
 
 // Radio is the radio. It is not safe for concurrent use.
 type Radio struct {
-	cfg    Config
-	codecs Codecs
-	choice Vocoder
-	sink   Sink
-	peer   *dmrdsession.Peer
-	out    []dmrdsession.Output
-	rx     [slots]rxSlot
-	tx     txState
-	up     bool
-	buf    []byte
-	pcm    []int16
+	cfg        Config
+	codecs     Codecs
+	choice     Vocoder
+	sink       Sink
+	peer       *dmrdsession.Peer
+	out        []dmrdsession.Output
+	rx         [slots]rxSlot
+	tx         txState
+	dslots     [slots]dataSlot
+	up         bool
+	buf        []byte
+	pcm        []int16
+	text       []byte
+	tmsSeq     uint8
+	tmsWait    map[uint8]uint32
+	nextStream uint32
 }
 
 // New returns a radio for cfg that reports to sink. The first Tick starts
@@ -131,14 +136,15 @@ func New(cfg *Config, sink Sink) (*Radio, error) {
 		return nil, fmt.Errorf("radio: session: %w", err)
 	}
 	r := &Radio{
-		cfg:    *cfg,
-		codecs: cfg.Codecs,
-		choice: cfg.Vocoder,
-		sink:   sink,
-		peer:   peer,
-		out:    make([]dmrdsession.Output, 0, dmrdsession.MaxOutputs),
-		buf:    make([]byte, 0, dmrdsession.MaxPacket),
-		pcm:    make([]int16, 0, 160*maxLostFill*layer2.VoiceSlotsPerBurst),
+		cfg:     *cfg,
+		codecs:  cfg.Codecs,
+		choice:  cfg.Vocoder,
+		sink:    sink,
+		peer:    peer,
+		out:     make([]dmrdsession.Output, 0, dmrdsession.MaxOutputs),
+		buf:     make([]byte, 0, dmrdsession.MaxPacket),
+		pcm:     make([]int16, 0, 160*maxLostFill*layer2.VoiceSlotsPerBurst),
+		tmsWait: map[uint8]uint32{},
 	}
 	for i := range r.rx {
 		j, err := voice.NewJitter(&voice.JitterConfig{Delay: cfg.Jitter})
@@ -150,6 +156,15 @@ func New(cfg *Config, sink Sink) (*Radio, error) {
 			return nil, fmt.Errorf("radio: receiver: %w", err)
 		}
 		r.rx[i] = rxSlot{jitter: j, recv: rv, events: make([]voice.Event, 0, voice.MaxEvents)}
+		es := enums.Slot1
+		if i == 1 {
+			es = enums.Slot2
+		}
+		ds, err := newDataSlot(cfg, es)
+		if err != nil {
+			return nil, err
+		}
+		r.dslots[i] = ds
 	}
 	return r, nil
 }
@@ -225,6 +240,7 @@ func (r *Radio) Deadline() (at time.Duration, ok bool) {
 	for i := range r.rx {
 		consider(r.rx[i].jitter.Deadline())
 		consider(r.rx[i].recv.Deadline())
+		r.dslots[i].deadline(consider)
 	}
 	if r.tx.active {
 		consider(r.tx.t.Deadline())
@@ -238,6 +254,7 @@ func (r *Radio) Tick(now time.Duration) {
 	r.handle(now)
 	for i := range r.rx {
 		r.drain(now, i)
+		r.dataTick(now, i)
 	}
 	r.txTick(now)
 }
@@ -284,6 +301,7 @@ func (r *Radio) down(reason string) {
 	for i := range r.rx {
 		r.rx[i].jitter.Reset()
 		r.rx[i].recv.Reset()
+		r.dslots[i].reset()
 		if r.rx[i].active {
 			r.rx[i].active = false
 			r.sink.Event(&Event{Kind: EventCallEnd, Slot: i + 1, Reason: "disconnected"})
@@ -311,6 +329,7 @@ func (r *Radio) data(now time.Duration, b []byte) {
 		r.receive(now, i, &d.Burst, h)
 	}
 	r.drain(now, i)
+	r.dataIn(now, i, &d, h)
 }
 
 func (r *Radio) drain(now time.Duration, i int) {
@@ -322,22 +341,23 @@ func (r *Radio) drain(now time.Duration, i int) {
 		}
 	}
 	s.events = s.recv.Tick(now, s.events[:0])
-	r.events(i)
+	r.events(now, i)
 }
 
 func (r *Radio) receive(at time.Duration, i int, raw *layer2.RawBurst, h layer2.Hint) {
 	s := &r.rx[i]
 	s.events = s.recv.Burst(at, raw, h, s.events[:0])
-	r.events(i)
+	r.events(at, i)
 }
 
-func (r *Radio) events(i int) {
+func (r *Radio) events(now time.Duration, i int) {
 	s := &r.rx[i]
 	for k := range s.events {
 		e := &s.events[k]
 		switch e.Kind {
 		case voice.EventCallStart:
 			r.callStart(i, &e.Call)
+			r.channel(now, i)
 		case voice.EventVoice:
 			r.voice(i, e)
 		case voice.EventEmbedded:
@@ -350,6 +370,7 @@ func (r *Radio) events(i int) {
 			if s.active {
 				s.active = false
 				r.sink.Event(&Event{Kind: EventCallEnd, Slot: i + 1, Group: e.Call.Group, Target: e.Call.Target, Source: e.Call.Source, Reason: e.Reason.String()})
+				r.channel(now, i)
 			}
 		default:
 		}
@@ -480,12 +501,9 @@ func (r *Radio) StartTransmit(now time.Duration, slot int, group bool, target ui
 	if err := t.Start(now+txLead, call, nil); err != nil {
 		return fmt.Errorf("radio: start: %w", err)
 	}
-	var id [4]byte
-	if _, err := rand.Read(id[:]); err != nil {
-		return fmt.Errorf("radio: stream ID: %w", err)
-	}
 	r.tx.t, r.tx.slot, r.tx.call = t, es, call
-	r.tx.seq, r.tx.stream, r.tx.active = 0, binary.BigEndian.Uint32(id[:]), true
+	r.tx.seq, r.tx.stream, r.tx.active = 0, r.streamID(), true
+	r.channel(now, slot-1)
 	if r.tx.out == nil {
 		r.tx.out = make([]voice.Output, 0, 4)
 	}
@@ -523,12 +541,12 @@ func (r *Radio) txTick(now time.Duration) {
 			return
 		}
 		for k := range r.tx.out {
-			r.txOutput(&r.tx.out[k])
+			r.txOutput(now, &r.tx.out[k])
 		}
 	}
 }
 
-func (r *Radio) txOutput(o *voice.Output) {
+func (r *Radio) txOutput(now time.Duration, o *voice.Output) {
 	switch o.Kind {
 	case voice.OutputBurst:
 		if !r.up {
@@ -559,9 +577,21 @@ func (r *Radio) txOutput(o *voice.Output) {
 		r.sink.Send(b)
 	case voice.OutputEnded:
 		r.tx.active = false
+		if i, ok := slotIndex(r.tx.slot); ok {
+			r.channel(now, i)
+		}
 		r.sink.Event(&Event{Kind: EventTransmitEnd, Slot: slotNumber(r.tx.slot), Target: r.tx.call.Target, Reason: o.Reason.String()})
 	default:
 	}
+}
+
+func (r *Radio) streamID() uint32 {
+	var id [4]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		r.nextStream++
+		return r.nextStream
+	}
+	return binary.BigEndian.Uint32(id[:])
 }
 
 func slotIndex(s enums.Slot) (int, bool) {

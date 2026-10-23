@@ -35,6 +35,7 @@ import (
 
 	"github.com/USA-RedDragon/dmr-web/wasm/ambe"
 	"github.com/USA-RedDragon/dmr-web/wasm/radio"
+	"github.com/USA-RedDragon/dmrgo/v2/sms"
 	"github.com/USA-RedDragon/dmrgo/v2/vocoder"
 	"github.com/USA-RedDragon/dmrgo/v2/vocoder/codec2"
 )
@@ -66,6 +67,8 @@ func main() {
 	b.export(obj, "loadAmbe", b.loadAmbe)
 	b.export(obj, "removeAmbe", b.removeAmbe)
 	b.export(obj, "setVocoder", b.setVocoder)
+	b.export(obj, "sendText", b.sendText)
+	b.export(obj, "check", b.check)
 	js.Global().Set("dmrweb", obj)
 	select {}
 }
@@ -283,6 +286,65 @@ func (b *bridge) setVocoder(args []js.Value) any {
 	return o
 }
 
+func formatOf(s string) sms.Format {
+	switch s {
+	case "tms":
+		return sms.FormatTMS
+	case "ip":
+		return sms.FormatIP
+	case "anytone":
+		return sms.FormatAnyTone
+	case "dd":
+		return sms.FormatDefinedData
+	case "hytera":
+		return sms.FormatHytera
+	default:
+		return 0
+	}
+}
+
+func formatKey(name string) string {
+	for _, k := range []string{"tms", "ip", "anytone", "dd", "hytera"} {
+		if f := formatOf(k); f.String() == name {
+			return k
+		}
+	}
+	return name
+}
+
+func checkOf(s string) radio.Check {
+	switch s {
+	case "radioCheck":
+		return radio.CheckRadio
+	case "callAlert":
+		return radio.CheckCallAlert
+	case "presence":
+		return radio.CheckPresence
+	default:
+		return 0
+	}
+}
+
+func (b *bridge) sendText(args []js.Value) any {
+	if b.r == nil {
+		return result(errNoRadio)
+	}
+	err := b.r.SendText(at(arg(args, 0)), id(arg(args, 1)), arg(args, 2).Int(), arg(args, 3).Bool(), id(arg(args, 4)), formatOf(stringOr(arg(args, 5))), stringOr(arg(args, 6)))
+	o := result(err)
+	o.Set("deadline", b.deadline())
+	return o
+}
+
+func (b *bridge) check(args []js.Value) any {
+	if b.r == nil {
+		return result(errNoRadio)
+	}
+	err := b.r.CheckRadio(at(arg(args, 0)), id(arg(args, 1)), arg(args, 2).Int(), checkOf(stringOr(arg(args, 3))), id(arg(args, 4)))
+	o := result(err)
+	o.Set("deadline", b.deadline())
+	return o
+}
+
 // Send passes a datagram to the worker.
 func (b *bridge) Send(p []byte) {
 	a := js.Global().Get("Uint8Array").New(len(p))
@@ -304,6 +366,9 @@ func (b *bridge) Event(e *radio.Event) {
 	o.Set("latitude", e.Latitude)
 	o.Set("longitude", e.Longitude)
 	o.Set("reason", e.Reason)
+	o.Set("id", e.ID)
+	o.Set("format", formatKey(e.Format))
+	o.Set("elapsedMs", float64(e.Elapsed)/float64(time.Millisecond))
 	if e.Err != nil {
 		o.Set("error", e.Err.Error())
 	}

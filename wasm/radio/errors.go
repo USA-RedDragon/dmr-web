@@ -35,4 +35,10 @@ var (
 	ErrSlot = errors.New("radio: the slot must be 1 or 2")
 	// ErrTarget is a talkgroup or radio ID that does not fit in 24 bits.
 	ErrTarget = errors.New("radio: the target must be from 1 to 16777215")
+	// ErrText is a text message that is empty or not UTF-8.
+	ErrText = errors.New("radio: the text must be UTF-8 and not empty")
+	// ErrFormat is a text format that the radio does not know.
+	ErrFormat = errors.New("radio: unknown text format")
+	// ErrChecking is a check on a slot where one already runs.
+	ErrChecking = errors.New("radio: a check already runs on the slot")
 )

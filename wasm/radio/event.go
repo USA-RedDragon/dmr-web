@@ -19,6 +19,8 @@
 
 package radio
 
+import "time"
+
 // EventKind is the kind of an Event.
 type EventKind uint8
 
@@ -42,6 +44,19 @@ const (
 	EventTransmitEnd
 	// EventError reports an error that the radio recovered from, in Err.
 	EventError
+	// EventText is a text message received on Slot, in Text and Format.
+	EventText
+	// EventTextStatus reports on the text message ID that SendText sent:
+	// Reason is "sent", "delivered" or why it failed.
+	EventTextStatus
+	// EventCheck reports how the radio check, call alert or presence check
+	// ID ended: Reason is "answered" or why not, after Elapsed.
+	EventCheck
+	// EventCallAlert is a call alert from Source on Slot.
+	EventCallAlert
+	// EventRequest is a CSBK request that the radio answered, named in
+	// Text, from Source on Slot.
+	EventRequest
 )
 
 // String returns the name of the kind.
@@ -65,6 +80,16 @@ func (k EventKind) String() string {
 		return "transmitEnd"
 	case EventError:
 		return "error"
+	case EventText:
+		return "text"
+	case EventTextStatus:
+		return "textStatus"
+	case EventCheck:
+		return "check"
+	case EventCallAlert:
+		return "callAlert"
+	case EventRequest:
+		return "request"
 	default:
 		return "unknown"
 	}
@@ -85,4 +110,7 @@ type Event struct {
 	Longitude float64
 	Reason    string
 	Err       error
+	ID        uint32
+	Format    string
+	Elapsed   time.Duration
 }
