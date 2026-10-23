@@ -18,7 +18,8 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { useDebounceFn } from '@vueuse/core';
+import { computed, ref, watch } from 'vue';
 
 import { mergeStatics } from '@/lib/hotspots';
 import { kvDelete, kvGet, kvSet } from '@/lib/kv';
@@ -314,6 +315,45 @@ export const useAccount = defineStore('account', () => {
     return scope.value.includes(s);
   }
 
+  const staticsError = ref('');
+
+  function staticIds(slot: 1 | 2): number[] {
+    return useSettings()
+      .settings.talkgroups[slot].filter((t) => t.static)
+      .map((t) => t.id)
+      .sort((x, y) => x - y);
+  }
+
+  const pushStatics = useDebounceFn(async () => {
+    const id = useSettings().settings.hotspot.id;
+    const h = hotspots.value.find((x) => x.id === id);
+    if (!h || !can('hotspots:talkgroups')) {
+      return;
+    }
+    const ts1 = staticIds(1);
+    const ts2 = staticIds(2);
+    const same = (a: number[], b: number[]) => a.length === b.length && [...b].sort((x, y) => x - y).every((v, i) => v === a[i]);
+    if (same(ts1, h.ts1) && same(ts2, h.ts2)) {
+      staticsError.value = '';
+      return;
+    }
+    try {
+      await setStatics(id, ts1, ts2);
+      staticsError.value = '';
+    } catch (err) {
+      staticsError.value = err instanceof Error ? err.message : String(err);
+    }
+  }, 800);
+
+  watch(
+    () => [loggedIn.value, hotspotsLoaded.value, useSettings().settings.hotspot.id, staticIds(1).join(','), staticIds(2).join(',')].join('|'),
+    () => {
+      if (loggedIn.value && hotspotsLoaded.value) {
+        void pushStatics();
+      }
+    },
+  );
+
   return {
     account,
     saved,
@@ -337,5 +377,6 @@ export const useAccount = defineStore('account', () => {
     setStatics,
     choose,
     can,
+    staticsError,
   };
 });

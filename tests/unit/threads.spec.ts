@@ -18,7 +18,8 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 import { describe, expect, it } from 'vitest';
 
-import { autoFormat, keyOf, MAX_MESSAGES, nextStatus, peerOf, trim, type Message } from '@/lib/threads';
+import { messagesSocketURL, retryDelay } from '@/lib/hubMessages';
+import { autoFormat, fromHub, type HubMessage, keyOf, matchHub, MAX_MESSAGES, nextStatus, peerOf, trim, type Message } from '@/lib/threads';
 
 describe('threads', () => {
   it('keys a peer and reads the key back', () => {
@@ -51,5 +52,52 @@ describe('threads', () => {
     const kept = trim(many);
     expect(kept).toHaveLength(MAX_MESSAGES);
     expect(kept[0]!.id).toBe(5);
+  });
+});
+
+const hubMsg: HubMessage = {
+  id: 7,
+  received_at: '2026-10-23T14:00:00Z',
+  source_id: 3100002,
+  destination_id: 3100001,
+  group: false,
+  format: 'defined_data',
+  text: 'hello',
+  confirmed: true,
+  response: 'ack',
+};
+
+describe('hub messages', () => {
+  it('puts an inbox message in the thread of its sender', () => {
+    expect(fromHub(hubMsg, 'inbox')).toMatchObject({ key: 'u3100002', dir: 'in', format: 'dd', status: 'received', hub: 7, at: Date.parse('2026-10-23T14:00:00Z') });
+  });
+
+  it('puts an outbox message in the thread of its target, with its answer', () => {
+    expect(fromHub({ ...hubMsg, source_id: 3100001, destination_id: 3100002 }, 'outbox')).toMatchObject({ key: 'u3100002', dir: 'out', status: 'delivered' });
+    expect(fromHub({ ...hubMsg, response: 'nack' }, 'outbox')).toMatchObject({ status: 'failed' });
+    expect(fromHub({ ...hubMsg, group: true, destination_id: 91, response: '' }, 'outbox')).toMatchObject({ key: 'g91', status: 'sent' });
+  });
+
+  it('skips data and messages with no text', () => {
+    expect(fromHub({ ...hubMsg, format: 'data' }, 'inbox')).toBeNull();
+    expect(fromHub({ ...hubMsg, text: null }, 'inbox')).toBeNull();
+  });
+
+  it('matches the copy heard over the radio, then the hub ID', () => {
+    const got = fromHub(hubMsg, 'inbox')!;
+    const radio: Message = { ...got, id: 1, slot: 2, hub: undefined, at: got.at + 3000 };
+    const old: Message = { ...radio, id: 2, at: got.at - 600_000 };
+    expect(matchHub([old, radio], got)).toBe(1);
+    expect(matchHub([old], got)).toBe(-1);
+    expect(matchHub([{ ...old, hub: 7 }], got)).toBe(0);
+    expect(matchHub([{ ...radio, text: 'other' }], got)).toBe(-1);
+  });
+
+  it('opens the websocket on the hub and backs off', () => {
+    expect(messagesSocketURL('dmrhub.net')).toBe('wss://dmrhub.net/ws/messages');
+    expect(messagesSocketURL('http://127.0.0.1:3005')).toBe('ws://127.0.0.1:3005/ws/messages');
+    expect(retryDelay(0)).toBe(1000);
+    expect(retryDelay(3)).toBe(8000);
+    expect(retryDelay(20)).toBe(60_000);
   });
 });

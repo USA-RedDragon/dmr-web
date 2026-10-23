@@ -23,6 +23,7 @@ import { useMediaQuery } from '@vueuse/core';
 import { GripVertical, X } from 'lucide-vue-next';
 import { reactive, ref } from 'vue';
 
+import { useAccount } from '@/store/account';
 import { useSettings, type Slot } from '@/store/settings';
 
 import { inputClass, primaryButton } from './fields';
@@ -30,6 +31,7 @@ import { inputClass, primaryButton } from './fields';
 const LONG_PRESS_MS = 450;
 
 const store = useSettings();
+const account = useAccount();
 const desktop = useMediaQuery('(min-width: 1024px)');
 const tab = ref<Slot>(store.settings.selected.slot);
 const draft = reactive<Record<Slot, string>>({ 1: '', 2: '' });
@@ -204,4 +206,5 @@ function now(slot: Slot): string {
         : 'The knob steps through this list in order. Long-press a row to reorder it.'
     }}
   </p>
+  <p v-if="account.staticsError" role="alert" class="m-0 text-xs text-radio-red">Could not update the static talkgroups on the hub: {{ account.staticsError }}</p>
 </template>

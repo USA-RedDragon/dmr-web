@@ -33,6 +33,7 @@ export type Message = {
   format: TextFormat;
   status: MessageStatus;
   error: string;
+  hub?: number;
 };
 
 export type Thread = {
@@ -87,4 +88,63 @@ export function autoFormat(thread: Thread | undefined): TextFormat {
 
 export function trim(messages: Message[]): Message[] {
   return messages.length > MAX_MESSAGES ? messages.slice(messages.length - MAX_MESSAGES) : messages;
+}
+
+/** HubMessage is a text message as the hub's messages API and websocket send it. */
+export type HubMessage = {
+  id: number;
+  received_at: string;
+  source_id: number;
+  destination_id: number;
+  group: boolean;
+  format: string;
+  text: string | null;
+  confirmed: boolean;
+  response: string;
+};
+
+/** HUB_MATCH_MS is how far apart a hub message and a radio one may be and still be the same text. */
+export const HUB_MATCH_MS = 120_000;
+
+const hubFormats: Record<string, TextFormat> = { tms: 'tms', ip: 'ip', anytone: 'anytone', defined_data: 'dd', hytera: 'hytera' };
+
+/** fromHub turns a hub message into one of a thread, or returns null for one with no text. */
+export function fromHub(m: HubMessage, box: 'inbox' | 'outbox'): Omit<Message, 'id' | 'slot'> | null {
+  const format = hubFormats[m.format];
+  if (!format || m.text === null || m.text === '') {
+    return null;
+  }
+  const out = box === 'outbox';
+  const peer: Peer = m.group ? { group: true, id: m.destination_id } : { group: false, id: out ? m.destination_id : m.source_id };
+  let status: MessageStatus = 'received';
+  if (out) {
+    status = m.response === 'ack' ? 'delivered' : m.response === 'nack' ? 'failed' : 'sent';
+  }
+  return {
+    key: keyOf(peer),
+    dir: out ? 'out' : 'in',
+    from: m.source_id,
+    text: m.text,
+    at: Date.parse(m.received_at) || Date.now(),
+    format,
+    status,
+    error: status === 'failed' ? 'refused' : '',
+    hub: m.id,
+  };
+}
+
+/** matchHub finds the message that m is the hub's copy of: the one with its hub ID, or the same text heard over the radio. */
+export function matchHub(messages: Message[], m: Omit<Message, 'id' | 'slot'>): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]!.hub === m.hub) {
+      return i;
+    }
+  }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const x = messages[i]!;
+    if (x.hub === undefined && x.key === m.key && x.dir === m.dir && x.text === m.text && Math.abs(x.at - m.at) <= HUB_MATCH_MS) {
+      return i;
+    }
+  }
+  return -1;
 }

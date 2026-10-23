@@ -23,8 +23,12 @@ import { computed, ref, toRaw } from 'vue';
 import { kvGet, kvSet } from '@/lib/kv';
 import {
   autoFormat,
+  fromHub,
+  type HubMessage,
   keyOf,
+  matchHub,
   nextStatus,
+  peerOf,
   trim,
   type Message,
   type Peer,
@@ -175,6 +179,39 @@ export const useMessages = defineStore('messages', () => {
     alerts.value = alerts.value.filter((a) => a.id !== id);
   }
 
+  function fromHubBox(m: HubMessage, box: 'inbox' | 'outbox', live: boolean): void {
+    const got = fromHub(m, box);
+    if (!got) {
+      return;
+    }
+    const i = matchHub(messages.value, got);
+    if (i >= 0) {
+      const x = messages.value[i]!;
+      x.hub = got.hub;
+      if (x.dir === 'out') {
+        Object.assign(x, nextStatus(x.status, got.status === 'failed' ? 'refused' : got.status));
+      }
+      save();
+      return;
+    }
+    const peer = peerOf(got.key);
+    if (!peer) {
+      return;
+    }
+    const t = thread(peer, 2);
+    t.lastAt = Math.max(t.lastAt, got.at);
+    if (got.dir === 'in' && live && (open.value !== t.key || document.visibilityState !== 'visible')) {
+      t.unread++;
+    }
+    let at = messages.value.length;
+    while (at > 0 && messages.value[at - 1]!.at > got.at) {
+      at--;
+    }
+    messages.value.splice(at, 0, { ...got, id: newID(), slot: t.slot });
+    messages.value = trim(messages.value);
+    save();
+  }
+
   function onEvent(e: RadioEvent, self: number): void {
     switch (e.kind) {
       case 'text': {
@@ -241,6 +278,7 @@ export const useMessages = defineStore('messages', () => {
     startCheck,
     failCheck,
     dismissAlert,
+    fromHubBox,
     onEvent,
   };
 });

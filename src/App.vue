@@ -28,6 +28,7 @@ import CallLayer from '@/components/CallLayer.vue';
 import UpdateNotice from '@/components/UpdateNotice.vue';
 import { Toaster } from '@/components/ui/toast';
 import { useColorMode } from '@/composables/useColorMode';
+import { syncHubMessages } from '@/lib/hubMessages';
 import { useAccount } from '@/store/account';
 import { useMessages } from '@/store/messages';
 import { useRadio } from '@/store/radio';
@@ -50,6 +51,10 @@ watchEffect(() => {
 onMounted(async () => {
   await Promise.all([store.load(), useMessages().load(), account.load()]);
   radio.init();
+  syncHubMessages();
+  if (account.loggedIn) {
+    account.loadHotspots().catch(() => undefined);
+  }
 });
 </script>
 
