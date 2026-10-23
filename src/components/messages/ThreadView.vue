@@ -25,6 +25,7 @@ import { format as formatDate } from 'date-fns';
 import { Check, ChevronLeft, MoreHorizontal, SendHorizontal, ArrowUp } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
 
+import StarButton from '@/components/contacts/StarButton.vue';
 import { useNames } from '@/lib/names';
 import { autoFormat, FORMATS, formatLabel, type Message } from '@/lib/threads';
 import { dayLabel } from '@/lib/when';
@@ -164,6 +165,7 @@ function onKey(e: KeyboardEvent): void {
         <h2 class="m-0 truncate font-semibold" :class="compact ? 'text-base' : 'text-[17px]'">{{ who }}</h2>
         <span class="truncate text-xs text-radio-muted">{{ sub }}</span>
       </div>
+      <StarButton v-if="!peer.group" :id="peer.id" :callsign="names.callsign(peer.id)" />
       <div v-if="!compact && !peer.group" class="flex gap-2">
         <button type="button" class="h-10 rounded-[10px] border border-radio-line px-3.5 text-[13px]" @click="emit('check', 'radioCheck')">Radio check</button>
         <button type="button" class="h-10 rounded-[10px] border border-radio-line px-3.5 text-[13px]" @click="emit('check', 'callAlert')">Call alert</button>

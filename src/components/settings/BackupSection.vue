@@ -29,6 +29,7 @@ import {
   applyParts,
   describeChanges,
   exportBackup,
+  mergeContacts,
   openBackup,
   pickParts,
   readBackup,
@@ -37,6 +38,7 @@ import {
   type BackupPart,
   type Change,
 } from '@/lib/backup';
+import { useContacts } from '@/store/contacts';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
@@ -46,11 +48,12 @@ import ToggleSwitch from './ToggleSwitch.vue';
 
 const store = useSettings();
 const radio = useRadio();
+const contacts = useContacts();
 const { mode, setMode } = useColorMode();
 const desktop = useMediaQuery('(min-width: 1024px)');
 
 const tab = ref<'export' | 'import'>('export');
-const parts = ref<BackupPart[]>(['hotspot', 'identity', 'talkgroups', 'preferences']);
+const parts = ref<BackupPart[]>(['hotspot', 'identity', 'talkgroups', 'contacts', 'preferences']);
 const protect = ref(true);
 const pass1 = ref('');
 const pass2 = ref('');
@@ -67,6 +70,7 @@ const partLabels = computed<{ value: BackupPart; label: string }[]>(() => [
   { value: 'hotspot', label: desktop.value ? 'Hub and hotspot, with the hotspot password' : 'Hub and hotspot, with password' },
   { value: 'identity', label: 'Callsign and location' },
   { value: 'talkgroups', label: desktop.value ? 'Talkgroup lists for TS1 and TS2' : 'Talkgroup lists' },
+  { value: 'contacts', label: desktop.value ? 'Contacts, with their names and notes' : 'Contacts' },
   { value: 'preferences', label: desktop.value ? 'Vocoder, audio and display settings' : 'Vocoder, audio and display' },
 ]);
 
@@ -78,7 +82,7 @@ const exportedAt = computed(() => (loadedFile.value ? format(new Date(loadedFile
 async function doExport(): Promise<void> {
   exporting.value = true;
   try {
-    const text = await exportBackup(pickParts(store.settings, mode.value, parts.value), protect.value ? pass1.value : null);
+    const text = await exportBackup(pickParts(store.settings, mode.value, parts.value, contacts.contacts), protect.value ? pass1.value : null);
     const file = new File([text], exportName, { type: 'application/json' });
     const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
     if (!desktop.value && nav.canShare?.({ files: [file] })) {
@@ -123,7 +127,13 @@ async function unlock(): Promise<void> {
   importError.value = '';
   try {
     const content = await openBackup(loadedFile.value, importPass.value);
-    preview.value = { content, changes: describeChanges(store.settings, content.settings, { from: mode.value, to: content.theme }) };
+    preview.value = { content, changes: describeChanges(
+        store.settings,
+        content.settings,
+        { from: mode.value, to: content.theme },
+        content.contacts ? { from: contacts.contacts.length, to: mergeContacts(contacts.contacts, content.contacts).length } : undefined,
+      ),
+    };
   } catch (err) {
     importError.value = err instanceof Error ? err.message : String(err);
   }
@@ -144,6 +154,9 @@ function apply(): void {
   const wasLinked = radio.link !== 'idle';
   radio.disconnect();
   store.replace(applyParts(store.settings, preview.value.content.settings));
+  if (preview.value.content.contacts) {
+    contacts.replaceAll(mergeContacts(contacts.contacts, preview.value.content.contacts));
+  }
   const t = preview.value.content.theme;
   if (t === 'light' || t === 'dark' || t === 'system') {
     setMode(t);

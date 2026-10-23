@@ -20,16 +20,17 @@
 -->
 
 <script setup lang="ts">
-import { useMediaQuery } from '@vueuse/core';
 import { computed, onMounted, watchEffect } from 'vue';
 
 import AppHeader from '@/components/AppHeader.vue';
 import CallLayer from '@/components/CallLayer.vue';
+import ContactToast from '@/components/contacts/ContactToast.vue';
 import UpdateNotice from '@/components/UpdateNotice.vue';
 import { Toaster } from '@/components/ui/toast';
 import { useColorMode } from '@/composables/useColorMode';
 import { syncHubMessages } from '@/lib/hubMessages';
 import { useAccount } from '@/store/account';
+import { useContacts } from '@/store/contacts';
 import { useMessages } from '@/store/messages';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
@@ -39,8 +40,6 @@ const store = useSettings();
 const radio = useRadio();
 const account = useAccount();
 
-const desktop = useMediaQuery('(min-width: 1024px)');
-const phoneCall = computed(() => !!radio.privateCall && !desktop.value);
 const reduceMotion = computed(() => store.settings.display.reduceMotion);
 
 watchEffect(() => {
@@ -49,7 +48,7 @@ watchEffect(() => {
 });
 
 onMounted(async () => {
-  await Promise.all([store.load(), useMessages().load(), account.load()]);
+  await Promise.all([store.load(), useMessages().load(), account.load(), useContacts().load()]);
   radio.init();
   syncHubMessages();
   if (account.loggedIn) {
@@ -60,13 +59,10 @@ onMounted(async () => {
 
 <template>
   <div class="flex min-h-dvh flex-col bg-radio-page text-radio-text">
-    <div class="contents" :inert="phoneCall">
-      <AppHeader />
-    </div>
+    <AppHeader />
     <CallLayer v-if="store.loaded" />
-    <div class="contents" :inert="phoneCall">
-      <RouterView v-if="store.loaded && account.loaded" />
-    </div>
+    <RouterView v-if="store.loaded && account.loaded" />
+    <ContactToast />
     <Toaster />
     <UpdateNotice />
   </div>

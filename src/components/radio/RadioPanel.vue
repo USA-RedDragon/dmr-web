@@ -21,8 +21,11 @@
 
 <script setup lang="ts">
 import { useIntervalFn } from '@vueuse/core';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
+import { useNames } from '@/lib/names';
+import { left, live } from '@/lib/talkback';
 import { TIME_OUT_MS, useRadio } from '@/store/radio';
 import { useSettings, type Slot } from '@/store/settings';
 
@@ -37,6 +40,10 @@ const radio = useRadio();
 const store = useSettings();
 const s = computed(() => store.settings);
 const keypad = ref(false);
+const keypadPreset = ref<{ id: number; private: boolean } | null>(null);
+const names = useNames();
+const route = useRoute();
+const router = useRouter();
 const now = ref(Date.now());
 const toggled = ref(false);
 
@@ -62,6 +69,10 @@ function slotLabel(n: Slot): string {
   const tg = store.target(n);
   if (!tg) {
     return '---';
+  }
+  if (store.isPrivate(n)) {
+    const c = names.callsign(tg);
+    return `PRIV ${tg}${c ? ` ${c}` : ''}`;
   }
   const name = store.targetName(n);
   return `TG ${tg}${name ? ` ${name.toUpperCase()}` : ''}`;
@@ -99,6 +110,25 @@ function knownName(id: number): string {
   return t?.name.toUpperCase() ?? '';
 }
 
+const talkback = computed(() => {
+  const tb = live(radio.talkback, now.value);
+  if (!tb) {
+    return null;
+  }
+  const who = names.callsign(tb.id) || String(tb.id);
+  return { id: tb.id, slot: tb.slot, who, ...left(tb, now.value) };
+});
+
+function normalTarget(n: Slot): string {
+  const tg = store.target(n);
+  if (!tg) {
+    return '';
+  }
+  return store.isPrivate(n) ? names.callsign(tg) || String(tg) : `TG ${tg}`;
+}
+
+const privateTo = computed(() => (store.isPrivate(slot.value) ? names.callsign(store.target(slot.value)!) || String(store.target(slot.value)) : ''));
+
 const lcd = computed(() => {
   const slots = ([1, 2] as Slot[]).map((n) => ({ slot: n, label: slotLabel(n), selected: powered.value && n === slot.value }));
   if (radio.tx.active) {
@@ -130,8 +160,25 @@ const lcd = computed(() => {
       timer: elapsed(a.call.startedAt),
       headline: alias ? alias.split(/\s+/)[0]! : knownName(a.call.source) || String(a.call.source),
       sub: `ID ${a.call.source}`,
-      subRight: a.call.group ? `TG ${a.call.target}` : 'Private call',
+      subRight: a.call.group ? `TG ${a.call.target}` : a.call.target === store.radioId ? 'Private call to you' : 'Private call',
       details,
+      privateTag: !a.call.group,
+      talkback: !a.call.group && talkback.value?.id === a.call.source ? talkback.value : null,
+    };
+  }
+  const tb = talkback.value;
+  if (powered.value && tb) {
+    return {
+      slots,
+      status: `TS${tb.slot}`,
+      badge: '',
+      timer: '',
+      headline: tb.who,
+      sub: `ID ${tb.id}`,
+      subRight: 'Private call to you',
+      details: [],
+      privateTag: true,
+      talkback: tb,
     };
   }
   return {
@@ -159,6 +206,7 @@ function stepTalkgroup(d: number): void {
   }
   sel.index[slot.value] = next;
   sel.manual[slot.value] = null;
+  sel.private[slot.value] = false;
 }
 
 function pickSlot(n: Slot): void {
@@ -173,11 +221,37 @@ function preset(i: number): void {
   }
   s.value.selected.index[slot.value] = i;
   s.value.selected.manual[slot.value] = null;
+  s.value.selected.private[slot.value] = false;
 }
 
-function setManual(tg: number): void {
-  s.value.selected.manual[slot.value] = tg;
+function setManual(id: number, isPrivate: boolean): void {
+  s.value.selected.manual[slot.value] = id;
+  s.value.selected.private[slot.value] = isPrivate;
 }
+
+function openKeypad(): void {
+  const id = store.target(slot.value);
+  keypadPreset.value = store.isPrivate(slot.value) && id ? { id, private: true } : null;
+  keypad.value = true;
+}
+
+watch(
+  () => route.query.call,
+  (call) => {
+    const id = Number(call);
+    if (!id || !store.configured) {
+      return;
+    }
+    const ts = Number(route.query.ts) === 1 ? 1 : 2;
+    if (!radio.tx.active) {
+      s.value.selected.slot = ts;
+    }
+    keypadPreset.value = { id, private: true };
+    keypad.value = true;
+    void router.replace({ path: route.path, query: {} });
+  },
+  { immediate: true },
+);
 
 const volumePos = computed(() => Math.round(s.value.audio.volume * 10));
 function stepVolume(d: number): void {
@@ -185,7 +259,7 @@ function stepVolume(d: number): void {
   radio.applyAudio();
 }
 
-const canTalk = computed(() => powered.value && store.target(slot.value) !== null);
+const canTalk = computed(() => powered.value && (!!talkback.value || store.target(slot.value) !== null));
 
 function pttDown(e: PointerEvent): void {
   if (!powered.value) {
@@ -270,10 +344,10 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
         <button
           v-if="compact"
           type="button"
-          aria-label="Enter a talkgroup number"
+          aria-label="Enter a talkgroup or radio ID"
           class="h-11 w-[74px] rounded-[10px] border border-radio-line bg-radio-knob text-lg"
           :disabled="radio.tx.active"
-          @click="keypad = true"
+          @click="openKeypad"
         >
           #
         </button>
@@ -294,10 +368,10 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
           </button>
           <button
             type="button"
-            aria-label="Enter a talkgroup number"
+            aria-label="Enter a talkgroup or radio ID"
             :disabled="radio.tx.active"
             class="size-11 rounded-[10px] border border-radio-line bg-radio-knob text-lg"
-            @click="keypad = true"
+            @click="openKeypad"
           >
             #
           </button>
@@ -323,7 +397,7 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
         compact ? 'mt-auto h-[150px] text-xl' : 'h-[108px] text-[22px]',
         radio.tx.active
           ? 'border-radio-red bg-[color-mix(in_oklab,var(--radio-red)_22%,var(--radio-chassis))] text-radio-red'
-          : powered
+          : powered && !talkback
             ? 'border-radio-chassis-line bg-radio-ptt'
             : 'border-radio-amber bg-radio-ptt text-radio-accent',
       ]"
@@ -334,14 +408,30 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
       @pointercancel="pttUp"
       @contextmenu.prevent
     >
-      <span>{{ radio.tx.active ? 'TRANSMITTING' : powered ? 'PUSH TO TALK' : store.configured ? 'CONNECT' : compact ? 'LOG IN WITH DMRHUB' : 'LOG IN TO TALK' }}</span>
-      <span class="text-xs font-medium tracking-[0.08em] text-radio-muted">
+      <span>{{
+        radio.tx.active
+          ? 'TRANSMITTING'
+          : powered && talkback
+            ? `REPLY TO ${talkback.who}`
+            : powered
+              ? 'PUSH TO TALK'
+              : store.configured
+                ? 'CONNECT'
+                : compact
+                  ? 'LOG IN WITH DMRHUB'
+                  : 'LOG IN TO TALK'
+      }}</span>
+      <span class="text-xs font-medium tracking-[0.08em]" :class="powered && talkback && !radio.tx.active ? 'text-radio-text/80' : 'text-radio-muted'">
         {{
           radio.tx.active
             ? s.audio.pttMode === 'hold'
               ? 'Release to stop'
               : 'Tap to stop'
-            : powered
+            : powered && talkback
+              ? `Private, for ${talkback.seconds} s more.${normalTarget(slot) && store.target(slot) !== talkback.id ? ` Then ${normalTarget(slot)} again.` : ''}`
+              : powered && privateTo
+                ? `Private call to ${privateTo}`
+                : powered
               ? s.audio.pttMode === 'hold'
                 ? `Hold, or hold ${s.audio.pttKey === 'Space' ? 'the space bar' : s.audio.pttKey}`
                 : 'Tap to talk, tap again to stop'
@@ -354,6 +444,6 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
     <slot name="after" />
     <div v-if="!compact" aria-hidden="true" class="grille min-h-6 grow rounded-[14px] border border-radio-line" />
 
-    <TalkgroupKeypad v-model:open="keypad" :ts="slot" @set="setManual" />
+    <TalkgroupKeypad v-model:open="keypad" :ts="slot" :preset="keypadPreset" @set="setManual" />
   </section>
 </template>

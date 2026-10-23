@@ -21,10 +21,12 @@ import { defineStore } from 'pinia';
 import { computed, reactive, ref, shallowRef } from 'vue';
 
 import { loadModule, removeModule, saveModule, sha256Hex } from '@/lib/ambeStore';
+import { live, rxEnd, rxStart, type Talkback, txEnd, txStart } from '@/lib/talkback';
 import { RadioClient } from '@/radio/client';
 import type { FromWorker, LinkState, RadioEvent, RadioStats } from '@/radio/protocol';
 import { webTransportSupported } from '@/radio/transport';
 
+import { useContacts } from './contacts';
 import { useMessages } from './messages';
 import { rptoOptions, useSettings, type Slot } from './settings';
 import type { Peer } from '@/lib/threads';
@@ -72,11 +74,11 @@ function emptyCall(): SlotCall {
 }
 
 export const TIME_OUT_MS = 180_000;
-const MIN_RADIO_ID = 1_000_000;
 
 export const useRadio = defineStore('radio', () => {
   const settingsStore = useSettings();
   const messagesStore = useMessages();
+  const contactsStore = useContacts();
   const link = ref<LinkState>('idle');
   const linkDetail = ref('');
   const attempt = ref(0);
@@ -88,8 +90,8 @@ export const useRadio = defineStore('radio', () => {
   const log = ref<LogEntry[]>([]);
   const tx = reactive({ active: false, slot: 0 as number, target: 0, group: true, startedAt: 0, error: '' });
   let totTimer: ReturnType<typeof setTimeout> | undefined;
-  const privateCall = ref<{ id: number; slot: number; startedAt: number } | null>(null);
-  const incoming = ref<{ source: number; slot: number } | null>(null);
+  const talkback = ref<Talkback | null>(null);
+  let talkbackTimer: ReturnType<typeof setTimeout> | undefined;
   const transmitVocoder = ref('codec2');
   const endpoint = ref('');
   const stats = reactive<RadioStats>({ roundTripMs: 0, bursts: 0, lost: 0, late: 0, frameErrors: 0, concealed: 0, codecs: 0 });
@@ -113,6 +115,9 @@ export const useRadio = defineStore('radio', () => {
   }
 
   function remember(entry: HeardEntry): void {
+    if (!entry.self) {
+      contactsStore.heard(entry.source, entry.alias.trim().split(/\s+/)[0] ?? '', entry.at, entry.target, entry.group);
+    }
     heard.value.unshift(entry);
     if (heard.value.length > MAX_HEARD) {
       heard.value.length = MAX_HEARD;
@@ -142,9 +147,7 @@ export const useRadio = defineStore('radio', () => {
           startedAt: Date.now(),
         });
         addLog(`RX call start, TS${slot}, ${e.group ? 'TG' : 'to'} ${e.target}, from ${e.source}, ${e.vocoder}`);
-        if (!e.group && e.target === settingsStore.radioId && e.source >= MIN_RADIO_ID && privateCall.value?.id !== e.source) {
-          incoming.value = { source: e.source, slot };
-        }
+        setTalkback(rxStart(live(talkback.value, Date.now()), settingsStore.radioId, e.source, e.target, e.group, slot));
         break;
       case 'callEnd': {
         const c = calls[slot];
@@ -161,6 +164,9 @@ export const useRadio = defineStore('radio', () => {
             self: false,
           });
         }
+        if (c.active && !c.group) {
+          setTalkback(rxEnd(talkback.value, c.source, slot, Date.now()));
+        }
         c.active = false;
         addLog(`RX call end, TS${slot}: ${e.reason}`);
         break;
@@ -174,6 +180,7 @@ export const useRadio = defineStore('radio', () => {
         break;
       case 'transmitStart':
         Object.assign(tx, { active: true, slot: e.slot, target: e.target, group: e.group, startedAt: Date.now(), error: '' });
+        setTalkback(txStart(talkback.value, e.target, e.group));
         clearTimeout(totTimer);
         totTimer = setTimeout(() => {
           addLog('Time-out timer: transmission stopped');
@@ -196,6 +203,9 @@ export const useRadio = defineStore('radio', () => {
             seconds: Math.round((Date.now() - tx.startedAt) / 1000),
             self: true,
           });
+        }
+        if (tx.active) {
+          setTalkback(txEnd(talkback.value, tx.target, tx.group, Date.now()));
         }
         tx.active = false;
         addLog(`TX end: ${e.reason}`);
@@ -405,23 +415,37 @@ export const useRadio = defineStore('radio', () => {
     }
   }
 
-  function startPrivateCall(id: number, slot: number): void {
-    privateCall.value = { id, slot, startedAt: Date.now() };
-    incoming.value = null;
-    addLog(`Private call with ${id} on TS${slot}`);
+  function setTalkback(next: Talkback | null): void {
+    if (next === talkback.value) {
+      return;
+    }
+    if (next && next.id !== talkback.value?.id) {
+      addLog(`Talkback to ${next.id} on TS${next.slot}`);
+    }
+    talkback.value = next;
+    clearTimeout(talkbackTimer);
+    if (next && next.until !== Infinity) {
+      talkbackTimer = setTimeout(() => {
+        if (talkback.value === next) {
+          talkback.value = null;
+        }
+      }, next.until - Date.now());
+    }
   }
 
-  function endPrivateCall(): void {
-    if (privateCall.value) {
-      addLog(`Private call with ${privateCall.value.id} ended`);
-    }
-    privateCall.value = null;
+  function callPrivately(id: number, slot: Slot): void {
+    const sel = settingsStore.settings.selected;
+    sel.slot = slot;
+    sel.manual[slot] = id;
+    sel.private[slot] = true;
+    addLog(`TS${slot} set to a private call to ${id}`);
   }
 
   async function pttDown(): Promise<void> {
-    const pc = privateCall.value;
-    const slot = pc ? (pc.slot as Slot) : settingsStore.settings.selected.slot;
-    const target = pc ? pc.id : settingsStore.target(slot);
+    const tb = live(talkback.value, Date.now());
+    const slot = tb ? (tb.slot as Slot) : settingsStore.settings.selected.slot;
+    const target = tb ? tb.id : settingsStore.target(slot);
+    const group = tb ? false : !settingsStore.isPrivate(slot);
     if (!client.value || !connected.value || !target) {
       return;
     }
@@ -436,7 +460,7 @@ export const useRadio = defineStore('radio', () => {
       return;
     }
     try {
-      await client.value.ptt(true, slot, !pc, target);
+      await client.value.ptt(true, slot, group, target);
       micPermission.value = 'granted';
     } catch (err) {
       micPermission.value = err instanceof DOMException && err.name === 'NotAllowedError' ? 'denied' : micPermission.value;
@@ -499,10 +523,8 @@ export const useRadio = defineStore('radio', () => {
     pttDown,
     sendText,
     check,
-    privateCall,
-    incoming,
-    startPrivateCall,
-    endPrivateCall,
+    talkback,
+    callPrivately,
     pttUp,
     uploadAmbe,
     forgetAmbe,

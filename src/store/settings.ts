@@ -44,7 +44,12 @@ export type Settings = {
     pttKey: string;
   };
   talkgroups: { 1: TalkgroupEntry[]; 2: TalkgroupEntry[] };
-  selected: { slot: Slot; index: { 1: number; 2: number }; manual: { 1: number | null; 2: number | null } };
+  selected: {
+    slot: Slot;
+    index: { 1: number; 2: number };
+    manual: { 1: number | null; 2: number | null };
+    private: { 1: boolean; 2: boolean };
+  };
   display: { reduceMotion: boolean; keepScreenOn: boolean };
 };
 
@@ -69,7 +74,7 @@ export function defaultSettings(): Settings {
       pttKey: 'Space',
     },
     talkgroups: { 1: [], 2: [{ id: 9990, name: 'Parrot', static: false }] },
-    selected: { slot: 2, index: { 1: 0, 2: 0 }, manual: { 1: null, 2: null } },
+    selected: { slot: 2, index: { 1: 0, 2: 0 }, manual: { 1: null, 2: null }, private: { 1: false, 2: false } },
     display: { reduceMotion: false, keepScreenOn: true },
   };
 }
@@ -90,6 +95,7 @@ export function mergeSettings(base: Settings, saved: Partial<Settings> | undefin
       ...saved.selected,
       index: { ...base.selected.index, ...saved.selected?.index },
       manual: { ...base.selected.manual, ...saved.selected?.manual },
+      private: { ...base.selected.private, ...saved.selected?.private },
     },
     display: { ...base.display, ...saved.display },
   };
@@ -157,6 +163,11 @@ export const useSettings = defineStore('settings', () => {
     return s.talkgroups[slot][s.selected.index[slot]]?.id ?? null;
   }
 
+  function isPrivate(slot: Slot): boolean {
+    const s = settings.value.selected;
+    return !!s.manual[slot] && s.private[slot];
+  }
+
   function targetName(slot: Slot): string {
     const s = settings.value;
     if (s.selected.manual[slot]) {
@@ -165,5 +176,5 @@ export const useSettings = defineStore('settings', () => {
     return s.talkgroups[slot][s.selected.index[slot]]?.name ?? '';
   }
 
-  return { settings, loaded, load, replace, configured, radioId, target, targetName };
+  return { settings, loaded, load, replace, configured, radioId, target, targetName, isPrivate };
 });

@@ -17,19 +17,20 @@
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
+import type { Contact } from '@/store/contacts';
 import { mergeSettings, type Settings } from '@/store/settings';
 
 export const BACKUP_FORMAT = 'dmr-web-settings';
 export const BACKUP_VERSION = 1;
 const ITERATIONS = 600_000;
 
-export type BackupPart = 'hotspot' | 'identity' | 'talkgroups' | 'preferences';
+export type BackupPart = 'hotspot' | 'identity' | 'talkgroups' | 'contacts' | 'preferences';
 
-export const BACKUP_PARTS: BackupPart[] = ['hotspot', 'identity', 'talkgroups', 'preferences'];
+export const BACKUP_PARTS: BackupPart[] = ['hotspot', 'identity', 'talkgroups', 'contacts', 'preferences'];
 
-export type BackupContent = { settings: Partial<Settings>; theme?: string };
+export type BackupContent = { settings: Partial<Settings>; theme?: string; contacts?: Contact[] };
 
-export function pickParts(settings: Settings, theme: string, parts: BackupPart[]): BackupContent {
+export function pickParts(settings: Settings, theme: string, parts: BackupPart[], contacts: Contact[] = []): BackupContent {
   const s = structuredClone(JSON.parse(JSON.stringify(settings)) as Settings);
   const out: Partial<Settings> = {};
   if (parts.includes('hotspot') || parts.includes('identity')) {
@@ -55,7 +56,25 @@ export function pickParts(settings: Settings, theme: string, parts: BackupPart[]
     out.audio = s.audio;
     out.display = s.display;
   }
-  return parts.includes('preferences') ? { settings: out, theme } : { settings: out };
+  const content: BackupContent = parts.includes('preferences') ? { settings: out, theme } : { settings: out };
+  if (parts.includes('contacts')) {
+    content.contacts = JSON.parse(JSON.stringify(contacts)) as Contact[];
+  }
+  return content;
+}
+
+/** mergeContacts adds the contacts of a backup to the current ones; a backup entry replaces one with its ID. */
+export function mergeContacts(current: Contact[], incoming: Contact[] | undefined): Contact[] {
+  if (!incoming) {
+    return current;
+  }
+  const byId = new Map(current.map((c) => [c.id, c]));
+  for (const c of incoming) {
+    if (Number.isInteger(c.id) && c.id > 0 && c.id < 1 << 24) {
+      byId.set(c.id, { ...byId.get(c.id), ...c });
+    }
+  }
+  return [...byId.values()];
 }
 
 export function applyParts(current: Settings, next: Partial<Settings>): Settings {
@@ -155,7 +174,12 @@ export async function openBackup(file: BackupFile, passphrase: string): Promise<
 
 export type Change = { label: string; from: string; to: string };
 
-export function describeChanges(current: Settings, incoming: Partial<Settings>, theme: { from: string; to?: string }): Change[] {
+export function describeChanges(
+  current: Settings,
+  incoming: Partial<Settings>,
+  theme: { from: string; to?: string },
+  contacts?: { from: number; to: number },
+): Change[] {
   const next = applyParts(current, incoming);
   const out: Change[] = [];
   const add = (label: string, from: string, to: string) => {
@@ -168,6 +192,9 @@ export function describeChanges(current: Settings, incoming: Partial<Settings>, 
   add('Callsign', current.hotspot.callsign || '-', next.hotspot.callsign || '-');
   const tg = (x: Settings) => `TS1: ${x.talkgroups[1].length}, TS2: ${x.talkgroups[2].length}`;
   add('Talkgroups', tg(current), tg(next));
+  if (contacts) {
+    add('Contacts', String(contacts.from), String(contacts.to));
+  }
   add('Vocoder', current.vocoder, next.vocoder);
   add('Jitter buffer', `${current.jitterMs} ms`, `${next.jitterMs} ms`);
   if (theme.to) {

@@ -34,6 +34,8 @@ const props = defineProps<{
   compact?: boolean;
   meter?: { dbfs: number; lit: number };
   timeout?: { left: string; fraction: number };
+  privateTag?: boolean;
+  talkback?: { who: string; seconds: number; used: number } | null;
 }>();
 
 const segments = computed(() => (props.compact ? 18 : 24));
@@ -57,7 +59,10 @@ const segments = computed(() => (props.compact ? 18 : 24));
       </div>
     </div>
     <div v-if="status || badge || timer" class="flex items-center justify-between text-lcd-dim" :class="compact ? 'text-[13px]' : 'text-[15px]'">
-      <span>{{ status }}</span>
+      <span class="flex items-center gap-2">
+        {{ status }}
+        <span v-if="privateTag" class="rounded-md border border-lcd-text px-1.5 font-bold text-lcd-text sm:px-2" :class="compact ? 'text-[11px]' : 'text-[13px]'">PRIVATE</span>
+      </span>
       <span class="flex items-center gap-2.5">
         <span v-if="badge" class="rounded-md bg-lcd-chip px-2.5 py-0.5 text-[13px] font-bold text-lcd-chip-text">{{ badge }}</span>
         <span v-if="timer">{{ timer }}</span>
@@ -68,7 +73,18 @@ const segments = computed(() => (props.compact ? 18 : 24));
       <span class="truncate">{{ sub }}</span>
       <span class="shrink-0 text-lcd-dim">{{ subRight }}</span>
     </div>
-    <template v-if="meter && timeout">
+    <template v-if="talkback && !meter">
+      <div v-if="!compact" class="h-px bg-lcd-line" />
+      <div class="flex flex-col text-lcd-dim" :class="compact ? 'gap-1.5 text-xs' : 'gap-2 text-[15px]'">
+        <div class="flex justify-between">
+          <span>TALKBACK<template v-if="!compact">&nbsp;&nbsp;PTT replies to {{ talkback.who }}</template></span><span>{{ talkback.seconds }} s</span>
+        </div>
+        <div class="rounded-sm bg-lcd-line" :class="compact ? 'h-[5px]' : 'h-1.5'" aria-hidden="true">
+          <div class="h-full rounded-sm bg-lcd-text transition-[width] duration-1000 ease-linear" :style="{ width: `${Math.round(talkback.used * 100)}%` }" />
+        </div>
+      </div>
+    </template>
+    <template v-else-if="meter && timeout">
       <div class="h-px bg-lcd-line" />
       <div class="flex flex-col text-lcd-dim" :class="compact ? 'gap-1.5 text-xs' : 'gap-2 text-sm'">
         <div class="flex justify-between"><span>MIC</span><span>{{ meter.dbfs }} dBFS</span></div>

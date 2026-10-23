@@ -23,6 +23,8 @@
 import { formatDistanceToNowStrict } from 'date-fns';
 import { computed } from 'vue';
 
+import StarButton from '@/components/contacts/StarButton.vue';
+import { useNames } from '@/lib/names';
 import type { HeardEntry } from '@/store/radio';
 
 import VocoderBadge from './VocoderBadge.vue';
@@ -32,7 +34,12 @@ const props = withDefaults(defineProps<{ entries: HeardEntry[]; limit?: number; 
   compact: false,
 });
 
+const names = useNames();
 const shown = computed(() => props.entries.slice(0, props.limit));
+
+function callsign(e: HeardEntry): string {
+  return e.alias.trim().split(/\s+/)[0]?.toUpperCase() || names.callsign(e.source);
+}
 
 function when(e: HeardEntry): string {
   return formatDistanceToNowStrict(e.at, { addSuffix: true });
@@ -49,15 +56,16 @@ function when(e: HeardEntry): string {
     <div
       v-for="(e, i) in shown"
       :key="`${e.at}-${e.source}`"
-      class="flex items-center justify-between border-radio-line"
-      :class="[compact ? 'py-2' : 'py-3', i > 0 || compact ? 'border-t' : '']"
+      class="flex items-center gap-1 border-radio-line"
+      :class="[compact ? 'gap-0.5 py-0.5' : 'py-1.5', i > 0 || compact ? 'border-t' : '']"
     >
-      <div class="flex min-w-0 flex-col gap-0.5">
+      <StarButton v-if="!e.self" :id="e.source" :callsign="callsign(e)" :heard="{ at: e.at, target: e.target, group: e.group }" class="-ml-2.5" />
+      <span v-else class="-ml-2.5 size-11 shrink-0" aria-hidden="true" />
+      <div class="flex min-w-0 grow flex-col gap-0.5">
         <span class="truncate font-mono font-semibold" :class="compact ? 'text-sm' : ''">
-          {{ e.source }}<template v-if="e.self"> (you)</template>
-          <span v-if="e.alias" class="ml-2 font-sans text-xs font-normal text-radio-muted">{{ e.alias }}</span>
+          {{ callsign(e) || e.source }}<template v-if="e.self"> (you)</template>
         </span>
-        <span class="text-xs text-radio-muted">
+        <span class="truncate text-radio-muted" :class="compact ? 'text-[11px]' : 'text-xs'">
           {{ e.group ? `TG ${e.target}` : 'Private' }} · TS{{ e.slot }} · {{ when(e) }} · {{ e.seconds }} s
         </span>
       </div>

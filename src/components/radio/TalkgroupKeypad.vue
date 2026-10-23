@@ -22,22 +22,47 @@
 <script setup lang="ts">
 import { Delete, X } from 'lucide-vue-next';
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
-const props = defineProps<{ open: boolean; ts: number }>();
-const emit = defineEmits<{ 'update:open': [open: boolean]; set: [talkgroup: number] }>();
+import { useNames } from '@/lib/names';
+import { useContacts } from '@/store/contacts';
 
+const props = withDefaults(defineProps<{ open: boolean; ts: number; preset?: { id: number; private: boolean } | null }>(), { preset: null });
+const emit = defineEmits<{ 'update:open': [open: boolean]; set: [id: number, isPrivate: boolean] }>();
+
+const names = useNames();
+const contacts = useContacts();
 const digits = ref('');
-const MAX_DIGITS = 7;
+const priv = ref(false);
+const MAX_DIGITS = 8;
 
 watch(
   () => props.open,
   (open) => {
     if (open) {
-      digits.value = '';
+      digits.value = props.preset ? String(props.preset.id) : '';
+      priv.value = props.preset?.private ?? false;
     }
   },
+  { immediate: true },
 );
+
+const who = computed(() => {
+  const n = Number(digits.value);
+  if (!priv.value || !n) {
+    return '';
+  }
+  const c = names.callsign(n);
+  if (!c) {
+    return '';
+  }
+  return contacts.has(n) ? `${c} · contact` : c;
+});
+const setLabel = computed(() => {
+  const n = Number(digits.value);
+  const c = priv.value && n ? names.callsign(n) : '';
+  return `Set TS${props.ts}${c ? ` to ${c}` : ''}`;
+});
 
 function press(d: string): void {
   if (digits.value.length < MAX_DIGITS) {
@@ -48,7 +73,7 @@ function press(d: string): void {
 function apply(): void {
   const n = Number(digits.value);
   if (n > 0 && n < 1 << 24) {
-    emit('set', n);
+    emit('set', n, priv.value);
     emit('update:open', false);
   }
 }
@@ -75,7 +100,7 @@ const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
         @keydown="onKey"
       >
         <div class="flex items-center justify-between">
-          <DialogTitle class="text-[15px] font-semibold">Talkgroup for TS{{ ts }}</DialogTitle>
+          <DialogTitle class="text-[15px] font-semibold">Call on TS{{ ts }}</DialogTitle>
           <button
             type="button"
             aria-label="Close"
@@ -85,8 +110,27 @@ const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
             <X class="size-5" />
           </button>
         </div>
-        <div class="rounded-xl border-2 border-lcd-line bg-lcd-bg px-4 py-3 font-mono text-[32px] font-bold tracking-[0.06em] text-lcd-text">
-          TG {{ digits || '_' }}
+        <div role="radiogroup" aria-label="Call type" class="grid grid-cols-2 gap-1 rounded-xl border border-radio-line bg-radio-page p-1">
+          <button
+            v-for="m in [false, true]"
+            :key="String(m)"
+            type="button"
+            role="radio"
+            :aria-checked="priv === m"
+            class="h-11 rounded-[9px] text-sm font-semibold sm:h-10"
+            :class="priv === m ? 'bg-radio-raised text-radio-accent shadow-sm' : 'text-radio-text/80'"
+            @click="priv = m"
+          >
+            {{ m ? 'Private' : 'Talkgroup' }}
+          </button>
+        </div>
+        <div
+          class="rounded-xl border-2 border-lcd-line bg-lcd-bg px-4 py-3 font-mono font-bold tracking-[0.06em] text-lcd-text"
+          :class="priv ? 'text-[26px] sm:text-[28px]' : 'text-[30px] sm:text-[32px]'"
+          :aria-label="priv ? 'Enter a radio ID' : 'Enter a talkgroup number'"
+        >
+          {{ priv ? 'ID' : 'TG' }} {{ digits || '_' }}
+          <div v-if="who" class="mt-0.5 text-xs font-medium tracking-normal text-lcd-dim sm:mt-1 sm:text-[13px]">{{ who }}</div>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <button
@@ -117,7 +161,7 @@ const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
           :disabled="!digits"
           @click="apply"
         >
-          Set TS{{ ts }}
+          {{ setLabel }}
         </button>
       </DialogContent>
     </DialogPortal>

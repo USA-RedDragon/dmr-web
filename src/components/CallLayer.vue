@@ -20,55 +20,27 @@
 -->
 
 <script setup lang="ts">
-import { useIntervalFn, useMediaQuery } from '@vueuse/core';
+import { useMediaQuery } from '@vueuse/core';
 import { Bell } from 'lucide-vue-next';
-import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-import RadioLogo from '@/components/RadioLogo.vue';
-import PeerAvatar from '@/components/messages/PeerAvatar.vue';
 import { useNames } from '@/lib/names';
 import { keyOf } from '@/lib/threads';
 import { useMessages } from '@/store/messages';
-import { useRadio } from '@/store/radio';
 
-const radio = useRadio();
 const messages = useMessages();
 const names = useNames();
 const router = useRouter();
 const desktop = useMediaQuery('(min-width: 1024px)');
-const now = ref(Date.now());
-useIntervalFn(() => (now.value = Date.now()), 1000);
 
-const pc = computed(() => radio.privateCall);
-const pcName = computed(() => (pc.value ? names.name({ group: false, id: pc.value.id }) : ''));
-const elapsed = computed(() => {
-  if (!pc.value) {
-    return '00:00';
-  }
-  const s = Math.max(0, Math.floor((now.value - pc.value.startedAt) / 1000));
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-});
-const talking = computed(() => {
-  const c = pc.value ? radio.calls[pc.value.slot as 1 | 2] : undefined;
-  return !!c?.active && c.source === pc.value?.id;
-});
 const alert = computed(() => messages.alerts[0]);
-
-function answer(): void {
-  if (radio.incoming) {
-    radio.startPrivateCall(radio.incoming.source, radio.incoming.slot);
-    void router.push('/');
-  }
-}
 
 function callBack(): void {
   const a = alert.value;
   if (a) {
     messages.dismissAlert(a.id);
-    radio.startPrivateCall(a.source, a.slot);
-    void router.push('/');
+    void router.push({ path: '/', query: { call: String(a.source), ts: String(a.slot) } });
   }
 }
 
@@ -84,68 +56,6 @@ function message(): void {
 </script>
 
 <template>
-  <div
-    v-if="pc && desktop"
-    role="status"
-    class="mx-8 mt-4 flex items-center gap-4 rounded-[14px] border border-radio-green/40 bg-radio-green/10 px-5 py-3"
-  >
-    <span class="size-2.5 rounded-full bg-radio-green shadow-[0_0_8px_var(--radio-green)]" />
-    <span class="font-semibold">Private call with {{ pcName }}</span>
-    <span class="font-mono text-sm text-radio-text/80">{{ elapsed }}</span>
-    <span class="text-[13px] text-radio-muted">{{ talking ? `${pcName} is talking` : `TS${pc.slot} · hold PTT or the space bar to talk` }}</span>
-    <button type="button" class="ml-auto h-10 rounded-[10px] bg-radio-red/20 px-4 text-sm font-semibold text-radio-red" @click="radio.endPrivateCall()">End</button>
-  </div>
-
-  <div v-if="pc && !desktop" class="fixed inset-0 z-40 flex flex-col items-center bg-radio-page px-5 pt-12 pb-6" role="dialog" aria-modal="true" :aria-label="`Private call with ${pcName}`">
-    <span class="text-[13px] text-radio-muted">Private call · TS{{ pc.slot }}</span>
-    <PeerAvatar class="mt-6 !text-[26px]" :peer="{ group: false, id: pc.id }" :size="96" />
-    <span class="mt-5 font-mono text-[30px] font-bold">{{ pcName }}</span>
-    <span class="text-sm text-radio-muted">ID {{ pc.id }}</span>
-    <span class="mt-2 font-mono text-lg">{{ elapsed }}</span>
-    <span
-      v-if="talking"
-      class="mt-4 flex items-center gap-2 rounded-full border border-radio-green/40 bg-radio-green/10 px-4 py-2 text-sm"
-    >
-      <span class="size-2 rounded-full bg-radio-green" />{{ pcName }} is talking
-    </span>
-    <button
-      type="button"
-      class="mt-auto flex h-[170px] w-full select-none flex-col items-center justify-center gap-1.5 rounded-[22px] border text-xl font-bold tracking-[0.2em]"
-      :class="radio.tx.active ? 'border-radio-red bg-radio-red/20 text-radio-red' : 'border-radio-chassis-line bg-radio-ptt'"
-      style="touch-action: none"
-      @pointerdown="radio.pttDown()"
-      @pointerup="radio.pttUp()"
-      @pointercancel="radio.pttUp()"
-      @contextmenu.prevent
-    >
-      {{ radio.tx.active ? 'TRANSMITTING' : 'PUSH TO TALK' }}
-      <span class="text-xs font-medium tracking-[0.06em] text-radio-muted">{{ radio.tx.active ? 'Release to stop' : 'Press and hold' }}</span>
-    </button>
-    <button type="button" class="mt-4 h-[52px] w-full rounded-[14px] bg-radio-red/20 text-base font-semibold text-radio-red" @click="radio.endPrivateCall()">End call</button>
-  </div>
-
-  <DialogRoot :open="!!radio.incoming" @update:open="(v) => !v && (radio.incoming = null)">
-    <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-50 bg-black/70" />
-      <DialogContent
-        v-if="radio.incoming"
-        class="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 rounded-t-[22px] border-t border-radio-green/60 bg-radio-surface p-6 text-radio-text sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-[420px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[22px] sm:border"
-      >
-        <span class="flex size-[88px] items-center justify-center rounded-full bg-radio-green/10">
-          <span class="flex size-16 items-center justify-center rounded-full bg-radio-green/10 text-radio-green"><RadioLogo class="size-7" /></span>
-        </span>
-        <DialogDescription class="text-[13px] text-radio-muted">Incoming private call</DialogDescription>
-        <DialogTitle class="font-mono text-[30px] font-bold">{{ names.name({ group: false, id: radio.incoming.source }) }}</DialogTitle>
-        <span class="text-[13px] text-radio-muted">ID {{ radio.incoming.source }} · TS{{ radio.incoming.slot }}</span>
-        <div class="mt-3 grid w-full grid-cols-2 gap-3">
-          <button type="button" class="h-[52px] rounded-[14px] bg-radio-green text-base font-bold text-radio-page" @click="answer">Answer</button>
-          <button type="button" class="h-[52px] rounded-[14px] border border-radio-line text-base" @click="radio.incoming = null">Ignore</button>
-        </div>
-        <span class="pt-2 text-xs text-radio-muted">Answer, then hold PTT or the space bar to talk back.</span>
-      </DialogContent>
-    </DialogPortal>
-  </DialogRoot>
-
   <div
     v-if="alert"
     role="alertdialog"

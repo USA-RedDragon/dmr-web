@@ -57,7 +57,8 @@ const rows = computed(() => {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <div class="flex gap-2.5" :class="compact ? 'pb-2' : 'p-4'">
+    <slot v-if="compact" name="tabs" />
+    <div class="flex gap-2.5" :class="compact ? 'pt-2.5 pb-2' : $slots.tabs ? 'p-4 pb-2.5' : 'p-4'">
       <input
         v-model="query"
         type="search"
@@ -75,6 +76,7 @@ const rows = computed(() => {
         <Plus class="size-5" />
       </button>
     </div>
+    <div v-if="!compact && $slots.tabs" class="px-4 pb-2"><slot name="tabs" /></div>
     <p v-if="rows.length === 0" class="m-0 px-4 py-6 text-sm text-radio-muted">
       {{ query ? 'Nothing matches.' : 'No messages yet. Texts you send and get show up here.' }}
     </p>
