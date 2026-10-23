@@ -1,0 +1,84 @@
+<!--
+  SPDX-License-Identifier: AGPL-3.0-or-later
+  dmr-web - A DMR radio in the browser
+  Copyright (C) 2026 Jacob McSwain
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+  The source code is available at <https://github.com/USA-RedDragon/dmr-web>
+-->
+
+<script setup lang="ts">
+import { Settings } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
+import { useRadio } from '@/store/radio';
+import { useSettings } from '@/store/settings';
+
+import RadioLogo from './RadioLogo.vue';
+
+const radio = useRadio();
+const store = useSettings();
+const route = useRoute();
+const router = useRouter();
+
+const inSettings = computed(() => route.name === 'settings');
+
+const pill = computed(() => {
+  const hub = store.settings.hub.host;
+  switch (radio.link) {
+    case 'up':
+      return { dot: 'bg-radio-green', text: hub, extra: ['WebTransport', `Hotspot ${store.settings.hotspot.id}`] };
+    case 'connecting':
+      return { dot: 'bg-radio-amber', text: hub, extra: ['Connecting'] };
+    case 'reconnecting':
+      return { dot: 'bg-radio-amber', text: hub, extra: ['Reconnecting'] };
+    case 'failed':
+      return { dot: 'bg-radio-red', text: hub, extra: ['No link'] };
+    default:
+      return { dot: 'bg-led-off', text: 'Not connected', extra: [] };
+  }
+});
+
+function toggleSettings(): void {
+  void router.push(inSettings.value ? '/' : '/settings');
+}
+</script>
+
+<template>
+  <header class="flex h-14 shrink-0 items-center justify-between gap-3 border-radio-line px-4 sm:h-16 sm:border-b sm:px-8">
+    <RouterLink to="/" class="no-underline flex items-center gap-3 text-radio-text">
+      <RadioLogo class="size-5 text-radio-accent sm:size-[22px]" />
+      <span class="text-base font-bold tracking-[0.02em] sm:text-[17px]">dmr-web</span>
+    </RouterLink>
+    <div class="flex min-w-0 items-center gap-3">
+      <div class="flex h-9 min-w-0 items-center gap-2 rounded-full border border-radio-line px-3.5 text-[13px] text-radio-text/80">
+        <span class="size-2 shrink-0 rounded-full" :class="pill.dot" />
+        <span class="truncate">{{ pill.text }}</span>
+        <span v-for="x in pill.extra" :key="x" class="hidden text-radio-muted md:inline">{{ x }}</span>
+      </div>
+      <button
+        type="button"
+        :aria-label="inSettings ? 'Close settings' : 'Settings'"
+        :aria-pressed="inSettings"
+        class="flex size-11 shrink-0 items-center justify-center rounded-[10px] border"
+        :class="inSettings ? 'border-radio-amber bg-radio-amber-soft text-radio-accent' : 'border-radio-line bg-radio-surface text-radio-muted'"
+        @click="toggleSettings"
+      >
+        <Settings class="size-5" />
+      </button>
+    </div>
+  </header>
+</template>
