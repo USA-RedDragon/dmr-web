@@ -42,6 +42,7 @@ const rate = ref<DataRate>('1/2');
 const payload = ref('48 65 6C 6C 6F');
 const filter = ref<'all' | 'data' | 'ip'>('all');
 const failure = ref('');
+const hubName = computed(() => settings.settings.hub.host.replace(/^https?:\/\//, ''));
 
 const target = computed(() => {
   const m = /^\s*(tg\s*)?(\d{1,8})\s*$/i.exec(to.value);
@@ -159,10 +160,14 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
       </section>
     </main>
   </div>
-  <main v-else class="flex min-h-0 grow flex-col gap-3 px-4 pb-4">
-    <div class="flex h-12 items-center gap-1">
+  <main v-else class="fixed inset-0 z-30 flex flex-col gap-3 bg-radio-page px-4 pb-4">
+    <div class="flex h-14 shrink-0 items-center gap-1">
       <RouterLink to="/settings/diagnostics" aria-label="Back to diagnostics" class="-ml-2.5 flex size-11 items-center justify-center text-radio-accent"><ChevronLeft class="size-[22px]" /></RouterLink>
       <h1 class="m-0 grow text-lg font-bold">Data console</h1>
+      <span class="flex min-w-0 items-center gap-1.5 text-xs text-radio-text/80">
+        <span class="size-2 shrink-0 rounded-full" :class="radio.connected ? 'bg-radio-green' : 'bg-led-off'" />
+        <span class="truncate">{{ radio.connected ? hubName : 'Not connected' }}</span>
+      </span>
     </div>
     <div role="tablist" aria-label="Filter" class="flex gap-1.5">
       <button v-for="f in (['all', 'data', 'ip'] as const)" :key="f" type="button" role="tab" :aria-selected="filter === f" class="h-9 rounded-full border px-3.5 text-[13px]" :class="chip(filter === f)" @click="filter = f">

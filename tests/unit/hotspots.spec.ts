@@ -20,7 +20,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { hotspotError, mergeStatics, nextSuffix, suffixes, takenText } from '@/lib/hotspots';
-import { hotspotOf } from '@/store/account';
+import { hotspotOf, placeOf } from '@/store/account';
 
 describe('suffixes', () => {
   it('reads the suffixes of the radio ID only', () => {
@@ -70,5 +70,20 @@ describe('hotspotOf', () => {
     expect(
       hotspotOf({ id: 310000101, callsign: 'N0CALL', description: 'dmr-web radio', city: 'Austin', state: 'TX', ts1_static_talkgroups: null, ts2_static_talkgroups: [{ id: 91 }] }),
     ).toEqual({ id: 310000101, callsign: 'N0CALL', description: 'dmr-web radio', location: 'Austin, TX', ts1: [], ts2: [91] });
+  });
+});
+
+describe('placeOf', () => {
+  it('drops a place that only has separators', () => {
+    expect(placeOf(', ,')).toBe('');
+    expect(placeOf(undefined)).toBe('');
+  });
+
+  it('tidies the spacing', () => {
+    expect(placeOf(' Dallas ,Texas, ')).toBe('Dallas, Texas');
+  });
+
+  it('is used for the hub location', () => {
+    expect(hotspotOf({ id: 310000101, location: ', ,', city: 'Austin', state: 'TX', ts1_static_talkgroups: null, ts2_static_talkgroups: null }).location).toBe('Austin, TX');
   });
 });

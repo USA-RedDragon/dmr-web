@@ -131,16 +131,16 @@ body {
     @apply bg-background text-foreground;
   }
   a:not(.no-underline):not([data-slot]) {
-    color: oklch(0.7 0.15 210);
+    color: var(--radio-accent);
     text-decoration: underline;
     text-underline-offset: 0.2rem;
     transition: color 0.15s ease;
   }
   a:not(.no-underline):not([data-slot]):hover {
-    color: oklch(0.6 0.18 210);
+    color: color-mix(in oklab, var(--radio-accent) 70%, var(--radio-text));
   }
   a:not(.no-underline):not([data-slot]):focus-visible {
-    outline: 2px solid oklch(0.7 0.15 210);
+    outline: 2px solid var(--radio-accent);
     outline-offset: 2px;
   }
 }

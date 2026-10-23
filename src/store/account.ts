@@ -96,13 +96,22 @@ export class HubError extends Error {
   }
 }
 
+/** placeOf tidies a place such as "Dallas, Texas", and gives "" for one that only has separators. */
+export function placeOf(s: string | undefined): string {
+  return (s ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
 /** hotspotOf reads a hotspot from the hub's repeater JSON. */
 export function hotspotOf(r: RepeaterAnswer): HubHotspot {
   return {
     id: r.id,
     callsign: r.callsign ?? '',
     description: r.description ?? '',
-    location: r.location || [r.city, r.state].filter(Boolean).join(', '),
+    location: placeOf(r.location) || placeOf([r.city, r.state].join(',')),
     ts1: (r.ts1_static_talkgroups ?? []).map((t) => t.id),
     ts2: (r.ts2_static_talkgroups ?? []).map((t) => t.id),
   };
