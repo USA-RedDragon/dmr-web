@@ -31,6 +31,7 @@ import { useColorMode } from '@/composables/useColorMode';
 import { syncHubMessages } from '@/lib/hubMessages';
 import { useAccount } from '@/store/account';
 import { useContacts } from '@/store/contacts';
+import { usePositions } from '@/store/positions';
 import { useMessages } from '@/store/messages';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
@@ -48,7 +49,7 @@ watchEffect(() => {
 });
 
 onMounted(async () => {
-  await Promise.all([store.load(), useMessages().load(), account.load(), useContacts().load()]);
+  await Promise.all([store.load(), useMessages().load(), account.load(), useContacts().load(), usePositions().load()]);
   radio.init();
   syncHubMessages();
   if (account.loggedIn) {

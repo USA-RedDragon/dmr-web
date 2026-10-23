@@ -18,7 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 import { defineStore } from 'pinia';
-import { computed, reactive, ref, shallowRef } from 'vue';
+import { computed, reactive, ref, shallowRef, watch } from 'vue';
 
 import { loadModule, removeModule, saveModule, sha256Hex } from '@/lib/ambeStore';
 import { live, rxEnd, rxStart, type Talkback, txEnd, txStart } from '@/lib/talkback';
@@ -28,6 +28,7 @@ import { webTransportSupported } from '@/radio/transport';
 
 import { useContacts } from './contacts';
 import { useMessages } from './messages';
+import { fromFix, usePositions } from './positions';
 import { rptoOptions, useSettings, type Slot } from './settings';
 import type { Peer } from '@/lib/threads';
 import type { CheckKind, TextFormat } from '@/radio/protocol';
@@ -79,6 +80,7 @@ export const useRadio = defineStore('radio', () => {
   const settingsStore = useSettings();
   const messagesStore = useMessages();
   const contactsStore = useContacts();
+  const positionsStore = usePositions();
   const link = ref<LinkState>('idle');
   const linkDetail = ref('');
   const attempt = ref(0);
@@ -177,6 +179,33 @@ export const useRadio = defineStore('radio', () => {
       case 'position':
         calls[slot].latitude = e.latitude;
         calls[slot].longitude = e.longitude;
+        if (calls[slot].source && Math.abs(e.latitude) <= 90 && Math.abs(e.longitude) <= 180) {
+          positionsStore.add({
+            id: calls[slot].source,
+            latitude: e.latitude,
+            longitude: e.longitude,
+            format: 'talker',
+            accuracy: null,
+            speed: null,
+            heading: null,
+            at: Date.now(),
+            slot,
+          });
+        }
+        break;
+      case 'fix': {
+        const p = fromFix(e.source, slot, e.latitude, e.longitude, e.fix, Date.now());
+        addLog(`Position from ${e.source}, TS${slot}, ${e.fix?.format ?? ''}${p ? '' : ', no position'}`);
+        if (p) {
+          positionsStore.add(p);
+        }
+        if (e.id && positionsStore.requests[e.id]) {
+          positionsStore.requestStatus(e.id, p ? 'answered' : 'noPosition', e.reason);
+        }
+        break;
+      }
+      case 'locationRequest':
+        addLog(`Location request from ${e.source}, TS${slot}: ${e.reason}`);
         break;
       case 'transmitStart':
         Object.assign(tx, { active: true, slot: e.slot, target: e.target, group: e.group, startedAt: Date.now(), error: '' });
@@ -219,6 +248,12 @@ export const useRadio = defineStore('radio', () => {
         break;
       case 'textStatus':
         addLog(`Text ${e.id}: ${e.reason}`);
+        if (positionsStore.requests[e.id]) {
+          if (e.reason !== 'sent' && e.reason !== 'delivered') {
+            positionsStore.requestStatus(e.id, 'failed', e.reason);
+          }
+          break;
+        }
         messagesStore.onEvent(e, settingsStore.radioId);
         break;
       case 'check':
@@ -252,6 +287,24 @@ export const useRadio = defineStore('radio', () => {
     }
     client.value.sendText({ id: m.id, slot, group: peer.group, target: peer.id, format: m.format, text });
   }
+
+  function requestLocation(target: number, slot: number): number {
+    const r = positionsStore.startRequest(target, slot);
+    if (!client.value || link.value !== 'up') {
+      positionsStore.requestStatus(r.id, 'failed', 'notConnected');
+      return r.id;
+    }
+    client.value.requestLocation({ id: r.id, slot, target });
+    addLog(`Location request ${r.id} to ${target}, TS${slot}`);
+    return r.id;
+  }
+
+  watch(
+    () => [positionsStore.share, positionsStore.here, client.value] as const,
+    ([share, here, c]) => {
+      c?.setLocation(here ? { ...here } : null, share);
+    },
+  );
 
   function check(kind: CheckKind, target: number, slot: number): number {
     const c = messagesStore.startCheck(kind, target, slot);
@@ -319,6 +372,12 @@ export const useRadio = defineStore('radio', () => {
         if (!msg.ok) {
           addLog(`Check ${msg.id} refused: ${msg.error ?? ''}`);
           messagesStore.failCheck(msg.id, msg.error ?? 'refused');
+        }
+        break;
+      case 'requestLocation':
+        if (!msg.ok) {
+          addLog(`Location request ${msg.id} refused: ${msg.error ?? ''}`);
+          positionsStore.requestStatus(msg.id, 'failed', msg.error ?? 'refused');
         }
         break;
       case 'fatal':
@@ -523,6 +582,7 @@ export const useRadio = defineStore('radio', () => {
     pttDown,
     sendText,
     check,
+    requestLocation,
     talkback,
     callPrivately,
     pttUp,

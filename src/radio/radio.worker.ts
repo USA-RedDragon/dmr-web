@@ -19,7 +19,7 @@
 
 import './wasm_exec.js';
 
-import type { FromWorker, LinkState, RadioConfig, RadioEvent, ToWorker } from './protocol';
+import type { FromWorker, Here, LinkState, RadioConfig, RadioEvent, ToWorker } from './protocol';
 import { discover, HubRefusedError } from './discover';
 import { Transport } from './transport';
 
@@ -41,6 +41,8 @@ type DmrWeb = {
   ptt: (now: number, on: boolean, slot: number, group: boolean, target: number) => Result;
   sendText: (now: number, id: number, slot: number, group: boolean, target: number, format: string, text: string) => Result & { deadline: number };
   check: (now: number, id: number, slot: number, kind: string, target: number) => Result & { deadline: number };
+  requestLocation: (now: number, id: number, slot: number, target: number) => Result & { deadline: number };
+  setLocation: (here: Here | null, share: boolean) => Result & { deadline: number };
   frame: (samples: Int16Array) => Result;
   loadAmbe: (bytes: Uint8Array) => Result;
   removeAmbe: () => Result;
@@ -71,6 +73,7 @@ let playback: MessagePort | null = null;
 let attempt = 0;
 let everUp = false;
 let wanted = false;
+let located: { here: Here | null; share: boolean } = { here: null, share: false };
 
 function post(message: FromWorker, transfer?: Transferable[]): void {
   scope.postMessage(message, transfer);
@@ -191,6 +194,7 @@ async function connect(cfg: RadioConfig): Promise<void> {
     link('failed', res.error ?? 'the radio could not start');
     return;
   }
+  dmr.setLocation(located.here, located.share);
   schedule(dmr.tick(performance.now()));
 }
 
@@ -255,6 +259,24 @@ function handle(msg: ToWorker): void {
       const res = dmr.check(performance.now(), msg.id, msg.slot, msg.kind, msg.target);
       post({ type: 'check', id: msg.id, ok: res.ok, error: res.error });
       schedule(res.deadline);
+      return;
+    }
+    case 'requestLocation': {
+      if (!dmr) {
+        post({ type: 'requestLocation', id: msg.id, ok: false, error: 'the radio is not loaded' });
+        return;
+      }
+      const res = dmr.requestLocation(performance.now(), msg.id, msg.slot, msg.target);
+      post({ type: 'requestLocation', id: msg.id, ok: res.ok, error: res.error });
+      schedule(res.deadline);
+      return;
+    }
+    case 'setLocation': {
+      located = { here: msg.here, share: msg.share };
+      const res = dmr?.setLocation(msg.here, msg.share);
+      if (res?.ok) {
+        schedule(res.deadline);
+      }
       return;
     }
     case 'ambe': {

@@ -31,7 +31,13 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,wasm}'],
         maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
         navigateFallback: '/index.html',
-        runtimeCaching: [],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/glyphs/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'glyphs', expiration: { maxEntries: 800 } },
+          },
+        ],
       },
     }),
   ],

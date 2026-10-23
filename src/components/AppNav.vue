@@ -20,7 +20,7 @@
 -->
 
 <script setup lang="ts">
-import { MessageCircle } from 'lucide-vue-next';
+import { MapPin, MessageCircle } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -36,11 +36,12 @@ const messages = useMessages();
 const items = computed(() => [
   { to: '/', label: 'Radio', active: route.name === 'radio', badge: 0, icon: 'radio' },
   { to: '/messages', label: 'Messages', active: String(route.name ?? '').startsWith('messages'), badge: messages.unread, icon: 'messages' },
+  { to: '/map', label: 'Map', active: route.name === 'map', badge: 0, icon: 'map' },
 ]);
 </script>
 
 <template>
-  <nav v-if="bar" aria-label="Main" class="grid h-16 shrink-0 grid-cols-2 border-t border-radio-line bg-radio-surface">
+  <nav v-if="bar" aria-label="Main" class="grid h-16 shrink-0 grid-cols-3 border-t border-radio-line bg-radio-surface">
     <RouterLink
       v-for="i in items"
       :key="i.to"
@@ -51,6 +52,7 @@ const items = computed(() => [
     >
       <span class="relative flex">
         <RadioLogo v-if="i.icon === 'radio'" class="size-[22px]" />
+        <MapPin v-else-if="i.icon === 'map'" class="size-[22px]" />
         <MessageCircle v-else class="size-[22px]" />
         <span
           v-if="i.badge"

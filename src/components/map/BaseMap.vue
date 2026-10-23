@@ -1,0 +1,220 @@
+<!--
+  SPDX-License-Identifier: AGPL-3.0-or-later
+  dmr-web - A DMR radio in the browser
+  Copyright (C) 2026 Jacob McSwain
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+  The source code is available at <https://github.com/USA-RedDragon/dmr-web>
+-->
+
+<script setup lang="ts">
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+import type { LngLatBoundsLike, Map as MapLibre, StyleSpecification } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import { PMTiles, Protocol } from 'pmtiles';
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+
+import { archiveSource, latestKey, TILES_BASE } from '@/map/archive';
+import { basemapStyle, circleImage } from '@/map/style';
+import type { Here } from '@/radio/protocol';
+import type { Position } from '@/store/positions';
+
+const props = withDefaults(
+  defineProps<{ positions: Position[]; selected: number | null; here: Here | null; dark: boolean; label: (id: number) => string; attribution?: 'bottom-left' | 'top-left' }>(),
+  { attribution: 'bottom-left' },
+);
+const emit = defineEmits<{ select: [id: number | null] }>();
+
+const el = ref<HTMLDivElement | null>(null);
+const map = shallowRef<MapLibre | null>(null);
+const failure = ref('');
+const points = ref<{ id: number; x: number; y: number }[]>([]);
+const herePoint = ref<{ x: number; y: number } | null>(null);
+let archive = '';
+
+const TONES = ['bg-radio-cyan', 'bg-radio-text/80', 'bg-radio-green'];
+
+function tone(id: number): string {
+  return TONES[id % TONES.length]!;
+}
+
+async function styleFor(dark: boolean): Promise<StyleSpecification> {
+  const raw = (dark ? await import('@/map/styles/dark.json') : await import('@/map/styles/light.json')).default as unknown as StyleSpecification;
+  return basemapStyle(raw, archive, `${location.origin}/glyphs/{fontstack}/{range}.pbf`);
+}
+
+function project(): void {
+  const m = map.value;
+  if (!m) {
+    return;
+  }
+  points.value = props.positions.map((p) => {
+    const at = m.project([p.longitude, p.latitude]);
+    return { id: p.id, x: at.x, y: at.y };
+  });
+  herePoint.value = props.here ? m.project([props.here.longitude, props.here.latitude]) : null;
+}
+
+function bounds(): LngLatBoundsLike | null {
+  const pts = props.positions.map((p) => [p.longitude, p.latitude] as [number, number]);
+  if (props.here) {
+    pts.push([props.here.longitude, props.here.latitude]);
+  }
+  if (!pts.length) {
+    return null;
+  }
+  const lons = pts.map((p) => p[0]);
+  const lats = pts.map((p) => p[1]);
+  return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+}
+
+function fit(): void {
+  const b = bounds();
+  if (map.value && b) {
+    map.value.fitBounds(b, { padding: 80, maxZoom: 14, duration: 400 });
+  }
+}
+
+function center(lat: number, lon: number, zoom?: number): void {
+  map.value?.easeTo({ center: [lon, lat], zoom: zoom ?? Math.max(map.value.getZoom(), 12), duration: 400 });
+}
+
+function zoomBy(d: number): void {
+  if (d > 0) {
+    map.value?.zoomIn();
+  } else {
+    map.value?.zoomOut();
+  }
+}
+
+defineExpose({ fit, center, zoomBy });
+
+onMounted(async () => {
+  try {
+    const maplibregl = await import('maplibre-gl');
+    maplibregl.setWorkerUrl(workerUrl);
+    const { key, partBytes } = await latestKey(TILES_BASE);
+    const url = `${TILES_BASE}/${key}`;
+    const protocol = new Protocol();
+    protocol.add(new PMTiles(await archiveSource(url, partBytes)));
+    maplibregl.addProtocol('pmtiles', protocol.tile);
+    archive = url;
+    if (!el.value) {
+      return;
+    }
+    const b = bounds();
+    const m = new maplibregl.Map({
+      container: el.value,
+      style: await styleFor(props.dark),
+      center: [-96, 38],
+      zoom: 3,
+      attributionControl: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+    });
+    m.touchZoomRotate.disableRotation();
+    m.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© OpenMapTiles © OpenStreetMap contributors' }), props.attribution);
+    m.on('styleimagemissing', (e: { id: string }) => {
+      if (e.id === 'circle-11' && !m.hasImage(e.id)) {
+        m.addImage(e.id, circleImage(props.dark ? '#c9cbd1' : '#5a5f68'));
+      }
+    });
+    m.on('move', project);
+    m.on('resize', project);
+    m.on('click', () => emit('select', null));
+    map.value = m;
+    m.once('load', () => {
+      el.value?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+      if (b) {
+        m.fitBounds(b, { padding: 80, maxZoom: 13, duration: 0 });
+      }
+      project();
+    });
+  } catch (err) {
+    failure.value = err instanceof Error ? err.message : String(err);
+  }
+});
+
+onBeforeUnmount(() => {
+  map.value?.remove();
+  map.value = null;
+});
+
+watch(
+  () => props.dark,
+  async (dark) => {
+    if (map.value && archive) {
+      map.value.setStyle(await styleFor(dark));
+    }
+  },
+);
+watch(() => [props.positions, props.here], project, { deep: true });
+</script>
+
+<template>
+  <div class="relative min-h-0 overflow-hidden bg-radio-page">
+    <div ref="el" style="position: absolute; inset: 0" />
+    <div class="pointer-events-none absolute inset-0">
+      <span
+        v-if="herePoint"
+        class="absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-radio-green bg-radio-green/25"
+        :style="{ left: `${herePoint.x}px`, top: `${herePoint.y}px` }"
+        aria-hidden="true"
+      />
+      <button
+        v-for="p in points"
+        :key="p.id"
+        type="button"
+        class="pointer-events-auto absolute flex -translate-y-1/2 items-center gap-1.5"
+        :class="p.id === selected ? '-translate-x-1/2' : '-translate-x-2'"
+        :style="{ left: `${p.x}px`, top: `${p.y}px` }"
+        :aria-label="`${label(p.id)} on the map`"
+        :aria-pressed="p.id === selected"
+        @click.stop="emit('select', p.id)"
+      >
+        <span
+          v-if="p.id === selected"
+          class="block size-[22px] rounded-full border-[3px] border-radio-amber-ink bg-radio-amber shadow-[0_0_0_6px_color-mix(in_oklab,var(--radio-amber)_25%,transparent)]"
+        />
+        <template v-else>
+          <span class="block size-4 rounded-full border-[3px] border-radio-page" :class="tone(p.id)" />
+          <span class="rounded-[5px] border border-radio-line bg-radio-page px-1.5 py-0.5 font-mono text-xs">{{ label(p.id) }}</span>
+        </template>
+      </button>
+      <slot name="popup" :point="points.find((p) => p.id === selected) ?? null" />
+    </div>
+    <slot name="controls" />
+    <p v-if="failure" role="alert" class="absolute inset-x-4 top-4 m-0 rounded-xl border border-radio-red/50 bg-radio-surface p-3 text-sm text-radio-red">
+      The map could not load: {{ failure }}
+    </p>
+  </div>
+</template>
+
+<style>
+.maplibregl-ctrl-attrib.maplibregl-compact,
+.maplibregl-ctrl-attrib.maplibregl-compact-show {
+  background: var(--radio-raised);
+  color: var(--radio-muted);
+  border: 1px solid var(--radio-line);
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--radio-muted);
+}
+.maplibregl-ctrl-attrib-button {
+  background-color: var(--radio-text);
+  border-radius: 9999px;
+}
+</style>

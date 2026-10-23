@@ -47,7 +47,9 @@ export type RadioEventKind =
   | 'callAlert'
   | 'request'
   | 'registered'
-  | 'stats';
+  | 'stats'
+  | 'fix'
+  | 'locationRequest';
 
 export type RadioEvent = {
   kind: RadioEventKind;
@@ -66,7 +68,21 @@ export type RadioEvent = {
   elapsedMs: number;
   error?: string;
   stats?: RadioStats;
+  fix?: FixDetail;
 };
+
+export type FixDetail = {
+  format: string;
+  valid: boolean;
+  accuracy?: number;
+  speed?: number;
+  heading?: number;
+  altitude?: number;
+  at?: number;
+  result?: number;
+};
+
+export type Here = { latitude: number; longitude: number; accuracy: number; speed: number | null; heading: number | null; at: number };
 
 export type RadioStats = {
   roundTripMs: number;
@@ -93,6 +109,8 @@ export type ToWorker =
   | { type: 'vocoder'; value: VocoderChoice }
   | { type: 'sendText'; id: number; slot: number; group: boolean; target: number; format: TextFormat; text: string }
   | { type: 'check'; id: number; slot: number; kind: CheckKind; target: number }
+  | { type: 'requestLocation'; id: number; slot: number; target: number }
+  | { type: 'setLocation'; here: Here | null; share: boolean }
   | { type: 'capturePort'; port: MessagePort }
   | { type: 'playbackPort'; port: MessagePort };
 
@@ -106,6 +124,7 @@ export type FromWorker =
   | { type: 'ptt'; ok: boolean; error?: string }
   | { type: 'sendText'; id: number; ok: boolean; error?: string }
   | { type: 'check'; id: number; ok: boolean; error?: string }
+  | { type: 'requestLocation'; id: number; ok: boolean; error?: string }
   | { type: 'fatal'; error: string };
 
 export type PlaybackMessage = { slot: number; samples: Int16Array };

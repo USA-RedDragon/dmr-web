@@ -19,7 +19,7 @@
 
 import captureURL from './audio/capture.worklet.ts?worker&url';
 import playbackURL from './audio/playback.worklet.ts?worker&url';
-import type { FromWorker, RadioConfig, ToWorker, VocoderChoice } from './protocol';
+import type { FromWorker, Here, RadioConfig, ToWorker, VocoderChoice } from './protocol';
 
 export type MicOptions = {
   echoCancellation: boolean;
@@ -112,6 +112,14 @@ export class RadioClient {
 
   check(msg: Omit<Extract<ToWorker, { type: 'check' }>, 'type'>): void {
     this.post({ type: 'check', ...msg });
+  }
+
+  requestLocation(msg: Omit<Extract<ToWorker, { type: 'requestLocation' }>, 'type'>): void {
+    this.post({ type: 'requestLocation', ...msg });
+  }
+
+  setLocation(here: Here | null, share: boolean): void {
+    this.post({ type: 'setLocation', here, share });
   }
 
   disconnect(): void {
