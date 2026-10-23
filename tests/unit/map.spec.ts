@@ -23,7 +23,8 @@ import type { StyleSpecification } from 'maplibre-gl';
 
 import { archiveSource, latestKey, PartsSource, partName, spans } from '@/map/archive';
 import { BlockCachedSource } from '@/map/blockCache';
-import { basemapStyle, circleImage, FONTS, SOURCE, strictExpression, strictFilter } from '@/map/style';
+import { basemapStyle, circleImage, FONTS, SOURCE, strictExpression, strictFilter, TERRAIN_BELOW, withTerrain } from '@/map/style';
+import { TERRAIN_SOURCE } from '@/map/terrain';
 import dark from '@/map/styles/dark.json';
 import light from '@/map/styles/light.json';
 import { compass, degrees, describe as describePosition, fromFix, KEEP_MS, prune, upsert, type Position } from '@/store/positions';
@@ -106,6 +107,22 @@ describe('basemap style', () => {
     expect(strictFilter(['==', ['get', 'class'], 'city'])).toEqual(['==', ['get', 'class'], 'city']);
     const legacy = strictFilter(['all', ['==', 'class', 'service'], ['in', 'brunnel', 'bridge', 'tunnel']]);
     expect(expressionLike(legacy)).toBe(true);
+  });
+
+  it('puts the terrain under the county lines, fading out by zoom 15', () => {
+    for (const [name, raw] of [
+      ['dark', dark],
+      ['light', light],
+    ] as const) {
+      const s = withTerrain(basemapStyle(raw as unknown as StyleSpecification, 'https://tiles.example/a.pmtiles', '/glyphs/{fontstack}/{range}.pbf'), name === 'dark');
+      const ids = s.layers.map((l) => l.id);
+      expect(ids.indexOf(TERRAIN_SOURCE)).toBe(ids.indexOf(TERRAIN_BELOW) - 1);
+      expect(s.sources[TERRAIN_SOURCE]).toMatchObject({ type: 'raster', tiles: ['hillshade://{z}/{x}/{y}'], maxzoom: 12 });
+      const layer = s.layers.find((l) => l.id === TERRAIN_SOURCE)!;
+      expect(layer.maxzoom).toBe(15);
+      expect(layer.paint).toMatchObject({ 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 13, name === 'dark' ? 1 : 0.55, 15, 0] });
+      expect(validateStyleMin(s).map((e) => e.message)).toEqual([]);
+    }
   });
 
   it('draws a round dot for circle-11', () => {
