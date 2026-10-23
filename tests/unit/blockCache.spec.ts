@@ -17,7 +17,7 @@
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 import type { RangeResponse, Source } from 'pmtiles';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BLOCK_BYTES, BlockCachedSource, blockSpan, cacheNameOf, evictionOrder, generationOf, missingRuns } from '@/map/blockCache';
 
@@ -30,8 +30,11 @@ class FakeCache {
   async put(key: string, res: Response): Promise<void> {
     this.items.set(key, await res.arrayBuffer());
   }
-  async delete(key: string): Promise<boolean> {
-    return this.items.delete(key);
+  async delete(key: string | Request): Promise<boolean> {
+    return this.items.delete(typeof key === 'string' ? key : new URL(key.url).pathname);
+  }
+  async keys(): Promise<Request[]> {
+    return [...this.items.keys()].map((k) => new Request(new URL(k, location.origin)));
   }
 }
 
@@ -154,5 +157,24 @@ describe('BlockCachedSource', () => {
     await store.open('something-else');
     await BlockCachedSource.clearOtherGenerations(['new'], store as unknown as CacheStorage);
     expect(await store.keys()).toEqual([cacheNameOf('new'), 'something-else']);
+  });
+
+  it('keeps a manifest for each generation and clears the others', async () => {
+    const store = new FakeStorage();
+    const blocks = archive(BLOCK_BYTES);
+    const one = new BlockCachedSource(blocks, 'one', store as unknown as CacheStorage);
+    const two = new BlockCachedSource(blocks, 'two', store as unknown as CacheStorage);
+    vi.useFakeTimers();
+    try {
+      await one.getBytes(0, 10);
+      await two.getBytes(0, 10);
+      await vi.runAllTimersAsync();
+    } finally {
+      vi.useRealTimers();
+    }
+    const meta = store.caches.get('dmrweb-blk-meta')!;
+    expect([...meta.items.keys()].sort()).toEqual(['/__dmrweb_blk_manifest__/one', '/__dmrweb_blk_manifest__/two']);
+    await BlockCachedSource.clearOtherGenerations(['two'], store as unknown as CacheStorage);
+    expect([...meta.items.keys()]).toEqual(['/__dmrweb_blk_manifest__/two']);
   });
 });

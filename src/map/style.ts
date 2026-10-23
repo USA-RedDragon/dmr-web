@@ -18,7 +18,11 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 import { convertFilter, expression, type FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
-import type { StyleSpecification } from 'maplibre-gl';
+import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
+
+import { TERRAIN_MAX_ZOOM } from './archive';
+import { HILLSHADE_FADE_ZOOMS, hillshadeOpacity } from './hillshade';
+import { TERRAIN_PROTOCOL, TERRAIN_SOURCE } from './terrain';
 
 /** OMT_DEEPEST_ZOOM is the deepest zoom the OpenMapTiles archive holds; MapLibre overzooms past it. */
 export const OMT_DEEPEST_ZOOM = 14;
@@ -108,6 +112,31 @@ export function basemapStyle(raw: StyleSpecification, archive: string, glyphs: s
     }
   }
   return style;
+}
+
+/** TERRAIN_BELOW is the layer the terrain shading draws under: above land cover and land use, under the lines, water, roads and labels. */
+export const TERRAIN_BELOW = 'boundary_county';
+
+/** withTerrain adds the hillshade to a basemap style, fading out by zoom and drawn lighter on the light theme. */
+export function withTerrain(style: StyleSpecification, dark: boolean): StyleSpecification {
+  const layer = {
+    id: TERRAIN_SOURCE,
+    type: 'raster',
+    source: TERRAIN_SOURCE,
+    maxzoom: HILLSHADE_FADE_ZOOMS[1],
+    paint: { 'raster-opacity': hillshadeOpacity(dark), 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
+  } as LayerSpecification;
+  const at = style.layers.findIndex((l) => l.id === TERRAIN_BELOW);
+  const layers = [...style.layers];
+  layers.splice(at < 0 ? layers.length : at, 0, layer);
+  return {
+    ...style,
+    sources: {
+      ...style.sources,
+      [TERRAIN_SOURCE]: { type: 'raster', tiles: [`${TERRAIN_PROTOCOL}://{z}/{x}/{y}`], tileSize: 256, minzoom: 0, maxzoom: TERRAIN_MAX_ZOOM },
+    },
+    layers,
+  };
 }
 
 /** circleImage draws the dot that the styles name circle-11 and ship no sprite for. */

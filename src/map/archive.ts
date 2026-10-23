@@ -110,10 +110,20 @@ export async function latestKey(base: string): Promise<{ key: string; partBytes:
   return { key: s.key, partBytes: s.part_bytes || PART_BYTES };
 }
 
+/** TERRAIN_URL is the hillshade archive the terrain shading draws from. */
+export const TERRAIN_URL = `${TILES_BASE}/terrain/7c94bc6966ab-20260829/squallar-terrain-hillshade.pmtiles`;
+
+/** TERRAIN_MAX_ZOOM is the deepest zoom the hillshade archive holds. */
+export const TERRAIN_MAX_ZOOM = 12;
+
 /** archiveSource probes url for parts, as the publisher's contract asks, and reads it either way, through the block cache. */
 export async function archiveSource(url: string, partBytes: number): Promise<Source> {
   const res = await fetch(url + partName(0), { headers: { Range: 'bytes=0-6' }, credentials: 'omit' }).catch(() => null);
   const inner = res?.ok && new TextDecoder().decode(await res.arrayBuffer()).startsWith(MAGIC) ? new PartsSource(url, partBytes) : new FetchSource(url);
-  void BlockCachedSource.clearOtherGenerations([generationOf(url)]).catch(() => undefined);
   return new BlockCachedSource(inner, generationOf(url));
+}
+
+/** clearOldArchives drops the cached blocks of every archive but basemap and the terrain. */
+export async function clearOldArchives(basemap: string): Promise<void> {
+  await BlockCachedSource.clearOtherGenerations([generationOf(basemap), generationOf(TERRAIN_URL)]);
 }

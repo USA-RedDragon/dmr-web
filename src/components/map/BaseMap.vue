@@ -27,8 +27,9 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { PMTiles, Protocol } from 'pmtiles';
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 
-import { archiveSource, latestKey, TILES_BASE } from '@/map/archive';
-import { basemapStyle, circleImage } from '@/map/style';
+import { archiveSource, clearOldArchives, latestKey, TILES_BASE } from '@/map/archive';
+import { basemapStyle, circleImage, withTerrain } from '@/map/style';
+import { TERRAIN_PROTOCOL, terrainTile } from '@/map/terrain';
 import type { Here } from '@/radio/protocol';
 import type { Position } from '@/store/positions';
 
@@ -53,7 +54,7 @@ function tone(id: number): string {
 
 async function styleFor(dark: boolean): Promise<StyleSpecification> {
   const raw = (dark ? await import('@/map/styles/dark.json') : await import('@/map/styles/light.json')).default as unknown as StyleSpecification;
-  return basemapStyle(raw, archive, `${location.origin}/glyphs/{fontstack}/{range}.pbf`);
+  return withTerrain(basemapStyle(raw, archive, `${location.origin}/glyphs/{fontstack}/{range}.pbf`), dark);
 }
 
 function project(): void {
@@ -111,6 +112,8 @@ onMounted(async () => {
     const protocol = new Protocol();
     protocol.add(new PMTiles(await archiveSource(url, partBytes)));
     maplibregl.addProtocol('pmtiles', protocol.tile);
+    maplibregl.addProtocol(TERRAIN_PROTOCOL, terrainTile);
+    void clearOldArchives(url).catch(() => undefined);
     archive = url;
     if (!el.value) {
       return;

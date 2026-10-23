@@ -21,7 +21,7 @@ import type { RangeResponse, Source } from 'pmtiles';
 /** BLOCK_BYTES is the size of one cached block of an archive, as Squallar caches them. */
 export const BLOCK_BYTES = 64 * 1024;
 
-/** CACHE_MAX_BYTES is how many bytes of blocks the cache keeps before it drops the least recently used. */
+/** CACHE_MAX_BYTES is how many bytes of blocks the cache keeps of each generation before it drops the least recently used. */
 export const CACHE_MAX_BYTES = 256 * 1024 * 1024;
 
 /** STORAGE_FLOOR_BYTES is how much of the origin's quota the cache leaves free. */
@@ -29,7 +29,7 @@ export const STORAGE_FLOOR_BYTES = 64 * 1024 * 1024;
 
 const PREFIX = 'dmrweb-blk-';
 const META = 'dmrweb-blk-meta';
-const MANIFEST_KEY = '/__dmrweb_blk_manifest__';
+const MANIFEST_PREFIX = '/__dmrweb_blk_manifest__';
 
 type Entry = { cache: string; bytes: number; touched: number };
 type Manifest = { clock: number; blocks: Record<string, Entry> };
@@ -84,6 +84,10 @@ export function evictionOrder(manifest: Manifest, cap: number): string[] {
   return out;
 }
 
+function manifestKey(generation: string): string {
+  return `${MANIFEST_PREFIX}/${encodeURIComponent(generation)}`;
+}
+
 function blockKey(generation: string, index: number): string {
   return `/__dmrweb_blk__/${encodeURIComponent(generation)}/${index}`;
 }
@@ -129,9 +133,20 @@ export class BlockCachedSource implements Source {
       return;
     }
     const wanted = new Set([...keep.map(cacheNameOf), META]);
-    for (const name of await store.keys()) {
+    const names = await store.keys();
+    for (const name of names) {
       if (name.startsWith(PREFIX) && !wanted.has(name)) {
         await store.delete(name);
+      }
+    }
+    if (!names.includes(META)) {
+      return;
+    }
+    const manifests = new Set(keep.map(manifestKey));
+    const meta = await store.open(META);
+    for (const req of await meta.keys()) {
+      if (!manifests.has(new URL(req.url, location.origin).pathname)) {
+        await meta.delete(req);
       }
     }
   }
@@ -242,7 +257,7 @@ export class BlockCachedSource implements Source {
   private loadManifest(): Promise<Manifest> {
     if (!this.manifest) {
       this.manifest = (async () => {
-        const hit = await (await this.store!.open(META)).match(MANIFEST_KEY);
+        const hit = await (await this.store!.open(META)).match(manifestKey(this.generation));
         const m = hit ? ((await hit.json().catch(() => null)) as Manifest | null) : null;
         return m && typeof m.blocks === 'object' && m.blocks !== null && Number.isSafeInteger(m.clock) ? m : { clock: 0, blocks: {} };
       })();
@@ -256,7 +271,7 @@ export class BlockCachedSource implements Source {
       void (async () => {
         try {
           const m = await this.loadManifest();
-          await (await this.store!.open(META)).put(MANIFEST_KEY, new Response(JSON.stringify(m), { headers: { 'content-type': 'application/json' } }));
+          await (await this.store!.open(META)).put(manifestKey(this.generation), new Response(JSON.stringify(m), { headers: { 'content-type': 'application/json' } }));
         } catch {
           return;
         }
