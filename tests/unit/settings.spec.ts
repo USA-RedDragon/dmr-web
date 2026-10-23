@@ -51,10 +51,9 @@ describe('settings', () => {
 
   it('keeps defaults for fields a saved copy lacks', () => {
     const base = defaultSettings();
-    const merged = mergeSettings(base, { hub: { host: 'example.org' } } as never);
-    expect(merged.hub.host).toBe('example.org');
-    expect(merged.hub.port).toBe(base.hub.port);
-    expect(merged.hub.path).toBe(base.hub.path);
+    const merged = mergeSettings(base, { hub: { host: 'example.org', port: 443, path: '/old' } } as never);
+    expect(merged.hub).toEqual({ host: 'example.org' });
+    expect(merged.audio).toEqual(base.audio);
     expect(mergeSettings(base, undefined)).toBe(base);
   });
 });

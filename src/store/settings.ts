@@ -27,7 +27,7 @@ export type TalkgroupEntry = { id: number; name: string; static: boolean };
 export type Slot = 1 | 2;
 
 export type Settings = {
-  hub: { host: string; port: number; path: string };
+  hub: { host: string };
   hotspot: { id: number; password: string; callsign: string; location: string };
   vocoder: VocoderChoice;
   jitterMs: number;
@@ -49,7 +49,7 @@ const KEY = 'settings';
 
 export function defaultSettings(): Settings {
   return {
-    hub: { host: 'dmrhub.net', port: 62032, path: '/mmdvm' },
+    hub: { host: 'dmrhub.net' },
     hotspot: { id: 0, password: '', callsign: '', location: '' },
     vocoder: 'auto',
     jitterMs: 360,
@@ -75,7 +75,7 @@ export function mergeSettings(base: Settings, saved: Partial<Settings> | undefin
   return {
     ...base,
     ...saved,
-    hub: { ...base.hub, ...saved.hub },
+    hub: { host: saved.hub?.host ?? base.hub.host },
     hotspot: { ...base.hotspot, ...saved.hotspot },
     audio: { ...base.audio, ...saved.audio },
     talkgroups: { ...base.talkgroups, ...saved.talkgroups },

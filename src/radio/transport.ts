@@ -17,6 +17,8 @@
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
+import type { CertificateHash } from './discover';
+
 export type DatagramWriter = {
   write: (data: Uint8Array) => Promise<void>;
   release: () => void;
@@ -47,13 +49,6 @@ export function webTransportSupported(): boolean {
   return typeof (globalThis as { WebTransport?: unknown }).WebTransport === 'function';
 }
 
-export function endpointURL(host: string, port: number, path: string): string {
-  const cleanHost = host.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const portPart = port === 443 ? '' : `:${port}`;
-  return `https://${cleanHost}${portPart}${cleanPath}`;
-}
-
 export type TransportHandlers = {
   onDatagram: (data: Uint8Array) => void;
   onClosed: (reason: string) => void;
@@ -66,18 +61,10 @@ type WebTransportLike = {
   close: (info?: { closeCode?: number; reason?: string }) => void;
 };
 
-type CertificateHash = { algorithm: 'sha-256'; value: Uint8Array };
-
 type WebTransportConstructor = new (
   url: string,
   options?: { serverCertificateHashes?: CertificateHash[] },
 ) => WebTransportLike;
-
-export function certificateHashes(hex: string[]): CertificateHash[] {
-  return hex
-    .filter((h) => /^[0-9a-f]{64}$/i.test(h))
-    .map((h) => ({ algorithm: 'sha-256', value: Uint8Array.from(h.match(/../g)!, (b) => parseInt(b, 16)) }));
-}
 
 export class Transport {
   private wt: WebTransportLike | null = null;
@@ -86,14 +73,13 @@ export class Transport {
 
   constructor(private readonly handlers: TransportHandlers) {}
 
-  async connect(url: string, hashes: string[] = []): Promise<void> {
+  async connect(url: string, hashes: CertificateHash[] = []): Promise<void> {
     const ctor = (globalThis as unknown as { WebTransport?: WebTransportConstructor }).WebTransport;
     if (!ctor) {
       throw new Error('This browser does not support WebTransport');
     }
     this.closing = false;
-    const serverCertificateHashes = certificateHashes(hashes);
-    const wt = new ctor(url, serverCertificateHashes.length ? { serverCertificateHashes } : undefined);
+    const wt = new ctor(url, hashes.length ? { serverCertificateHashes: hashes } : undefined);
     this.wt = wt;
     wt.closed.then(
       () => this.closed('closed by the hub'),

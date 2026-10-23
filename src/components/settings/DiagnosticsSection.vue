@@ -24,7 +24,6 @@ import { format, formatDistanceToNowStrict } from 'date-fns';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import { toast } from '@/components/ui/toast';
-import { endpointURL } from '@/radio/transport';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
@@ -54,7 +53,7 @@ async function doInstall(): Promise<void> {
   }
 }
 
-const url = computed(() => endpointURL(store.settings.hub.host, store.settings.hub.port, store.settings.hub.path));
+const url = computed(() => radio.endpoint || '-');
 const up = computed(() => (radio.connected && radio.upSince ? formatDistanceToNowStrict(radio.upSince) : '-'));
 
 async function copy(): Promise<void> {

@@ -23,7 +23,7 @@ import { computed, reactive, ref, shallowRef } from 'vue';
 import { loadModule, removeModule, saveModule, sha256Hex } from '@/lib/ambeStore';
 import { RadioClient } from '@/radio/client';
 import type { FromWorker, LinkState, RadioEvent } from '@/radio/protocol';
-import { endpointURL, webTransportSupported } from '@/radio/transport';
+import { webTransportSupported } from '@/radio/transport';
 
 import { rptoOptions, useSettings, type Slot } from './settings';
 
@@ -81,6 +81,7 @@ export const useRadio = defineStore('radio', () => {
   const log = ref<LogEntry[]>([]);
   const tx = reactive({ active: false, slot: 0 as number, target: 0, startedAt: 0, error: '' });
   const transmitVocoder = ref('codec2');
+  const endpoint = ref('');
   const micLevel = ref(0);
   const micPermission = ref<'unknown' | 'granted' | 'denied'>('unknown');
   const micPrompt = ref(false);
@@ -221,6 +222,9 @@ export const useRadio = defineStore('radio', () => {
       case 'vocoder':
         transmitVocoder.value = msg.transmit;
         break;
+      case 'endpoint':
+        endpoint.value = msg.url;
+        break;
       case 'ptt':
         if (!msg.ok) {
           tx.error = msg.error ?? 'could not transmit';
@@ -276,7 +280,7 @@ export const useRadio = defineStore('radio', () => {
     }
     void client.value.audio().catch(() => undefined);
     client.value.connect({
-      url: endpointURL(s.hub.host, s.hub.port, s.hub.path),
+      hub: s.hub.host,
       hotspot: s.hotspot.id,
       radioId: settingsStore.radioId,
       password: s.hotspot.password,
@@ -373,6 +377,7 @@ export const useRadio = defineStore('radio', () => {
     log,
     tx,
     transmitVocoder,
+    endpoint,
     micLevel,
     micPermission,
     micPrompt,

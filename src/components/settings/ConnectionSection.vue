@@ -44,11 +44,8 @@ const linked = computed(() => radio.link !== 'idle' && radio.link !== 'failed');
 
 <template>
   <SettingsCard title="Hub">
-    <div class="grid gap-4 sm:grid-cols-[minmax(0,2fr)_90px_minmax(0,1fr)]">
-      <label :class="labelClass">Host<input v-model.trim="s.hub.host" :class="inputClass" autocomplete="url" /></label>
-      <label :class="labelClass">UDP port<input v-model.number="s.hub.port" :class="inputClass" inputmode="numeric" /></label>
-      <label :class="labelClass">Path<input v-model.trim="s.hub.path" :class="inputClass" /></label>
-    </div>
+    <label :class="labelClass">Host<input v-model.trim="s.hub.host" :class="inputClass" autocomplete="url" /></label>
+    <p class="m-0 text-xs text-radio-muted">Any DMRHub. The hub tells dmr-web its WebTransport port and certificate.</p>
   </SettingsCard>
 
   <SettingsCard title="Hotspot" description="Sent to the hub in the hotspot login (RPTC).">

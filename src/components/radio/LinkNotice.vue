@@ -22,7 +22,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { endpointURL } from '@/radio/transport';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
@@ -31,10 +30,8 @@ defineProps<{ compact?: boolean }>();
 const radio = useRadio();
 const store = useSettings();
 
-const url = computed(() => {
-  const h = store.settings.hub;
-  return endpointURL(h.host, h.port, h.path);
-});
+const url = computed(() => radio.endpoint || store.settings.hub.host);
+const port = computed(() => (radio.endpoint ? new URL(radio.endpoint).port : ''));
 </script>
 
 <template>
@@ -49,14 +46,14 @@ const url = computed(() => {
         {{ radio.supported ? "This browser or network can't reach the hub" : "This browser can't run dmr-web" }}
       </h1>
       <p class="m-0 text-sm leading-relaxed text-radio-text/80">
-        dmr-web connects over WebTransport, on UDP port {{ store.settings.hub.port }}.
+        dmr-web connects over WebTransport<template v-if="port">, on UDP port {{ port }}</template>.
         <template v-if="radio.supported">The connection to {{ store.settings.hub.host }} failed before the hub answered.</template>
       </p>
     </div>
     <ul class="m-0 flex flex-col gap-2 pl-5 text-sm leading-normal text-radio-text/80">
-      <li v-if="radio.supported">This network may block UDP port {{ store.settings.hub.port }}. Many work, school and hotel networks do. Try another network or mobile data.</li>
+      <li v-if="radio.supported && port">This network may block UDP port {{ port }}. Many work, school and hotel networks do. Try another network or mobile data.</li>
       <li>WebTransport needs Chrome 97, Edge 98, Firefox 114, Safari 26.4 or newer.</li>
-      <li v-if="radio.supported">The hub doesn't run the WebTransport listener, or uses a different port or path.</li>
+      <li v-if="radio.supported">The hub is not a DMRHub, or it doesn't accept browser radios.</li>
     </ul>
     <div v-if="radio.supported" class="flex items-center justify-between gap-3 rounded-[10px] border border-radio-line bg-radio-raised px-3.5 py-3 text-xs text-radio-muted">
       <span class="truncate font-mono">{{ url }}</span>

@@ -20,13 +20,14 @@
 import './wasm_exec.js';
 
 import type { FromWorker, LinkState, RadioConfig, RadioEvent, ToWorker } from './protocol';
+import { discover, HubRefusedError } from './discover';
 import { Transport } from './transport';
 
 type Result = { ok: boolean; error?: string; version?: number; transmit?: string };
 
 type DmrWeb = {
   start: (
-    config: Omit<RadioConfig, 'url'>,
+    config: Omit<RadioConfig, 'hub'>,
     callbacks: {
       send: (packet: Uint8Array) => void;
       event: (event: RadioEvent) => void;
@@ -146,19 +147,32 @@ async function connect(cfg: RadioConfig): Promise<void> {
   });
   transport = t;
   try {
-    await t.connect(cfg.url);
-  } catch (err) {
-    if (transport === t) {
-      lost(err instanceof Error ? err.message : String(err));
+    const ep = await discover(cfg.hub);
+    if (transport !== t) {
+      return;
     }
+    post({ type: 'endpoint', url: ep.url });
+    await t.connect(ep.url, ep.hashes);
+  } catch (err) {
+    if (transport !== t) {
+      return;
+    }
+    const reason = err instanceof Error ? err.message : String(err);
+    if (err instanceof HubRefusedError) {
+      wanted = false;
+      transport = null;
+      link('failed', reason);
+      return;
+    }
+    lost(reason);
     return;
   }
   if (transport !== t) {
     t.close();
     return;
   }
-  const { url: _url, ...radioConfig } = cfg;
-  void _url;
+  const { hub: _hub, ...radioConfig } = cfg;
+  void _hub;
   const res = dmr.start(
     radioConfig,
     {

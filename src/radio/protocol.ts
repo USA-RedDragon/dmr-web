@@ -20,7 +20,7 @@
 export type VocoderChoice = 'auto' | 'codec2' | 'ambe';
 
 export type RadioConfig = {
-  url: string;
+  hub: string;
   hotspot: number;
   radioId: number;
   password: string;
@@ -74,6 +74,7 @@ export type FromWorker =
   | { type: 'link'; state: LinkState; detail: string; attempt: number; retryInMs: number }
   | { type: 'ambe'; ok: boolean; error?: string; version?: number }
   | { type: 'vocoder'; transmit: string }
+  | { type: 'endpoint'; url: string }
   | { type: 'ptt'; ok: boolean; error?: string }
   | { type: 'fatal'; error: string };
 
