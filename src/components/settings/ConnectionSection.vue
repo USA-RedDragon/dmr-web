@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { format } from 'date-fns';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 import HotspotList from '@/components/account/HotspotList.vue';
 import RegisterHotspotDialog from '@/components/account/RegisterHotspotDialog.vue';
@@ -49,6 +49,7 @@ const idValid = computed(() => validHotspot(s.value.hotspot.id));
 const linked = computed(() => radio.link !== 'idle' && radio.link !== 'failed');
 const registering = ref(false);
 const loginFailure = ref('');
+const hostInput = ref<HTMLInputElement | null>(null);
 
 const selected = computed({
   get: () => s.value.hotspot.id,
@@ -83,6 +84,16 @@ async function login(): Promise<void> {
   }
 }
 
+async function changeHub(): Promise<void> {
+  if (linked.value) {
+    radio.disconnect();
+  }
+  await account.logout();
+  await nextTick();
+  hostInput.value?.focus();
+  hostInput.value?.select();
+}
+
 function registered(id: number, password: string): void {
   registering.value = false;
   void account.choose(id, password, s.value.hotspot.callsign || account.user?.callsign || '').then(() => radio.connect());
@@ -95,12 +106,22 @@ if (account.loggedIn && !account.hotspotsLoaded) {
 
 <template>
   <SettingsCard title="Hub">
-    <label :class="labelClass">Host<input v-model.trim="s.hub.host" :class="inputClass" autocomplete="url" :disabled="account.loggedIn" /></label>
-    <p class="m-0 text-xs text-radio-muted">
-      <template v-if="endpoint">{{ endpoint }}, from the hub.</template>
-      <template v-else>Any DMRHub. The hub tells dmr-web its WebTransport port and certificate.</template>
-      <template v-if="account.loggedIn"> Log out to change the hub.</template>
-    </p>
+    <label :class="labelClass">Host<input ref="hostInput" v-model.trim="s.hub.host" :class="inputClass" autocomplete="url" :disabled="account.loggedIn" /></label>
+    <div class="flex items-start justify-between gap-3">
+      <p class="m-0 text-xs text-radio-muted">
+        <template v-if="endpoint">{{ endpoint }}, from the hub.</template>
+        <template v-else>Any DMRHub. The hub tells dmr-web its WebTransport port and certificate.</template>
+      </p>
+      <button
+        v-if="account.loggedIn"
+        type="button"
+        class="-my-3 -mr-2 flex min-h-11 shrink-0 items-center px-2 text-xs text-radio-accent"
+        :title="`Logs you out of ${s.hub.host}`"
+        @click="changeHub"
+      >
+        Change
+      </button>
+    </div>
   </SettingsCard>
 
   <section v-if="account.loggedIn" class="flex items-center justify-between gap-3 rounded-2xl border border-radio-line bg-radio-surface p-4 sm:p-[22px]">
