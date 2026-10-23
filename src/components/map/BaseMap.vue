@@ -130,9 +130,9 @@ onMounted(async () => {
     });
     m.touchZoomRotate.disableRotation();
     m.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© OpenMapTiles © OpenStreetMap contributors' }), props.attribution);
-    m.on('styleimagemissing', (e: { id: string }) => {
-      if (e.id === 'circle-11' && !m.hasImage(e.id)) {
-        m.addImage(e.id, circleImage(props.dark ? '#c9cbd1' : '#5a5f68'));
+    m.setMissingStyleImageResolver((id) => {
+      if (id === 'circle-11' && !m.hasImage(id)) {
+        m.addImage(id, circleImage(props.dark ? '#c9cbd1' : '#5a5f68'));
       }
     });
     m.on('move', project);
