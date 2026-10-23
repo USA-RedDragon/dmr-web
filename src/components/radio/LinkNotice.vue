@@ -49,12 +49,12 @@ const url = computed(() => {
         {{ radio.supported ? "This browser or network can't reach the hub" : "This browser can't run dmr-web" }}
       </h1>
       <p class="m-0 text-sm leading-relaxed text-radio-text/80">
-        dmr-web connects over WebTransport, which runs on UDP port 443.
+        dmr-web connects over WebTransport, on UDP port {{ store.settings.hub.port }}.
         <template v-if="radio.supported">The connection to {{ store.settings.hub.host }} failed before the hub answered.</template>
       </p>
     </div>
     <ul class="m-0 flex flex-col gap-2 pl-5 text-sm leading-normal text-radio-text/80">
-      <li v-if="radio.supported">This network blocks UDP 443. Many work, school and hotel networks do. Try another network or mobile data.</li>
+      <li v-if="radio.supported">This network may block UDP port {{ store.settings.hub.port }}. Many work, school and hotel networks do. Try another network or mobile data.</li>
       <li>WebTransport needs Chrome 97, Edge 98, Firefox 114, Safari 26.4 or newer.</li>
       <li v-if="radio.supported">The hub doesn't run the WebTransport listener, or uses a different port or path.</li>
     </ul>

@@ -49,7 +49,7 @@ const KEY = 'settings';
 
 export function defaultSettings(): Settings {
   return {
-    hub: { host: 'dmrhub.net', port: 443, path: '/mmdvm' },
+    hub: { host: 'dmrhub.net', port: 62032, path: '/mmdvm' },
     hotspot: { id: 0, password: '', callsign: '', location: '' },
     vocoder: 'auto',
     jitterMs: 360,

@@ -23,6 +23,7 @@ import { datagramWriter, endpointURL } from '@/radio/transport';
 describe('endpointURL', () => {
   it('leaves out the default port', () => {
     expect(endpointURL('dmrhub.net', 443, '/mmdvm')).toBe('https://dmrhub.net/mmdvm');
+    expect(endpointURL('dmrhub.net', 62032, '/mmdvm')).toBe('https://dmrhub.net:62032/mmdvm');
   });
 
   it('cleans up what people paste', () => {
