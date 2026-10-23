@@ -4713,7 +4713,7 @@
         "squallar:phase": "label",
         "squallar:source-index": 76
       },
-      "minzoom": 2,
+      "minzoom": 1,
       "paint": {
         "text-color": [
           "interpolate",
@@ -4837,7 +4837,7 @@
         "text-max-width": 9,
         "text-size": 14,
         "text-transform": "uppercase",
-        "visibility": "none"
+        "visibility": "visible"
       },
       "maxzoom": 2,
       "metadata": {
