@@ -39,6 +39,8 @@ type DmrWeb = {
   packet: (now: number, data: Uint8Array) => number;
   tick: (now: number) => number;
   ptt: (now: number, on: boolean, slot: number, group: boolean, target: number) => Result;
+  sendText: (now: number, id: number, slot: number, group: boolean, target: number, format: string, text: string) => Result & { deadline: number };
+  check: (now: number, id: number, slot: number, kind: string, target: number) => Result & { deadline: number };
   frame: (samples: Int16Array) => Result;
   loadAmbe: (bytes: Uint8Array) => Result;
   removeAmbe: () => Result;
@@ -233,6 +235,26 @@ function handle(msg: ToWorker): void {
       const res = dmr.ptt(performance.now(), msg.on, msg.slot, msg.group, msg.target);
       post({ type: 'ptt', ok: res.ok, error: res.error });
       schedule(dmr.tick(performance.now()));
+      return;
+    }
+    case 'sendText': {
+      if (!dmr) {
+        post({ type: 'sendText', id: msg.id, ok: false, error: 'the radio is not loaded' });
+        return;
+      }
+      const res = dmr.sendText(performance.now(), msg.id, msg.slot, msg.group, msg.target, msg.format, msg.text);
+      post({ type: 'sendText', id: msg.id, ok: res.ok, error: res.error });
+      schedule(res.deadline);
+      return;
+    }
+    case 'check': {
+      if (!dmr) {
+        post({ type: 'check', id: msg.id, ok: false, error: 'the radio is not loaded' });
+        return;
+      }
+      const res = dmr.check(performance.now(), msg.id, msg.slot, msg.kind, msg.target);
+      post({ type: 'check', id: msg.id, ok: res.ok, error: res.error });
+      schedule(res.deadline);
       return;
     }
     case 'ambe': {

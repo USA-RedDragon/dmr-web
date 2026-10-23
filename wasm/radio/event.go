@@ -47,10 +47,11 @@ const (
 	// EventText is a text message received on Slot, in Text and Format.
 	EventText
 	// EventTextStatus reports on the text message ID that SendText sent:
-	// Reason is "sent", "delivered" or why it failed.
+	// Reason is "sent", "delivered", "refused", "noAnswer" or "cancelled".
 	EventTextStatus
 	// EventCheck reports how the radio check, call alert or presence check
-	// ID ended: Reason is "answered" or why not, after Elapsed.
+	// ID ended after Elapsed: Reason is "answered", "refused",
+	// "notSupported", "noAnswer" or "cancelled".
 	EventCheck
 	// EventCallAlert is a call alert from Source on Slot.
 	EventCallAlert

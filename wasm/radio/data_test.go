@@ -258,8 +258,7 @@ func TestSendTextNoAnswer(t *testing.T) {
 
 	st := h.s.statuses()
 	require.Len(t, st, 1)
-	require.NotEqual(t, "delivered", st[0].Reason)
-	require.NotEqual(t, "sent", st[0].Reason)
+	require.Equal(t, "noAnswer", st[0].Reason)
 }
 
 func TestReceiveText(t *testing.T) {
@@ -322,7 +321,7 @@ func TestRadioCheck(t *testing.T) {
 		e, ok := h.s.first(radio.EventCheck)
 		require.True(t, ok, "check %d", c)
 		require.Equal(t, uint32(21), e.ID)
-		require.Equal(t, csbk.ResultAnswered.String(), e.Reason)
+		require.Equal(t, "answered", e.Reason)
 		require.Positive(t, e.Elapsed)
 	}
 }
@@ -337,7 +336,7 @@ func TestRadioCheckNoAnswer(t *testing.T) {
 
 	e, ok := h.s.first(radio.EventCheck)
 	require.True(t, ok)
-	require.Equal(t, csbk.ResultNoAnswer.String(), e.Reason)
+	require.Equal(t, "noAnswer", e.Reason)
 }
 
 func TestIncomingCallAlert(t *testing.T) {

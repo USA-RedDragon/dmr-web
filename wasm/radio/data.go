@@ -431,8 +431,12 @@ func (r *Radio) dataOutputs(now time.Duration, i int) {
 				r.textStatus(i, id, "sent")
 			case data.ResultDelivered:
 				r.textStatus(i, id, "delivered")
+			case data.ResultRefused:
+				r.textStatus(i, id, "refused")
+			case data.ResultRetryLimit, data.ResultTimeLimit:
+				r.textStatus(i, id, "noAnswer")
 			default:
-				r.textStatus(i, id, o.Result.String())
+				r.textStatus(i, id, "cancelled")
 			}
 			r.nextText(now, i)
 		default:
@@ -454,7 +458,7 @@ func (r *Radio) csbkOutputs(now time.Duration, i int) {
 			}
 			c := s.check
 			s.check = check{}
-			r.sink.Event(&Event{Kind: EventCheck, Slot: i + 1, ID: c.id, Target: o.Target, Reason: o.Result.String(), Elapsed: now - c.start})
+			r.sink.Event(&Event{Kind: EventCheck, Slot: i + 1, ID: c.id, Target: o.Target, Reason: checkReason(o.Result), Elapsed: now - c.start})
 		case csbk.OutputRequest:
 			kind := EventRequest
 			if o.Service == csbk.ServiceCallAlert {
@@ -463,6 +467,21 @@ func (r *Radio) csbkOutputs(now time.Duration, i int) {
 			r.sink.Event(&Event{Kind: kind, Slot: i + 1, Source: o.Source, Target: o.Target, Text: o.Service.String()})
 		default:
 		}
+	}
+}
+
+func checkReason(res csbk.Result) string {
+	switch res {
+	case csbk.ResultAnswered:
+		return "answered"
+	case csbk.ResultRefused, csbk.ResultDenied:
+		return "refused"
+	case csbk.ResultNACK:
+		return "notSupported"
+	case csbk.ResultNoAnswer:
+		return "noAnswer"
+	default:
+		return "cancelled"
 	}
 }
 

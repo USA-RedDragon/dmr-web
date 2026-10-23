@@ -39,7 +39,12 @@ export type RadioEventKind =
   | 'position'
   | 'transmitStart'
   | 'transmitEnd'
-  | 'error';
+  | 'error'
+  | 'text'
+  | 'textStatus'
+  | 'check'
+  | 'callAlert'
+  | 'request';
 
 export type RadioEvent = {
   kind: RadioEventKind;
@@ -53,8 +58,15 @@ export type RadioEvent = {
   latitude: number;
   longitude: number;
   reason: string;
+  id: number;
+  format: string;
+  elapsedMs: number;
   error?: string;
 };
+
+export type TextFormat = 'tms' | 'ip' | 'anytone' | 'dd' | 'hytera';
+
+export type CheckKind = 'radioCheck' | 'callAlert' | 'presence';
 
 export type LinkState = 'idle' | 'connecting' | 'up' | 'reconnecting' | 'failed';
 
@@ -65,6 +77,8 @@ export type ToWorker =
   | { type: 'ambe'; bytes: Uint8Array }
   | { type: 'ambeRemove' }
   | { type: 'vocoder'; value: VocoderChoice }
+  | { type: 'sendText'; id: number; slot: number; group: boolean; target: number; format: TextFormat; text: string }
+  | { type: 'check'; id: number; slot: number; kind: CheckKind; target: number }
   | { type: 'capturePort'; port: MessagePort }
   | { type: 'playbackPort'; port: MessagePort };
 
@@ -76,6 +90,8 @@ export type FromWorker =
   | { type: 'vocoder'; transmit: string }
   | { type: 'endpoint'; url: string }
   | { type: 'ptt'; ok: boolean; error?: string }
+  | { type: 'sendText'; id: number; ok: boolean; error?: string }
+  | { type: 'check'; id: number; ok: boolean; error?: string }
   | { type: 'fatal'; error: string };
 
 export type PlaybackMessage = { slot: number; samples: Int16Array };

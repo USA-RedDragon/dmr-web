@@ -102,6 +102,14 @@ export class RadioClient {
     this.post({ type: 'connect', config });
   }
 
+  sendText(msg: Omit<Extract<ToWorker, { type: 'sendText' }>, 'type'>): void {
+    this.post({ type: 'sendText', ...msg });
+  }
+
+  check(msg: Omit<Extract<ToWorker, { type: 'check' }>, 'type'>): void {
+    this.post({ type: 'check', ...msg });
+  }
+
   disconnect(): void {
     this.post({ type: 'disconnect' });
   }

@@ -26,6 +26,7 @@ import AppHeader from '@/components/AppHeader.vue';
 import UpdateNotice from '@/components/UpdateNotice.vue';
 import { Toaster } from '@/components/ui/toast';
 import { useColorMode } from '@/composables/useColorMode';
+import { useMessages } from '@/store/messages';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
@@ -41,7 +42,7 @@ watchEffect(() => {
 });
 
 onMounted(async () => {
-  await store.load();
+  await Promise.all([store.load(), useMessages().load()]);
   radio.init();
 });
 </script>

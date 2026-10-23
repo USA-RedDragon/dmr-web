@@ -25,7 +25,10 @@ import { RadioClient } from '@/radio/client';
 import type { FromWorker, LinkState, RadioEvent } from '@/radio/protocol';
 import { webTransportSupported } from '@/radio/transport';
 
+import { useMessages } from './messages';
 import { rptoOptions, useSettings, type Slot } from './settings';
+import type { Peer } from '@/lib/threads';
+import type { CheckKind, TextFormat } from '@/radio/protocol';
 
 export type SlotCall = {
   active: boolean;
@@ -70,6 +73,7 @@ function emptyCall(): SlotCall {
 
 export const useRadio = defineStore('radio', () => {
   const settingsStore = useSettings();
+  const messagesStore = useMessages();
   const link = ref<LinkState>('idle');
   const linkDetail = ref('');
   const attempt = ref(0);
@@ -182,7 +186,45 @@ export const useRadio = defineStore('radio', () => {
       case 'error':
         addLog(`Error: ${e.error ?? 'unknown'}`);
         break;
+      case 'text':
+        addLog(`Text from ${e.source} to ${e.group ? 'TG ' : ''}${e.target}, TS${slot}, ${e.format}`);
+        messagesStore.onEvent(e, settingsStore.radioId);
+        break;
+      case 'textStatus':
+        addLog(`Text ${e.id}: ${e.reason}`);
+        messagesStore.onEvent(e, settingsStore.radioId);
+        break;
+      case 'check':
+        addLog(`Check ${e.id} to ${e.target}: ${e.reason} after ${Math.round(e.elapsedMs)} ms`);
+        messagesStore.onEvent(e, settingsStore.radioId);
+        break;
+      case 'callAlert':
+        addLog(`Call alert from ${e.source}, TS${slot}`);
+        messagesStore.onEvent(e, settingsStore.radioId);
+        break;
+      case 'request':
+        addLog(`Answered ${e.text} from ${e.source}, TS${slot}`);
+        break;
     }
+  }
+
+  function sendText(peer: Peer, text: string, format: TextFormat | 'auto', slot: number): void {
+    const m = messagesStore.compose(peer, text, format, slot);
+    if (!client.value || link.value !== 'up') {
+      messagesStore.status(m.id, 'notConnected');
+      return;
+    }
+    client.value.sendText({ id: m.id, slot, group: peer.group, target: peer.id, format: m.format, text });
+  }
+
+  function check(kind: CheckKind, target: number, slot: number): number {
+    const c = messagesStore.startCheck(kind, target, slot);
+    if (!client.value || link.value !== 'up') {
+      messagesStore.failCheck(c.id, 'notConnected');
+      return c.id;
+    }
+    client.value.check({ id: c.id, slot, kind, target });
+    return c.id;
   }
 
   function onMessage(msg: FromWorker): void {
@@ -229,6 +271,18 @@ export const useRadio = defineStore('radio', () => {
         if (!msg.ok) {
           tx.error = msg.error ?? 'could not transmit';
           addLog(`PTT refused: ${tx.error}`);
+        }
+        break;
+      case 'sendText':
+        if (!msg.ok) {
+          addLog(`Text ${msg.id} refused: ${msg.error ?? ''}`);
+          messagesStore.status(msg.id, msg.error ?? 'refused');
+        }
+        break;
+      case 'check':
+        if (!msg.ok) {
+          addLog(`Check ${msg.id} refused: ${msg.error ?? ''}`);
+          messagesStore.failCheck(msg.id, msg.error ?? 'refused');
         }
         break;
       case 'fatal':
@@ -391,6 +445,8 @@ export const useRadio = defineStore('radio', () => {
     connect,
     disconnect,
     pttDown,
+    sendText,
+    check,
     pttUp,
     uploadAmbe,
     forgetAmbe,
