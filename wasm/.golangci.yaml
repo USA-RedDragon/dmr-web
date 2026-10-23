@@ -12,6 +12,10 @@ linters:
           - dogsled
           - goconst
           - gosec
+      - path: ambe/module_js\.go
+        text: G115
+        linters:
+          - gosec
   settings:
     goheader:
       template-path: .copyright-header
