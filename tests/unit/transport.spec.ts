@@ -18,7 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 import { describe, expect, it } from 'vitest';
 
-import { datagramWriter, endpointURL } from '@/radio/transport';
+import { certificateHashes, datagramWriter, endpointURL } from '@/radio/transport';
 
 describe('endpointURL', () => {
   it('leaves out the default port', () => {
@@ -55,5 +55,17 @@ describe('datagramWriter', () => {
 
   it('fails without a writable side', () => {
     expect(() => datagramWriter({ readable: new ReadableStream() })).toThrow();
+  });
+});
+
+describe('certificateHashes', () => {
+  it('turns hex SHA-256 hashes into WebTransport hashes', () => {
+    const hex = '4906b9765ba7e57e59f042395b64f51787e6ed36f9d0f3a4598b2dc70a401844';
+    const [h] = certificateHashes([hex, 'nope', 'ab']);
+    expect(certificateHashes([hex, 'nope', 'ab'])).toHaveLength(1);
+    expect(h!.algorithm).toBe('sha-256');
+    expect(h!.value).toHaveLength(32);
+    expect(h!.value[0]).toBe(0x49);
+    expect(h!.value[31]).toBe(0x44);
   });
 });

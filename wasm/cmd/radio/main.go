@@ -279,9 +279,7 @@ func (b *bridge) setVocoder(args []js.Value) any {
 		b.r.SetVocoder(b.choice)
 	}
 	o := result(nil)
-	if b.r != nil {
-		o.Set("transmit", b.r.TransmitVocoder().String())
-	}
+	o.Set("transmit", radio.Transmit(b.choice, b.ambe != nil).String())
 	return o
 }
 

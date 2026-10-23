@@ -76,17 +76,16 @@ func rxVocoder(fid enums.FID) Vocoder {
 }
 
 func (r *Radio) txVocoder() Vocoder {
-	switch r.choice {
-	case VocoderCodec2:
-		return VocoderCodec2
-	case VocoderAMBE, VocoderAuto:
-		if r.codecs.AMBE != nil {
-			return VocoderAMBE
-		}
-		return VocoderCodec2
-	default:
-		return VocoderCodec2
+	return Transmit(r.choice, r.codecs.AMBE != nil)
+}
+
+// Transmit returns the vocoder that a transmission uses for the choice
+// v, given whether an AMBE module is loaded.
+func Transmit(v Vocoder, ambe bool) Vocoder {
+	if v != VocoderCodec2 && ambe {
+		return VocoderAMBE
 	}
+	return VocoderCodec2
 }
 
 func (r *Radio) newCodec(v Vocoder) (vocoder.Codec, error) {

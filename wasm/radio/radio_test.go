@@ -338,3 +338,12 @@ func TestCloseClosesCodecs(t *testing.T) {
 		require.True(t, c.closed)
 	}
 }
+
+func TestTransmit(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, radio.VocoderAMBE, radio.Transmit(radio.VocoderAuto, true))
+	require.Equal(t, radio.VocoderCodec2, radio.Transmit(radio.VocoderAuto, false))
+	require.Equal(t, radio.VocoderCodec2, radio.Transmit(radio.VocoderCodec2, true))
+	require.Equal(t, radio.VocoderAMBE, radio.Transmit(radio.VocoderAMBE, true))
+	require.Equal(t, radio.VocoderCodec2, radio.Transmit(radio.VocoderAMBE, false))
+}

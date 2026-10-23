@@ -87,6 +87,11 @@ const linkText = computed(() => {
   }
 });
 
+function knownName(id: number): string {
+  const t = [...s.value.talkgroups[1], ...s.value.talkgroups[2]].find((x) => x.id === id);
+  return t?.name.toUpperCase() ?? '';
+}
+
 const lcd = computed(() => {
   const slots = ([1, 2] as Slot[]).map((n) => ({ slot: n, label: slotLabel(n), selected: powered.value && n === slot.value }));
   if (radio.tx.active) {
@@ -114,7 +119,7 @@ const lcd = computed(() => {
       status: `RX  TS${a.slot}`,
       badge: a.call.vocoder === 'ambe' ? 'AMBE' : a.call.vocoder === 'codec2' ? 'CODEC2' : '',
       timer: elapsed(a.call.startedAt),
-      headline: alias ? alias.split(/\s+/)[0]! : String(a.call.source),
+      headline: alias ? alias.split(/\s+/)[0]! : knownName(a.call.source) || String(a.call.source),
       sub: `ID ${a.call.source}`,
       subRight: a.call.group ? `TG ${a.call.target}` : 'Private call',
       details,

@@ -66,7 +66,18 @@ type WebTransportLike = {
   close: (info?: { closeCode?: number; reason?: string }) => void;
 };
 
-type WebTransportConstructor = new (url: string) => WebTransportLike;
+type CertificateHash = { algorithm: 'sha-256'; value: Uint8Array };
+
+type WebTransportConstructor = new (
+  url: string,
+  options?: { serverCertificateHashes?: CertificateHash[] },
+) => WebTransportLike;
+
+export function certificateHashes(hex: string[]): CertificateHash[] {
+  return hex
+    .filter((h) => /^[0-9a-f]{64}$/i.test(h))
+    .map((h) => ({ algorithm: 'sha-256', value: Uint8Array.from(h.match(/../g)!, (b) => parseInt(b, 16)) }));
+}
 
 export class Transport {
   private wt: WebTransportLike | null = null;
@@ -75,13 +86,14 @@ export class Transport {
 
   constructor(private readonly handlers: TransportHandlers) {}
 
-  async connect(url: string): Promise<void> {
+  async connect(url: string, hashes: string[] = []): Promise<void> {
     const ctor = (globalThis as unknown as { WebTransport?: WebTransportConstructor }).WebTransport;
     if (!ctor) {
       throw new Error('This browser does not support WebTransport');
     }
     this.closing = false;
-    const wt = new ctor(url);
+    const serverCertificateHashes = certificateHashes(hashes);
+    const wt = new ctor(url, serverCertificateHashes.length ? { serverCertificateHashes } : undefined);
     this.wt = wt;
     wt.closed.then(
       () => this.closed('closed by the hub'),

@@ -43,9 +43,9 @@ watch(
   () => radio.connected && store.settings.display.keepScreenOn,
   (on) => {
     if (on && wake.isSupported.value) {
-      void wake.request('screen');
+      wake.request('screen').catch(() => undefined);
     } else if (wake.isActive.value) {
-      void wake.release();
+      wake.release().catch(() => undefined);
     }
   },
   { immediate: true },
