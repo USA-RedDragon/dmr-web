@@ -25,6 +25,7 @@ import { computed, onMounted, watchEffect } from 'vue';
 import AppHeader from '@/components/AppHeader.vue';
 import CallLayer from '@/components/CallLayer.vue';
 import ContactToast from '@/components/contacts/ContactToast.vue';
+import RealRadioNotice from '@/components/RealRadioNotice.vue';
 import UpdateNotice from '@/components/UpdateNotice.vue';
 import { Toaster } from '@/components/ui/toast';
 import { useColorMode } from '@/composables/useColorMode';
@@ -67,5 +68,6 @@ onMounted(async () => {
     <ContactToast />
     <Toaster />
     <UpdateNotice />
+    <RealRadioNotice />
   </div>
 </template>
