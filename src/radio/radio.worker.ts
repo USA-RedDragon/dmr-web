@@ -43,6 +43,7 @@ type DmrWeb = {
   check: (now: number, id: number, slot: number, kind: string, target: number) => Result & { deadline: number };
   requestLocation: (now: number, id: number, slot: number, target: number) => Result & { deadline: number };
   setLocation: (here: Here | null, share: boolean) => Result & { deadline: number };
+  sendData: (now: number, id: number, slot: number, group: boolean, target: number, confirmed: boolean, sap: string, rate: string, payload: Uint8Array) => Result & { deadline: number };
   frame: (samples: Int16Array) => Result;
   loadAmbe: (bytes: Uint8Array) => Result;
   removeAmbe: () => Result;
@@ -268,6 +269,16 @@ function handle(msg: ToWorker): void {
       }
       const res = dmr.requestLocation(performance.now(), msg.id, msg.slot, msg.target);
       post({ type: 'requestLocation', id: msg.id, ok: res.ok, error: res.error });
+      schedule(res.deadline);
+      return;
+    }
+    case 'sendData': {
+      if (!dmr) {
+        post({ type: 'sendData', id: msg.id, ok: false, error: 'the radio is not loaded' });
+        return;
+      }
+      const res = dmr.sendData(performance.now(), msg.id, msg.slot, msg.group, msg.target, msg.confirmed, msg.sap, msg.rate, msg.payload);
+      post({ type: 'sendData', id: msg.id, ok: res.ok, error: res.error });
       schedule(res.deadline);
       return;
     }

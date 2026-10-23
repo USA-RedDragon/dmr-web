@@ -74,6 +74,10 @@ const (
 	// EventLocationRequest reports that Source asked for this radio's
 	// position. Reason is "answered", "stopped" or "notShared".
 	EventLocationRequest
+	// EventData reports a data message for the data console: Reason "rx"
+	// or "tx", its addresses, Format its kind and Text its payload in
+	// short. ID is the ID of the SendData or text that sent it, if any.
+	EventData
 )
 
 // String returns the name of the kind.
@@ -115,6 +119,8 @@ func (k EventKind) String() string {
 		return "fix"
 	case EventLocationRequest:
 		return "locationRequest"
+	case EventData:
+		return "data"
 	default:
 		return "unknown"
 	}

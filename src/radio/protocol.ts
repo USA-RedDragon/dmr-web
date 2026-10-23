@@ -49,7 +49,8 @@ export type RadioEventKind =
   | 'registered'
   | 'stats'
   | 'fix'
-  | 'locationRequest';
+  | 'locationRequest'
+  | 'data';
 
 export type RadioEvent = {
   kind: RadioEventKind;
@@ -96,6 +97,10 @@ export type RadioStats = {
 
 export type TextFormat = 'tms' | 'ip' | 'anytone' | 'dd' | 'hytera';
 
+export type DataSap = 'proprietary' | 'ip' | 'short';
+
+export type DataRate = '1/2' | '3/4' | '1';
+
 export type CheckKind = 'radioCheck' | 'callAlert' | 'presence';
 
 export type LinkState = 'idle' | 'connecting' | 'up' | 'reconnecting' | 'failed';
@@ -111,6 +116,7 @@ export type ToWorker =
   | { type: 'check'; id: number; slot: number; kind: CheckKind; target: number }
   | { type: 'requestLocation'; id: number; slot: number; target: number }
   | { type: 'setLocation'; here: Here | null; share: boolean }
+  | { type: 'sendData'; id: number; slot: number; group: boolean; target: number; confirmed: boolean; sap: DataSap; rate: DataRate; payload: Uint8Array }
   | { type: 'capturePort'; port: MessagePort }
   | { type: 'playbackPort'; port: MessagePort };
 
@@ -125,6 +131,7 @@ export type FromWorker =
   | { type: 'sendText'; id: number; ok: boolean; error?: string }
   | { type: 'check'; id: number; ok: boolean; error?: string }
   | { type: 'requestLocation'; id: number; ok: boolean; error?: string }
+  | { type: 'sendData'; id: number; ok: boolean; error?: string }
   | { type: 'fatal'; error: string };
 
 export type PlaybackMessage = { slot: number; samples: Int16Array };

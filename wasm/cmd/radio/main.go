@@ -36,6 +36,7 @@ import (
 
 	"github.com/USA-RedDragon/dmr-web/wasm/ambe"
 	"github.com/USA-RedDragon/dmr-web/wasm/radio"
+	"github.com/USA-RedDragon/dmrgo/v2/enums"
 	"github.com/USA-RedDragon/dmrgo/v2/location"
 	"github.com/USA-RedDragon/dmrgo/v2/sms"
 	"github.com/USA-RedDragon/dmrgo/v2/vocoder"
@@ -73,6 +74,7 @@ func main() {
 	b.export(obj, "check", b.check)
 	b.export(obj, "requestLocation", b.requestLocation)
 	b.export(obj, "setLocation", b.setLocation)
+	b.export(obj, "sendData", b.sendData)
 	js.Global().Set("dmrweb", obj)
 	select {}
 }
@@ -383,6 +385,41 @@ func (b *bridge) setLocation(args []js.Value) any {
 	}
 	b.r.SetLocation(here, arg(args, 1).Truthy())
 	o := result(nil)
+	o.Set("deadline", b.deadline())
+	return o
+}
+
+func sapOf(s string) enums.SAP {
+	switch s {
+	case "ip":
+		return enums.SAPIPBasedPacketData
+	case "short":
+		return enums.SAPShortData
+	default:
+		return enums.SAPProprietaryPacketData
+	}
+}
+
+func rateOf(s string) enums.DataType {
+	switch s {
+	case "3/4":
+		return enums.DataTypeRate34
+	case "1":
+		return enums.DataTypeRate1
+	default:
+		return enums.DataTypeRate12
+	}
+}
+
+func (b *bridge) sendData(args []js.Value) any {
+	if b.r == nil {
+		return result(errNoRadio)
+	}
+	src := arg(args, 8)
+	payload := make([]byte, src.Get("length").Int())
+	js.CopyBytesToGo(payload, src)
+	err := b.r.SendData(at(arg(args, 0)), id(arg(args, 1)), arg(args, 2).Int(), arg(args, 3).Bool(), id(arg(args, 4)), arg(args, 5).Bool(), sapOf(stringOr(arg(args, 6))), rateOf(stringOr(arg(args, 7))), payload)
+	o := result(err)
 	o.Set("deadline", b.deadline())
 	return o
 }

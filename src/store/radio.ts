@@ -23,7 +23,7 @@ import { computed, reactive, ref, shallowRef, watch } from 'vue';
 import { loadModule, removeModule, saveModule, sha256Hex } from '@/lib/ambeStore';
 import { live, rxEnd, rxStart, type Talkback, txEnd, txStart } from '@/lib/talkback';
 import { RadioClient } from '@/radio/client';
-import type { FromWorker, LinkState, RadioEvent, RadioStats } from '@/radio/protocol';
+import type { DataRate, DataSap, FromWorker, LinkState, RadioEvent, RadioStats } from '@/radio/protocol';
 import { webTransportSupported } from '@/radio/transport';
 
 import { useContacts } from './contacts';
@@ -68,6 +68,22 @@ export type AmbeState = {
 };
 
 const MAX_HEARD = 50;
+const MAX_TRAFFIC = 300;
+
+export type TrafficRow = {
+  key: number;
+  at: number;
+  dir: 'rx' | 'tx';
+  slot: number;
+  source: number;
+  target: number;
+  group: boolean;
+  kind: string;
+  payload: string;
+  id: number;
+  status: 'ok' | 'sending' | 'sent' | 'acked' | 'failed';
+  reason: string;
+};
 const MAX_LOG = 200;
 
 function emptyCall(): SlotCall {
@@ -93,6 +109,9 @@ export const useRadio = defineStore('radio', () => {
   const tx = reactive({ active: false, slot: 0 as number, target: 0, group: true, startedAt: 0, error: '' });
   let totTimer: ReturnType<typeof setTimeout> | undefined;
   const talkback = ref<Talkback | null>(null);
+  const traffic = ref<TrafficRow[]>([]);
+  const dataError = ref('');
+  let trafficKey = 0;
   let talkbackTimer: ReturnType<typeof setTimeout> | undefined;
   const transmitVocoder = ref('codec2');
   const endpoint = ref('');
@@ -204,6 +223,25 @@ export const useRadio = defineStore('radio', () => {
         }
         break;
       }
+      case 'data':
+        traffic.value.unshift({
+          key: ++trafficKey,
+          at: Date.now(),
+          dir: e.reason === 'tx' ? 'tx' : 'rx',
+          slot,
+          source: e.source,
+          target: e.target,
+          group: e.group,
+          kind: e.format,
+          payload: e.text,
+          id: e.id,
+          status: e.reason !== 'tx' ? 'ok' : e.id ? 'sending' : 'sent',
+          reason: '',
+        });
+        if (traffic.value.length > MAX_TRAFFIC) {
+          traffic.value.length = MAX_TRAFFIC;
+        }
+        break;
       case 'locationRequest':
         addLog(`Location request from ${e.source}, TS${slot}: ${e.reason}`);
         break;
@@ -248,6 +286,10 @@ export const useRadio = defineStore('radio', () => {
         break;
       case 'textStatus':
         addLog(`Text ${e.id}: ${e.reason}`);
+        trafficStatus(e.id, e.reason);
+        if (dataSends.has(e.id)) {
+          break;
+        }
         if (positionsStore.requests[e.id]) {
           if (e.reason !== 'sent' && e.reason !== 'delivered') {
             positionsStore.requestStatus(e.id, 'failed', e.reason);
@@ -286,6 +328,31 @@ export const useRadio = defineStore('radio', () => {
       return;
     }
     client.value.sendText({ id: m.id, slot, group: peer.group, target: peer.id, format: m.format, text });
+  }
+
+  const dataSends = new Set<number>();
+
+  function trafficStatus(id: number, reason: string): void {
+    const row = id ? traffic.value.find((r) => r.id === id && r.dir === 'tx') : undefined;
+    if (!row) {
+      return;
+    }
+    if (reason === 'sent' || reason === 'delivered') {
+      row.status = reason === 'sent' ? 'sent' : 'acked';
+    } else {
+      Object.assign(row, { status: 'failed', reason });
+    }
+  }
+
+  function sendData(msg: { slot: number; group: boolean; target: number; confirmed: boolean; sap: DataSap; rate: DataRate; payload: Uint8Array }): string {
+    if (!client.value || link.value !== 'up') {
+      return 'Not connected to the hub';
+    }
+    const id = (crypto.getRandomValues(new Uint32Array(1))[0]! % 0x7fffffff) || 1;
+    dataSends.add(id);
+    client.value.sendData({ id, ...msg });
+    addLog(`Data ${id} to ${msg.group ? 'TG ' : ''}${msg.target}, TS${msg.slot}, ${msg.payload.length} octets`);
+    return '';
   }
 
   function requestLocation(target: number, slot: number): number {
@@ -372,6 +439,12 @@ export const useRadio = defineStore('radio', () => {
         if (!msg.ok) {
           addLog(`Check ${msg.id} refused: ${msg.error ?? ''}`);
           messagesStore.failCheck(msg.id, msg.error ?? 'refused');
+        }
+        break;
+      case 'sendData':
+        if (!msg.ok) {
+          addLog(`Data ${msg.id} refused: ${msg.error ?? ''}`);
+          dataError.value = msg.error ?? 'refused';
         }
         break;
       case 'requestLocation':
@@ -583,6 +656,9 @@ export const useRadio = defineStore('radio', () => {
     sendText,
     check,
     requestLocation,
+    sendData,
+    traffic,
+    dataError,
     talkback,
     callPrivately,
     pttUp,

@@ -38,7 +38,7 @@ const choosing = computed(() => account.loggedIn && !store.configured);
 const route = useRoute();
 const router = useRouter();
 
-const inSettings = computed(() => route.name === 'settings');
+const inSettings = computed(() => String(route.name ?? '').startsWith('settings'));
 
 const pill = computed(() => {
   const hub = store.settings.hub.host;

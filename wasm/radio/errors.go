@@ -39,6 +39,12 @@ var (
 	ErrText = errors.New("radio: the text must be UTF-8 and not empty")
 	// ErrFormat is a text format that the radio does not know.
 	ErrFormat = errors.New("radio: unknown text format")
+	// ErrData is a data payload that is empty or longer than MaxData.
+	ErrData = errors.New("radio: the data must be 1 to 1500 octets")
+	// ErrConfirmedGroup is confirmed data to a talkgroup.
+	ErrConfirmedGroup = errors.New("radio: data to a talkgroup cannot be confirmed")
+	// ErrRate is a data rate other than 1/2, 3/4 or 1.
+	ErrRate = errors.New("radio: the rate must be 1/2, 3/4 or 1")
 	// ErrChecking is a check on a slot where one already runs.
 	ErrChecking = errors.New("radio: a check already runs on the slot")
 )

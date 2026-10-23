@@ -274,6 +274,7 @@ func (r *Radio) nextText(now time.Duration, i int) {
 		s.sending.id = ^uint32(0)
 	}
 	r.stream(i, q.group, q.msg)
+	r.traffic(i, q.id, true, &q.msg)
 }
 
 func (r *Radio) stream(i int, group bool, m data.Message) {
@@ -364,6 +365,7 @@ func (r *Radio) dataEvents(now time.Duration, i int) {
 }
 
 func (r *Radio) delivered(now time.Duration, i int, e *data.Event) {
+	r.traffic(i, 0, false, &e.Message)
 	buf, t, err := sms.Decode(r.text[:0], &e.Message.Header, e.Message.Payload)
 	r.text = buf
 	switch {

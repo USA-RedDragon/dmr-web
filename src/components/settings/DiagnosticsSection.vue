@@ -126,6 +126,17 @@ async function copy(): Promise<void> {
     </SettingsCard>
   </div>
 
+  <RouterLink
+    to="/settings/diagnostics/data"
+    class="flex items-center justify-between gap-4 rounded-2xl border border-radio-line bg-radio-surface p-4 text-radio-text no-underline sm:px-[22px] sm:py-[18px]"
+  >
+    <span class="flex flex-col gap-1">
+      <span class="text-[15px] font-semibold">Data console</span>
+      <span class="text-xs text-radio-muted">Every data packet in and out, and raw data to send.</span>
+    </span>
+    <span class="text-radio-accent" aria-hidden="true">&rsaquo;</span>
+  </RouterLink>
+
   <SettingsCard title="Event log">
     <template #action>
       <button type="button" :class="[secondaryButton, 'h-10']" @click="copy">{{ desktop ? 'Copy diagnostics' : 'Copy' }}</button>

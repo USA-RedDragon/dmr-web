@@ -27,6 +27,7 @@ const router = createRouter({
     { path: '/oauth/callback', name: 'oauth', component: () => import('../views/OAuthCallbackView.vue') },
     { path: '/messages/contacts/:id?', name: 'messages-contacts', component: () => import('../views/MessagesView.vue') },
     { path: '/messages/:thread?', name: 'messages', component: () => import('../views/MessagesView.vue') },
+    { path: '/settings/diagnostics/data', name: 'settings-data', component: () => import('../views/DataConsoleView.vue') },
     {
       path: '/settings/:section?',
       name: 'settings',

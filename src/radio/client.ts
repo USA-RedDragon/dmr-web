@@ -118,6 +118,10 @@ export class RadioClient {
     this.post({ type: 'requestLocation', ...msg });
   }
 
+  sendData(msg: Omit<Extract<ToWorker, { type: 'sendData' }>, 'type'>): void {
+    this.post({ type: 'sendData', ...msg });
+  }
+
   setLocation(here: Here | null, share: boolean): void {
     this.post({ type: 'setLocation', here, share });
   }
