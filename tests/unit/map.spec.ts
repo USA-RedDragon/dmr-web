@@ -22,6 +22,7 @@ import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import type { StyleSpecification } from 'maplibre-gl';
 
 import { archiveSource, latestKey, PartsSource, partName, spans } from '@/map/archive';
+import { BlockCachedSource } from '@/map/blockCache';
 import { basemapStyle, circleImage, FONTS, SOURCE, strictExpression, strictFilter } from '@/map/style';
 import dark from '@/map/styles/dark.json';
 import light from '@/map/styles/light.json';
@@ -63,9 +64,12 @@ describe('archive parts', () => {
 
   it('probes part000 for the PMTiles magic', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new TextEncoder().encode('PMTiles'), { status: 206 })));
-    expect(await archiveSource('https://tiles.example/a.pmtiles', 10)).toBeInstanceOf(PartsSource);
+    const parts = await archiveSource('https://tiles.example/a.pmtiles', 10);
+    expect(parts).toBeInstanceOf(BlockCachedSource);
+    expect((parts as BlockCachedSource).inner).toBeInstanceOf(PartsSource);
+    expect((parts as BlockCachedSource).generation).toBe('a.pmtiles');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 404 })));
-    expect(await archiveSource('https://tiles.example/a.pmtiles', 10)).not.toBeInstanceOf(PartsSource);
+    expect(((await archiveSource('https://tiles.example/a.pmtiles', 10)) as BlockCachedSource).inner).not.toBeInstanceOf(PartsSource);
   });
 
   it('reads the newest key from the status', async () => {

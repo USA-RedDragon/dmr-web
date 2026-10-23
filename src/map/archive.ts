@@ -19,6 +19,8 @@
 
 import { FetchSource, type RangeResponse, type Source } from 'pmtiles';
 
+import { BlockCachedSource, generationOf } from './blockCache';
+
 /** TILES_BASE is where the basemap archives and their status live. */
 export const TILES_BASE = 'https://tiles.squallar.app';
 
@@ -108,11 +110,10 @@ export async function latestKey(base: string): Promise<{ key: string; partBytes:
   return { key: s.key, partBytes: s.part_bytes || PART_BYTES };
 }
 
-/** archiveSource probes url for parts, as the publisher's contract asks, and reads it either way. */
+/** archiveSource probes url for parts, as the publisher's contract asks, and reads it either way, through the block cache. */
 export async function archiveSource(url: string, partBytes: number): Promise<Source> {
   const res = await fetch(url + partName(0), { headers: { Range: 'bytes=0-6' }, credentials: 'omit' }).catch(() => null);
-  if (res?.ok && new TextDecoder().decode(await res.arrayBuffer()).startsWith(MAGIC)) {
-    return new PartsSource(url, partBytes);
-  }
-  return new FetchSource(url);
+  const inner = res?.ok && new TextDecoder().decode(await res.arrayBuffer()).startsWith(MAGIC) ? new PartsSource(url, partBytes) : new FetchSource(url);
+  void BlockCachedSource.clearOtherGenerations([generationOf(url)]).catch(() => undefined);
+  return new BlockCachedSource(inner, generationOf(url));
 }
