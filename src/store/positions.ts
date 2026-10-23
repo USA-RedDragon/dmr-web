@@ -43,11 +43,41 @@ export type Position = {
 /** LocationRequest is a request for a station's position that this radio sent. */
 export type LocationRequest = { id: number; target: number; slot: number; startedAt: number; status: 'asking' | 'answered' | 'noPosition' | 'failed'; reason: string };
 
+/** LocationService is one of the location service IDs 5050 to 5059, and the APRS symbol that reporting to it gives. */
+export type LocationService = { id: number; symbol: string };
+
+/** LOCATION_SERVICES are the location service IDs, as BrandMeister assigns their APRS symbols. */
+export const LOCATION_SERVICES: LocationService[] = [
+  { id: 5050, symbol: 'House' },
+  { id: 5051, symbol: 'Train' },
+  { id: 5052, symbol: 'Tractor' },
+  { id: 5053, symbol: 'Pickup' },
+  { id: 5054, symbol: 'Van' },
+  { id: 5055, symbol: 'Phone' },
+  { id: 5056, symbol: 'Camp' },
+  { id: 5057, symbol: 'Person' },
+  { id: 5058, symbol: 'Bike' },
+  { id: 5059, symbol: 'Car' },
+];
+
+/** DEFAULT_SERVICE is the location service a radio reports to until the user picks another. */
+export const DEFAULT_SERVICE = 5057;
+
+/** OWN_INTERVAL_MS is how often this radio reports its position when no server asks, because ARS is off. */
+export const OWN_INTERVAL_MS = 5 * 60_000;
+
+/** serviceLabel names a location service as the share card does, such as Person (5057). */
+export function serviceLabel(id: number): string {
+  const s = LOCATION_SERVICES.find((x) => x.id === id);
+  return s ? `${s.symbol} (${s.id})` : String(id);
+}
+
 /** KEEP_MS is how long a position stays on the map. */
 export const KEEP_MS = 24 * 60 * 60 * 1000;
 
 const KEY = 'positions';
 const SHARE_KEY = 'share-location';
+const SERVICE_KEY = 'location-service';
 
 /** fromFix reads a position out of a fix event, or returns null for a fix without one. */
 export function fromFix(source: number, slot: number, latitude: number, longitude: number, fix: FixDetail | undefined, now: number): Position | null {
@@ -110,6 +140,8 @@ export const usePositions = defineStore('positions', () => {
   const list = ref<Position[]>([]);
   const requests = ref<Record<number, LocationRequest>>({});
   const share = ref(false);
+  const service = ref(DEFAULT_SERVICE);
+  const hubEvery = ref<{ source: number; ms: number } | null>(null);
   const here = ref<Here | null>(null);
   const hereError = ref('');
   const loaded = ref(false);
@@ -123,6 +155,8 @@ export const usePositions = defineStore('positions', () => {
   async function load(): Promise<void> {
     list.value = prune((await kvGet<Position[]>(KEY)) ?? [], Date.now());
     share.value = (await kvGet<boolean>(SHARE_KEY)) ?? false;
+    const saved = (await kvGet<number>(SERVICE_KEY)) ?? DEFAULT_SERVICE;
+    service.value = LOCATION_SERVICES.some((x) => x.id === saved) ? saved : DEFAULT_SERVICE;
     loaded.value = true;
   }
 
@@ -134,6 +168,15 @@ export const usePositions = defineStore('positions', () => {
   function setShare(on: boolean): void {
     share.value = on;
     void kvSet(SHARE_KEY, on).catch(() => undefined);
+  }
+
+  function setService(id: number): void {
+    if (!LOCATION_SERVICES.some((x) => x.id === id)) {
+      return;
+    }
+    service.value = id;
+    hubEvery.value = null;
+    void kvSet(SERVICE_KEY, id).catch(() => undefined);
   }
 
   let watchId: number | null = null;
@@ -193,5 +236,5 @@ export const usePositions = defineStore('positions', () => {
       .sort((a, b) => b.startedAt - a.startedAt)[0];
   }
 
-  return { positions, requests, share, here, hereError, loaded, load, add, setShare, locate, startRequest, requestStatus, latestRequest };
+  return { positions, requests, share, service, hubEvery, here, hereError, loaded, load, add, setShare, setService, locate, startRequest, requestStatus, latestRequest };
 });

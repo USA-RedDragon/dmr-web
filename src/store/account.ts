@@ -42,12 +42,12 @@ import { hubOrigin } from '@/radio/discover';
 import { useSettings } from '@/store/settings';
 
 /** HubUser is the account behind a login. */
-export type HubUser = { id: number; callsign: string; username: string; smsStorage?: boolean };
+export type HubUser = { id: number; callsign: string; username: string; smsStorage?: boolean; positionTracking?: boolean };
 
-type Me = { id: number; callsign: string; username: string; sms_storage?: boolean };
+type Me = { id: number; callsign: string; username: string; sms_storage?: boolean; position_tracking?: boolean };
 
 function userOf(me: Me): HubUser {
-  return { id: me.id, callsign: me.callsign, username: me.username, smsStorage: me.sms_storage };
+  return { id: me.id, callsign: me.callsign, username: me.username, smsStorage: me.sms_storage, positionTracking: me.position_tracking };
 }
 
 /** HubHotspot is a hotspot that the account owns on its hub. */

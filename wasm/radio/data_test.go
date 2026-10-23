@@ -50,11 +50,18 @@ type station struct {
 	texts  []sms.Text
 	acks   int
 	ars    []uint32
+	arsTo  []arsSeen
 	sent   []data.Result
 	checks []csbk.Output
 	alerts []csbk.Output
 	lrrp   []lrrp.Message
+	lrrpTo []uint32
 	seq    uint8
+}
+
+type arsSeen struct {
+	to  uint32
+	typ ars.Type
 }
 
 func newStation(t *testing.T, h *hub, answer bool) *station {
@@ -101,6 +108,8 @@ func (s *station) events(evs []data.Event) {
 						if id, ok := m.DeviceID(); ok {
 							s.ars = append(s.ars, id)
 						}
+						to, _, _ := e.Message.Header.Addresses()
+						s.arsTo = append(s.arsTo, arsSeen{to: to, typ: m.Header.Type})
 					}
 				}
 				if err == nil && d.DestinationPort == ip.PortTMS {

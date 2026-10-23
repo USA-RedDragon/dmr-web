@@ -28,7 +28,7 @@ import { webTransportSupported } from '@/radio/transport';
 
 import { useContacts } from './contacts';
 import { useMessages } from './messages';
-import { fromFix, usePositions } from './positions';
+import { fromFix, OWN_INTERVAL_MS, usePositions } from './positions';
 import { rptoOptions, useSettings, type Slot } from './settings';
 import type { Peer } from '@/lib/threads';
 import type { CheckKind, TextFormat } from '@/radio/protocol';
@@ -154,6 +154,7 @@ export const useRadio = defineStore('radio', () => {
         break;
       case 'down':
         addLog(`Session down: ${e.reason}`);
+        positionsStore.hubEvery = null;
         break;
       case 'callStart':
         Object.assign(calls[slot], {
@@ -244,6 +245,11 @@ export const useRadio = defineStore('radio', () => {
         break;
       case 'locationRequest':
         addLog(`Location request from ${e.source}, TS${slot}: ${e.reason}`);
+        if (e.reason === 'periodic' && e.source === positionsStore.service) {
+          positionsStore.hubEvery = { source: e.source, ms: e.elapsedMs };
+        } else if (e.reason === 'stopped' && positionsStore.hubEvery?.source === e.source) {
+          positionsStore.hubEvery = null;
+        }
         break;
       case 'transmitStart':
         Object.assign(tx, { active: true, slot: e.slot, target: e.target, group: e.group, startedAt: Date.now(), error: '' });
@@ -373,6 +379,51 @@ export const useRadio = defineStore('radio', () => {
     },
   );
 
+  watch(
+    () => [positionsStore.service, positionsStore.share] as const,
+    ([service, share], [before, shared]) => {
+      if (service !== before || (share && !shared)) {
+        client.value?.setLocationServer(service);
+      }
+    },
+  );
+
+  watch(
+    () => [positionsStore.share && !settingsStore.settings.ars, client.value] as const,
+    ([own, c]) => {
+      c?.setReporting(own ? OWN_INTERVAL_MS : 0);
+    },
+    { immediate: true },
+  );
+
+  const report = ref<{ id: number; at: number; error: string } | null>(null);
+  let reportID = 0;
+  let reportWanted = false;
+
+  /** reportPosition sends this radio's position once to the location server, finding it first when needed. */
+  function reportPosition(): void {
+    if (!client.value || link.value !== 'up') {
+      report.value = { id: ++reportID, at: Date.now(), error: 'notConnected' };
+      return;
+    }
+    if (!positionsStore.here) {
+      reportWanted = true;
+      positionsStore.locate();
+      return;
+    }
+    client.value.reportLocation(++reportID);
+  }
+
+  watch(
+    () => positionsStore.here,
+    (here) => {
+      if (here && reportWanted) {
+        reportWanted = false;
+        reportPosition();
+      }
+    },
+  );
+
   function check(kind: CheckKind, target: number, slot: number): number {
     const c = messagesStore.startCheck(kind, target, slot);
     if (!client.value || link.value !== 'up') {
@@ -447,6 +498,10 @@ export const useRadio = defineStore('radio', () => {
           dataError.value = msg.error ?? 'refused';
         }
         break;
+      case 'reportLocation':
+        report.value = { id: msg.id, at: Date.now(), error: msg.ok ? '' : (msg.error ?? 'refused') };
+        addLog(msg.ok ? `Position report ${msg.id} to ${positionsStore.service}` : `Position report ${msg.id} refused: ${msg.error ?? ''}`);
+        break;
       case 'requestLocation':
         if (!msg.ok) {
           addLog(`Location request ${msg.id} refused: ${msg.error ?? ''}`);
@@ -518,6 +573,7 @@ export const useRadio = defineStore('radio', () => {
       jitterMs: s.jitterMs,
       vocoder: s.vocoder,
       ars: s.ars,
+      locationServer: positionsStore.service,
     });
   }
 
@@ -656,6 +712,8 @@ export const useRadio = defineStore('radio', () => {
     sendText,
     check,
     requestLocation,
+    reportPosition,
+    report,
     sendData,
     traffic,
     dataError,

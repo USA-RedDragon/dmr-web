@@ -52,6 +52,15 @@ const MinInterval = 30 * time.Second
 
 const maxTriggers = 8
 
+// ReportSlot is the slot that position reports to the location server go
+// out on.
+const ReportSlot = 2
+
+type periodicReport struct {
+	interval time.Duration
+	next     time.Duration
+}
+
 type trigger struct {
 	target    uint32
 	slot      int
@@ -68,6 +77,31 @@ func (r *Radio) SetLocation(here Here, share bool) {
 	if !share {
 		r.triggers = r.triggers[:0]
 	}
+}
+
+// SetReporting makes this radio report its position to the location
+// server every interval without being asked, while it shares its location,
+// for when the server cannot ask because ARS is off. Zero stops it.
+func (r *Radio) SetReporting(now time.Duration, interval time.Duration) {
+	if interval <= 0 {
+		r.periodic = periodicReport{}
+		return
+	}
+	r.periodic = periodicReport{interval: max(interval, MinInterval), next: now}
+}
+
+// ReportLocation queues one unsolicited LRRP report of this radio's
+// position to the location server, whether or not it shares its location.
+func (r *Radio) ReportLocation(now time.Duration) error {
+	if !r.here.Valid {
+		return ErrNoHere
+	}
+	i, err := r.dataTarget(ReportSlot, r.locationServer())
+	if err != nil {
+		return err
+	}
+	r.report(now, i, r.locationServer(), lrrp.DocumentUnsolicitedReport, nil)
+	return nil
 }
 
 // RequestLocation queues an LRRP request for one position of target on
@@ -174,11 +208,14 @@ func (r *Radio) locationRequest(now time.Duration, i int, e *data.Event) bool {
 	req := &r.lrrpIn.Request
 	rid := append([]byte(nil), req.RequestID...)
 	reason := "answered"
+	var every time.Duration
 	switch r.lrrpIn.Document {
 	case lrrp.DocumentImmediateRequest:
 		r.answer(now, i, source, lrrp.DocumentImmediateReport, rid)
 	case lrrp.DocumentTriggeredRequest:
-		r.answerTriggered(now, i, source, rid, req)
+		if every = r.answerTriggered(now, i, source, rid, req); every > 0 {
+			reason = "periodic"
+		}
 	case lrrp.DocumentStopRequest:
 		r.stopTrigger(source, rid)
 		r.answerResult(now, i, source, lrrp.DocumentStopAnswer, rid, lrrp.ResultSuccess)
@@ -189,19 +226,19 @@ func (r *Radio) locationRequest(now time.Duration, i int, e *data.Event) bool {
 	if !r.share {
 		reason = "notShared"
 	}
-	r.sink.Event(&Event{Kind: EventLocationRequest, Slot: i + 1, Source: source, Reason: reason})
+	r.sink.Event(&Event{Kind: EventLocationRequest, Slot: i + 1, Source: source, Reason: reason, Elapsed: every})
 	return true
 }
 
-func (r *Radio) answerTriggered(now time.Duration, i int, source uint32, rid []byte, req *lrrp.Request) {
+func (r *Radio) answerTriggered(now time.Duration, i int, source uint32, rid []byte, req *lrrp.Request) time.Duration {
 	if !r.share {
 		r.answerResult(now, i, source, lrrp.DocumentTriggeredAnswer, rid, lrrp.ResultNoGPS)
-		return
+		return 0
 	}
 	r.answerResult(now, i, source, lrrp.DocumentTriggeredAnswer, rid, lrrp.ResultSuccess)
 	if !req.Periodic || !req.HasInterval {
 		r.answer(now, i, source, lrrp.DocumentTriggeredReport, rid)
-		return
+		return 0
 	}
 	interval := max(time.Duration(req.Interval)*time.Second, MinInterval)
 	r.stopTrigger(source, rid)
@@ -209,6 +246,7 @@ func (r *Radio) answerTriggered(now time.Duration, i int, source uint32, rid []b
 		r.triggers = r.triggers[1:]
 	}
 	r.triggers = append(r.triggers, trigger{target: source, slot: i + 1, requestID: rid, interval: interval, next: now})
+	return interval
 }
 
 func (r *Radio) stopTrigger(source uint32, rid []byte) {
@@ -226,6 +264,10 @@ func (r *Radio) answer(now time.Duration, i int, target uint32, doc lrrp.Documen
 		r.answerResult(now, i, target, doc, rid, lrrp.ResultNoGPS)
 		return
 	}
+	r.report(now, i, target, doc, rid)
+}
+
+func (r *Radio) report(now time.Duration, i int, target uint32, doc lrrp.DocumentID, rid []byte) {
 	m := &lrrp.Message{Document: doc}
 	rep := &m.Report
 	rep.RequestID, rep.HasRequestID = rid, len(rid) > 0
@@ -261,6 +303,9 @@ func (r *Radio) triggerDeadline(consider func(time.Duration, bool)) {
 	for _, t := range r.triggers {
 		consider(t.next, true)
 	}
+	if r.periodic.interval > 0 && r.share {
+		consider(r.periodic.next, true)
+	}
 }
 
 func (r *Radio) triggerTick(now time.Duration) {
@@ -274,6 +319,14 @@ func (r *Radio) triggerTick(now time.Duration) {
 		}
 		t.next = now + t.interval
 		r.answer(now, t.slot-1, t.target, lrrp.DocumentTriggeredReport, t.requestID)
+	}
+	if p := &r.periodic; p.interval > 0 && r.share && p.next <= now {
+		p.next = now + p.interval
+		if r.here.Valid {
+			if i, err := r.dataTarget(ReportSlot, r.locationServer()); err == nil {
+				r.report(now, i, r.locationServer(), lrrp.DocumentUnsolicitedReport, nil)
+			}
+		}
 	}
 }
 

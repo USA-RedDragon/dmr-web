@@ -47,4 +47,8 @@ var (
 	ErrRate = errors.New("radio: the rate must be 1/2, 3/4 or 1")
 	// ErrChecking is a check on a slot where one already runs.
 	ErrChecking = errors.New("radio: a check already runs on the slot")
+	// ErrLocationServer is a location server outside 5050 to 5059.
+	ErrLocationServer = errors.New("radio: the location server must be from 5050 to 5059")
+	// ErrNoHere is a position report while this radio has no position.
+	ErrNoHere = errors.New("radio: this radio has no position to report")
 )

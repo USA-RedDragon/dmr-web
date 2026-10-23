@@ -66,9 +66,12 @@ type Config struct {
 	Codecs Codecs
 	// Vocoder is the transmit vocoder choice.
 	Vocoder Vocoder
-	// ARS sends a MOTOTRBO ARS registration after each login, which also
+	// ARS sends an ARS registration after each login, which also
 	// tells the hub where to send private calls and texts for RadioID.
 	ARS bool
+	// LocationServer is the ID that ARS registrations and position
+	// reports go to, from 5050 to 5059; 0 is DefaultLocationServer.
+	LocationServer uint32
 }
 
 // Sink takes what the radio produces. Send and Audio must copy what they
@@ -126,6 +129,7 @@ type Radio struct {
 	here       Here
 	share      bool
 	triggers   []trigger
+	periodic   periodicReport
 }
 
 // New returns a radio for cfg that reports to sink. The first Tick starts

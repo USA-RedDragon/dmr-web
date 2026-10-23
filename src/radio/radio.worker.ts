@@ -43,6 +43,9 @@ type DmrWeb = {
   check: (now: number, id: number, slot: number, kind: string, target: number) => Result & { deadline: number };
   requestLocation: (now: number, id: number, slot: number, target: number) => Result & { deadline: number };
   setLocation: (here: Here | null, share: boolean) => Result & { deadline: number };
+  setLocationServer: (now: number, server: number) => Result & { deadline: number };
+  setReporting: (now: number, intervalMs: number) => Result & { deadline: number };
+  reportLocation: (now: number) => Result & { deadline: number };
   sendData: (now: number, id: number, slot: number, group: boolean, target: number, confirmed: boolean, sap: string, rate: string, payload: Uint8Array) => Result & { deadline: number };
   frame: (samples: Int16Array) => Result;
   loadAmbe: (bytes: Uint8Array) => Result;
@@ -75,6 +78,8 @@ let attempt = 0;
 let everUp = false;
 let wanted = false;
 let located: { here: Here | null; share: boolean } = { here: null, share: false };
+let locationServer = 0;
+let reportingMs = 0;
 
 function post(message: FromWorker, transfer?: Transferable[]): void {
   scope.postMessage(message, transfer);
@@ -180,7 +185,7 @@ async function connect(cfg: RadioConfig): Promise<void> {
   const { hub: _hub, ...radioConfig } = cfg;
   void _hub;
   const res = dmr.start(
-    radioConfig,
+    { ...radioConfig, locationServer: locationServer || radioConfig.locationServer },
     {
       send: (packet) => t.send(packet),
       event: (event) => onEvent(event, t),
@@ -196,6 +201,7 @@ async function connect(cfg: RadioConfig): Promise<void> {
     return;
   }
   dmr.setLocation(located.here, located.share);
+  dmr.setReporting(performance.now(), reportingMs);
   schedule(dmr.tick(performance.now()));
 }
 
@@ -228,6 +234,7 @@ function handle(msg: ToWorker): void {
     case 'connect':
       disconnect();
       everUp = false;
+      locationServer = msg.config.locationServer;
       void connect(msg.config);
       return;
     case 'disconnect':
@@ -279,6 +286,32 @@ function handle(msg: ToWorker): void {
       }
       const res = dmr.sendData(performance.now(), msg.id, msg.slot, msg.group, msg.target, msg.confirmed, msg.sap, msg.rate, msg.payload);
       post({ type: 'sendData', id: msg.id, ok: res.ok, error: res.error });
+      schedule(res.deadline);
+      return;
+    }
+    case 'setLocationServer': {
+      locationServer = msg.server;
+      const res = dmr?.setLocationServer(performance.now(), msg.server);
+      if (res?.ok) {
+        schedule(res.deadline);
+      }
+      return;
+    }
+    case 'setReporting': {
+      reportingMs = msg.intervalMs;
+      const res = dmr?.setReporting(performance.now(), msg.intervalMs);
+      if (res?.ok) {
+        schedule(res.deadline);
+      }
+      return;
+    }
+    case 'reportLocation': {
+      if (!dmr) {
+        post({ type: 'reportLocation', id: msg.id, ok: false, error: 'the radio is not loaded' });
+        return;
+      }
+      const res = dmr.reportLocation(performance.now());
+      post({ type: 'reportLocation', id: msg.id, ok: res.ok, error: res.error });
       schedule(res.deadline);
       return;
     }

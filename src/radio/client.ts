@@ -126,6 +126,18 @@ export class RadioClient {
     this.post({ type: 'setLocation', here, share });
   }
 
+  setLocationServer(server: number): void {
+    this.post({ type: 'setLocationServer', server });
+  }
+
+  setReporting(intervalMs: number): void {
+    this.post({ type: 'setReporting', intervalMs });
+  }
+
+  reportLocation(id: number): void {
+    this.post({ type: 'reportLocation', id });
+  }
+
   disconnect(): void {
     this.post({ type: 'disconnect' });
   }

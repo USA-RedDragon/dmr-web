@@ -28,7 +28,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import AppNav from '@/components/AppNav.vue';
 import BaseMap from '@/components/map/BaseMap.vue';
-import ToggleSwitch from '@/components/settings/ToggleSwitch.vue';
+import ShareLocation from '@/components/map/ShareLocation.vue';
 import { useColorMode } from '@/composables/useColorMode';
 import { useNames } from '@/lib/names';
 import { keyOf } from '@/lib/threads';
@@ -184,16 +184,7 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
       <p v-if="!positions.positions.length" class="m-0 px-4 py-2 text-sm text-radio-muted">
         No positions yet. They appear when a radio sends one, or answers a request.
       </p>
-      <div class="mt-auto flex flex-col gap-2.5 border-t border-radio-line p-4">
-        <div class="flex items-center justify-between gap-3">
-          <div class="flex flex-col gap-0.5">
-            <span class="text-sm font-semibold">Share my location</span>
-            <span class="text-xs text-radio-text/75">Answers LRRP location requests</span>
-          </div>
-          <ToggleSwitch :model-value="positions.share" label="Share my location" @update:model-value="positions.setShare" />
-        </div>
-        <button type="button" class="h-11 rounded-[10px] border border-radio-line text-sm" @click="showMe">Show my position</button>
-      </div>
+      <ShareLocation class="mt-auto border-t border-radio-line p-4" />
     </aside>
     <BaseMap ref="base" class="grow" :positions="positions.positions" :selected="selected" :here="positions.here" :dark="isDark" :label="label" @select="selected = $event" @ready="ready">
       <template #popup="{ point }">
@@ -288,10 +279,7 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
             <p v-else class="m-0 text-[13px] text-radio-text/80">
               {{ positions.positions.length ? 'Tap a station for its position.' : 'No positions yet. They appear when a radio sends one.' }}
             </p>
-            <div class="flex items-center justify-between border-t border-radio-line pt-2.5">
-              <span class="text-sm">Share my location</span>
-              <ToggleSwitch :model-value="positions.share" label="Share my location" @update:model-value="positions.setShare" />
-            </div>
+            <ShareLocation compact class="border-t border-radio-line pt-2.5" />
           </section>
         </template>
       </BaseMap>

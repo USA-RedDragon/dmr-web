@@ -29,6 +29,7 @@ export type RadioConfig = {
   jitterMs: number;
   vocoder: VocoderChoice;
   ars: boolean;
+  locationServer: number;
 };
 
 export type RadioEventKind =
@@ -116,6 +117,9 @@ export type ToWorker =
   | { type: 'check'; id: number; slot: number; kind: CheckKind; target: number }
   | { type: 'requestLocation'; id: number; slot: number; target: number }
   | { type: 'setLocation'; here: Here | null; share: boolean }
+  | { type: 'setLocationServer'; server: number }
+  | { type: 'setReporting'; intervalMs: number }
+  | { type: 'reportLocation'; id: number }
   | { type: 'sendData'; id: number; slot: number; group: boolean; target: number; confirmed: boolean; sap: DataSap; rate: DataRate; payload: Uint8Array }
   | { type: 'capturePort'; port: MessagePort }
   | { type: 'playbackPort'; port: MessagePort };
@@ -131,6 +135,7 @@ export type FromWorker =
   | { type: 'sendText'; id: number; ok: boolean; error?: string }
   | { type: 'check'; id: number; ok: boolean; error?: string }
   | { type: 'requestLocation'; id: number; ok: boolean; error?: string }
+  | { type: 'reportLocation'; id: number; ok: boolean; error?: string }
   | { type: 'sendData'; id: number; ok: boolean; error?: string }
   | { type: 'fatal'; error: string };
 

@@ -74,6 +74,9 @@ func main() {
 	b.export(obj, "check", b.check)
 	b.export(obj, "requestLocation", b.requestLocation)
 	b.export(obj, "setLocation", b.setLocation)
+	b.export(obj, "setLocationServer", b.setLocationServer)
+	b.export(obj, "setReporting", b.setReporting)
+	b.export(obj, "reportLocation", b.reportLocation)
 	b.export(obj, "sendData", b.sendData)
 	js.Global().Set("dmrweb", obj)
 	select {}
@@ -169,6 +172,8 @@ func (b *bridge) start(args []js.Value) any {
 		Codecs:   b.codecs(),
 		Vocoder:  b.choice,
 		ARS:      cfg.Get("ars").Truthy(),
+
+		LocationServer: id(cfg.Get("locationServer")),
 	}, b)
 	if err != nil {
 		b.r = nil
@@ -385,6 +390,36 @@ func (b *bridge) setLocation(args []js.Value) any {
 	}
 	b.r.SetLocation(here, arg(args, 1).Truthy())
 	o := result(nil)
+	o.Set("deadline", b.deadline())
+	return o
+}
+
+func (b *bridge) setLocationServer(args []js.Value) any {
+	if b.r == nil {
+		return result(errNoRadio)
+	}
+	err := b.r.SetLocationServer(at(arg(args, 0)), id(arg(args, 1)))
+	o := result(err)
+	o.Set("deadline", b.deadline())
+	return o
+}
+
+func (b *bridge) setReporting(args []js.Value) any {
+	if b.r == nil {
+		return result(errNoRadio)
+	}
+	b.r.SetReporting(at(arg(args, 0)), time.Duration(numberOr(arg(args, 1)))*time.Millisecond)
+	o := result(nil)
+	o.Set("deadline", b.deadline())
+	return o
+}
+
+func (b *bridge) reportLocation(args []js.Value) any {
+	if b.r == nil {
+		return result(errNoRadio)
+	}
+	err := b.r.ReportLocation(at(arg(args, 0)))
+	o := result(err)
 	o.Set("deadline", b.deadline())
 	return o
 }

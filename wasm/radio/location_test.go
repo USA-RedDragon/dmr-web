@@ -30,6 +30,7 @@ import (
 	"github.com/USA-RedDragon/dmrgo/v2/enums"
 	"github.com/USA-RedDragon/dmrgo/v2/ip"
 	"github.com/USA-RedDragon/dmrgo/v2/layer2/pdu"
+	"github.com/USA-RedDragon/dmrgo/v2/mototrbo/ars"
 	"github.com/USA-RedDragon/dmrgo/v2/mototrbo/lrrp"
 	"github.com/stretchr/testify/require"
 )
@@ -67,6 +68,8 @@ func (s *station) lrrpIn(evs []data.Event) {
 		}
 		var m lrrp.Message
 		require.NoError(s.t, lrrp.DecodeMessageInto(&m, d.Payload))
+		to, _, _ := e.Message.Header.Addresses()
+		s.lrrpTo = append(s.lrrpTo, to)
 		m.Request.RequestID = append([]byte(nil), m.Request.RequestID...)
 		m.Report.RequestID = append([]byte(nil), m.Report.RequestID...)
 		s.lrrp = append(s.lrrp, m)
@@ -193,4 +196,87 @@ func TestPeriodicReports(t *testing.T) {
 		}
 	}
 	require.Equal(t, reports, after)
+}
+
+func TestReportLocationGoesToTheLocationServer(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false, func(c *radio.Config) { c.LocationServer = 5059 })
+	h.login()
+	require.ErrorIs(t, h.r.ReportLocation(h.now), radio.ErrNoHere)
+
+	h.r.SetLocation(radio.Here{Valid: true, Latitude: 30.2672, Longitude: -97.7431, Radius: 12}, false)
+	s := newStation(t, h, true)
+	require.NoError(t, h.r.ReportLocation(h.now))
+	s.run(3 * time.Second)
+
+	require.Len(t, s.lrrp, 1, "an explicit report goes out even while the radio does not share its location")
+	require.Equal(t, lrrp.DocumentUnsolicitedReport, s.lrrp[0].Document)
+	require.Equal(t, uint32(5059), s.lrrpTo[0])
+	require.InDelta(t, 30.2672, s.lrrp[0].Report.Circle2D.Latitude, 1e-6)
+}
+
+func TestSetLocationServerMovesTheRegistration(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false, func(c *radio.Config) { c.ARS = true })
+	s := newStation(t, h, true)
+	s.run(3 * time.Second)
+	require.Equal(t, []arsSeen{{to: radio.DefaultLocationServer, typ: ars.TypeDeviceRegistration}}, s.arsTo)
+
+	require.ErrorIs(t, h.r.SetLocationServer(h.now, 5060), radio.ErrLocationServer)
+	require.NoError(t, h.r.SetLocationServer(h.now, 5059))
+	s.run(6 * time.Second)
+	require.Equal(t, []arsSeen{
+		{to: radio.DefaultLocationServer, typ: ars.TypeDeviceRegistration},
+		{to: radio.DefaultLocationServer, typ: ars.TypeDeviceDeregistration},
+		{to: 5059, typ: ars.TypeDeviceRegistration},
+	}, s.arsTo)
+
+	require.NoError(t, h.r.SetLocationServer(h.now, 5059))
+	s.run(3 * time.Second)
+	require.Equal(t, arsSeen{to: 5059, typ: ars.TypeDeviceRegistration}, s.arsTo[len(s.arsTo)-1], "the same server registers again, so it asks again")
+	require.Len(t, s.arsTo, 4)
+}
+
+func TestPeriodicRequestTellsItsInterval(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	h.login()
+	h.r.SetLocation(radio.Here{Valid: true, Latitude: 1, Longitude: 2}, true)
+	s := newStation(t, h, true)
+	req := &lrrp.Message{Document: lrrp.DocumentTriggeredRequest}
+	req.Request.RequestID, req.Request.HasRequestID = []byte{3}, true
+	req.Request.Periodic = true
+	req.Request.Interval, req.Request.HasInterval = 600, true
+	m := lrrpFromStation(t, req)
+	require.NoError(t, s.tx.Send(h.now, &m))
+	s.run(4 * time.Second)
+
+	ev, ok := h.s.first(radio.EventLocationRequest)
+	require.True(t, ok)
+	require.Equal(t, "periodic", ev.Reason)
+	require.Equal(t, 10*time.Minute, ev.Elapsed)
+}
+
+func TestReportingWithoutARS(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	h.login()
+	h.r.SetLocation(radio.Here{Valid: true, Latitude: 1, Longitude: 2}, true)
+	s := newStation(t, h, true)
+	h.r.SetReporting(h.now, radio.MinInterval)
+	s.run(radio.MinInterval + 5*time.Second)
+	require.Len(t, s.lrrp, 2, "one report at once and one an interval later")
+	for k, m := range s.lrrp {
+		require.Equal(t, lrrp.DocumentUnsolicitedReport, m.Document)
+		require.Equal(t, uint32(radio.DefaultLocationServer), s.lrrpTo[k])
+	}
+
+	h.r.SetLocation(radio.Here{Valid: true, Latitude: 1, Longitude: 2}, false)
+	s.run(radio.MinInterval + 5*time.Second)
+	require.Len(t, s.lrrp, 2, "no reports while not sharing")
+
+	h.r.SetLocation(radio.Here{Valid: true, Latitude: 1, Longitude: 2}, true)
+	h.r.SetReporting(h.now, 0)
+	s.run(radio.MinInterval + 5*time.Second)
+	require.Len(t, s.lrrp, 2, "no reports once stopped")
 }
