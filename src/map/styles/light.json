@@ -5269,12 +5269,16 @@
     },
     {
       "filter": [
-        "all",
+        ">",
         [
-          ">",
-          "capital",
+          "coalesce",
+          [
+            "get",
+            "capital"
+          ],
           0
-        ]
+        ],
+        0
       ],
       "id": "place_capital_dot_z7",
       "layout": {
