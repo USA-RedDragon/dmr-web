@@ -22,15 +22,18 @@
 <script setup lang="ts">
 import { formatDistanceToNowStrict } from 'date-fns';
 import { format as formatDate } from 'date-fns';
-import { Check, ChevronLeft, MoreHorizontal, SendHorizontal, ArrowUp } from 'lucide-vue-next';
+import { Check, ChevronLeft, Crosshair, MoreHorizontal, SendHorizontal, ArrowUp } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import StarButton from '@/components/contacts/StarButton.vue';
 import { useNames } from '@/lib/names';
+import { failedReason, SHOW_MS, usePositionRequest } from '@/lib/positionRequest';
 import { autoFormat, FORMATS, formatLabel, type Message } from '@/lib/threads';
 import { dayLabel } from '@/lib/when';
 import type { CheckKind, TextFormat } from '@/radio/protocol';
 import { useMessages } from '@/store/messages';
+import { degrees, describe } from '@/store/positions';
 import { useRadio } from '@/store/radio';
 
 import PeerAvatar from './PeerAvatar.vue';
@@ -52,6 +55,57 @@ const format = ref<TextFormat | 'auto'>('auto');
 const slot = ref(thread.value?.slot ?? 2);
 const scroller = ref<HTMLElement | null>(null);
 const menu = ref(false);
+const router = useRouter();
+const located = usePositionRequest(
+  computed(() => peer.value.id),
+  slot,
+);
+const askLabel = computed(() => (located.phase.value === 'asking' ? 'Asking' : located.phase.value === 'answered' ? 'Request update' : 'Request position'));
+const asked = computed(() => {
+  const r = located.request.value;
+  return r && located.now.value - r.startedAt < SHOW_MS ? r : null;
+});
+const pill = computed(() => {
+  const r = asked.value;
+  if (!r) {
+    return '';
+  }
+  const them = props.compact ? 'their' : `${who.value}\u2019s`;
+  switch (located.phase.value) {
+    case 'asking':
+      return props.compact ? 'Asked for their position, waiting' : `You asked for ${them} position. Waiting for an answer.`;
+    case 'answered':
+      return `You asked for ${them} position at ${formatDate(r.startedAt, 'HH:mm')}`;
+    case 'noPosition':
+      return `${props.compact ? 'Their' : `${who.value}\u2019s`} radio answered without a position. Its GPS may be off.`;
+    case 'noAnswer':
+      return `No answer yet from ${them} radio`;
+    case 'failed':
+      return `Position request: ${failedReason(r.reason)}`;
+    default:
+      return '';
+  }
+});
+const answer = computed(() => {
+  const p = located.position.value;
+  const r = asked.value;
+  return p && r && located.phase.value === 'answered' && p.at >= r.startedAt ? p : null;
+});
+
+watch(
+  () => [pill.value, answer.value?.at],
+  () => void bottom(),
+);
+
+function askPosition(): void {
+  if (!peer.value.group) {
+    located.ask();
+  }
+}
+
+function showMap(): void {
+  void router.push({ path: '/map', query: { station: String(peer.value.id) } });
+}
 
 const who = computed(() => names.name(peer.value));
 const sub = computed(() => {
@@ -170,6 +224,14 @@ function onKey(e: KeyboardEvent): void {
         <button type="button" class="h-10 rounded-[10px] border border-radio-line px-3.5 text-[13px]" @click="emit('check', 'radioCheck')">Radio check</button>
         <button type="button" class="h-10 rounded-[10px] border border-radio-line px-3.5 text-[13px]" @click="emit('check', 'callAlert')">Call alert</button>
         <button type="button" class="h-10 rounded-[10px] border border-radio-line px-3.5 text-[13px]" @click="emit('call')">Private call</button>
+        <button
+          type="button"
+          class="flex h-10 items-center gap-2 rounded-[10px] border border-radio-line px-3.5 text-[13px] disabled:text-radio-muted"
+          :disabled="located.phase.value === 'asking'"
+          @click="askPosition"
+        >
+          <Crosshair class="size-4" aria-hidden="true" />{{ askLabel }}
+        </button>
       </div>
       <div v-if="compact && !peer.group" class="relative">
         <button type="button" aria-label="More" :aria-expanded="menu" class="flex size-11 items-center justify-center text-radio-text" @click="menu = !menu">
@@ -180,6 +242,9 @@ function onKey(e: KeyboardEvent): void {
           <button type="button" class="h-11 rounded-lg px-3 text-left text-sm" @click="emit('check', 'callAlert')">Call alert</button>
           <button type="button" class="h-11 rounded-lg px-3 text-left text-sm" @click="emit('check', 'presence')">Presence check</button>
           <button type="button" class="h-11 rounded-lg px-3 text-left text-sm" @click="emit('call')">Private call</button>
+          <button type="button" class="flex h-11 items-center gap-2.5 rounded-lg px-3 text-left text-sm disabled:text-radio-muted" :disabled="located.phase.value === 'asking'" @click="askPosition">
+            <Crosshair class="size-4" aria-hidden="true" />{{ askLabel }}
+          </button>
         </div>
       </div>
     </header>
@@ -207,6 +272,21 @@ function onKey(e: KeyboardEvent): void {
           </span>
         </div>
       </template>
+      <div v-if="pill" role="status" class="flex items-center gap-2 self-center rounded-[14px] border border-radio-line px-3 py-1.5 text-xs text-radio-text/80">
+        <span class="size-2 shrink-0 rounded-full" :class="located.phase.value === 'answered' ? 'bg-radio-green' : located.phase.value === 'asking' ? 'bg-radio-amber' : 'bg-radio-muted'" aria-hidden="true" />{{ pill }}
+      </div>
+      <div v-if="answer" class="flex flex-col items-start pb-2">
+        <button type="button" class="flex flex-col overflow-hidden rounded-2xl rounded-bl-[4px] border border-radio-line bg-radio-raised text-left" :class="compact ? 'w-60' : 'w-[280px]'" @click="showMap">
+          <span class="relative block bg-radio-page" :class="compact ? 'h-[100px]' : 'h-[120px]'" style="background-image: linear-gradient(var(--color-radio-line) 1px, transparent 1px), linear-gradient(90deg, var(--color-radio-line) 1px, transparent 1px); background-size: 22px 22px" aria-hidden="true">
+            <span class="absolute top-1/2 left-1/2 size-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-radio-amber-ink bg-radio-amber shadow-[0_0_0_5px_rgba(255,181,71,0.25)]" />
+          </span>
+          <span class="flex items-center justify-between gap-3 px-3 py-2.5">
+            <span class="font-mono text-xs">{{ degrees(answer.latitude, answer.longitude) }}</span>
+            <span v-if="!compact" class="text-[13px] text-radio-accent">Open map</span>
+          </span>
+        </button>
+        <span class="pt-1 text-[11px] text-radio-muted">{{ formatDate(answer.at, 'HH:mm') }} · {{ describe(answer) }}</span>
+      </div>
     </div>
 
     <form class="shrink-0 border-t border-radio-line" :class="compact ? 'px-3 pt-3 pb-2' : 'px-6 pt-4 pb-3'" @submit.prevent="send">

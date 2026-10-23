@@ -27,8 +27,11 @@ import { computed } from 'vue';
 import RadioLogo from '@/components/RadioLogo.vue';
 import PeerAvatar from '@/components/messages/PeerAvatar.vue';
 import { useNames } from '@/lib/names';
+import { keyOf } from '@/lib/threads';
 import { useContacts } from '@/store/contacts';
+import { useMessages } from '@/store/messages';
 
+import PositionCard from './PositionCard.vue';
 import StarButton from './StarButton.vue';
 
 const props = withDefaults(defineProps<{ id: number; compact?: boolean }>(), { compact: false });
@@ -36,8 +39,11 @@ const emit = defineEmits<{ back: []; message: []; call: []; check: []; alert: []
 
 const contacts = useContacts();
 const names = useNames();
+const messages = useMessages();
 const c = computed(() => contacts.get(props.id));
 const who = computed(() => c.value?.callsign || names.callsign(props.id) || String(props.id));
+
+const slot = computed(() => messages.threadMap[keyOf({ group: false, id: props.id })]?.slot ?? 2);
 
 const heard = computed(() => {
   const x = c.value;
@@ -82,6 +88,7 @@ const field = 'rounded-[10px] border border-radio-line bg-radio-surface px-3 tex
       <button type="button" :class="[action, 'h-[72px] border border-radio-line']" @click="emit('check')"><Check class="size-5" />Radio check</button>
       <button type="button" :class="[action, 'h-[72px] border border-radio-line']" @click="emit('alert')"><Bell class="size-5" />Call alert</button>
     </div>
+    <PositionCard :id="id" :timeslot="slot" :compact="compact" />
     <div v-if="c" class="flex flex-col gap-2" :class="compact ? 'w-full' : 'w-[590px] max-w-full'">
       <label :for="`cname-${id}`" class="text-xs text-radio-muted">Name, shown with the callsign</label>
       <input :id="`cname-${id}`" v-model="name" placeholder="Add a name" :class="[field, 'h-11']" />

@@ -24,7 +24,7 @@ import { useIntervalFn, useMediaQuery } from '@vueuse/core';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { LocateFixed, Maximize, Minus, Plus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import AppNav from '@/components/AppNav.vue';
 import BaseMap from '@/components/map/BaseMap.vue';
@@ -45,8 +45,10 @@ const settings = useSettings();
 const messages = useMessages();
 const names = useNames();
 const router = useRouter();
+const route = useRoute();
 const base = ref<InstanceType<typeof BaseMap> | null>(null);
-const selected = ref<number | null>(positions.positions[0]?.id ?? null);
+const station = Number(route.query.station) || null;
+const selected = ref<number | null>(positions.positions.find((p) => p.id === station)?.id ?? positions.positions[0]?.id ?? null);
 const now = ref(Date.now());
 useIntervalFn(() => (now.value = Date.now()), 15_000);
 
@@ -88,6 +90,12 @@ function pick(id: number | null): void {
   const p = id === null ? null : positions.positions.find((x) => x.id === id);
   if (p) {
     base.value?.center(p.latitude, p.longitude);
+  }
+}
+
+function ready(): void {
+  if (station !== null && selected.value === station) {
+    pick(station);
   }
 }
 
@@ -187,7 +195,7 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
         <button type="button" class="h-11 rounded-[10px] border border-radio-line text-sm" @click="showMe">Show my position</button>
       </div>
     </aside>
-    <BaseMap ref="base" class="grow" :positions="positions.positions" :selected="selected" :here="positions.here" :dark="isDark" :label="label" @select="selected = $event">
+    <BaseMap ref="base" class="grow" :positions="positions.positions" :selected="selected" :here="positions.here" :dark="isDark" :label="label" @select="selected = $event" @ready="ready">
       <template #popup="{ point }">
         <div
           v-if="sel && point"
@@ -247,6 +255,7 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
         :dark="isDark"
         :label="label"
         @select="selected = $event"
+        @ready="ready"
       >
         <template #controls>
           <div class="absolute top-3 right-3 flex flex-col gap-2">

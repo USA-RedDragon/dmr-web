@@ -36,7 +36,7 @@ const props = withDefaults(
   defineProps<{ positions: Position[]; selected: number | null; here: Here | null; dark: boolean; label: (id: number) => string; attribution?: 'bottom-left' | 'top-left' }>(),
   { attribution: 'bottom-left' },
 );
-const emit = defineEmits<{ select: [id: number | null] }>();
+const emit = defineEmits<{ select: [id: number | null]; ready: [] }>();
 
 const el = ref<HTMLDivElement | null>(null);
 const map = shallowRef<MapLibre | null>(null);
@@ -142,6 +142,7 @@ onMounted(async () => {
         m.fitBounds(b, { padding: 80, maxZoom: 13, duration: 0 });
       }
       project();
+      emit('ready');
     });
   } catch (err) {
     failure.value = err instanceof Error ? err.message : String(err);
