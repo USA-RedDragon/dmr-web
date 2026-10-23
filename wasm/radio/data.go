@@ -37,6 +37,8 @@ import (
 	"github.com/USA-RedDragon/dmrgo/v2/transport/dmrd"
 )
 
+var errNoPeer = errors.New("radio: a CSBK burst has no destination")
+
 const (
 	networkWait = 2 * time.Second
 	networkLost = 500 * time.Millisecond
@@ -71,6 +73,7 @@ type outStream struct {
 
 type check struct {
 	id     uint32
+	target uint32
 	start  time.Duration
 	active bool
 }
@@ -89,6 +92,7 @@ type dataSlot struct {
 	busy    bool
 	check   check
 	stream  outStream
+	asker   uint32
 }
 
 func newDataSlot(cfg *Config, slot enums.Slot) (dataSlot, error) {
@@ -237,7 +241,7 @@ func (r *Radio) CheckRadio(now time.Duration, id uint32, slot int, c Check, targ
 	if err != nil {
 		return fmt.Errorf("radio: check: %w", err)
 	}
-	s.check = check{id: id, start: now, active: true}
+	s.check = check{id: id, target: target, start: now, active: true}
 	return nil
 }
 
@@ -281,7 +285,11 @@ func (r *Radio) stream(i int, group bool, m data.Message) {
 }
 
 func (r *Radio) textStatus(i int, id uint32, status string) {
-	if id == 0 || id == ^uint32(0) {
+	switch id {
+	case 0, ^uint32(0):
+		return
+	case arsID:
+		r.sink.Event(&Event{Kind: EventRegistered, Slot: i + 1, Reason: status})
 		return
 	}
 	r.sink.Event(&Event{Kind: EventTextStatus, Slot: i + 1, ID: id, Reason: status})
@@ -294,9 +302,9 @@ func (r *Radio) dataIn(now time.Duration, i int, d *dmrd.Data, h layer2.Hint) {
 	s.outs = s.tx.Burst(now, &d.Burst, h, s.outs[:0])
 	r.dataOutputs(now, i)
 	s.couts = s.req.Burst(now, &d.Burst, h, s.couts[:0])
-	r.csbkOutputs(now, i)
+	r.csbkOutputs(now, i, s.check.target)
 	s.couts = s.resp.Burst(now, &d.Burst, h, s.couts[:0])
-	r.csbkOutputs(now, i)
+	r.csbkOutputs(now, i, s.asker)
 }
 
 func (r *Radio) dataTick(now time.Duration, i int) {
@@ -318,10 +326,10 @@ func (r *Radio) csbkTick(now time.Duration, i int) {
 	for {
 		s.couts = s.req.Tick(now, s.couts[:0])
 		n := len(s.couts)
-		r.csbkOutputs(now, i)
+		r.csbkOutputs(now, i, s.check.target)
 		s.couts = s.resp.Tick(now, s.couts[:0])
 		n += len(s.couts)
-		r.csbkOutputs(now, i)
+		r.csbkOutputs(now, i, s.asker)
 		if n == 0 {
 			return
 		}
@@ -444,13 +452,24 @@ func (r *Radio) dataOutputs(now time.Duration, i int) {
 	}
 }
 
-func (r *Radio) csbkOutputs(now time.Duration, i int) {
+func (r *Radio) csbkOutputs(now time.Duration, i int, peer uint32) {
 	s := &r.dslots[i]
 	for k := range s.couts {
 		o := &s.couts[k]
 		switch o.Kind {
 		case csbk.OutputBurst:
-			st := outStream{id: r.streamID(), group: o.Group, dst: o.Target, src: o.Source, valid: true}
+			dst, src := o.Target, o.Source
+			if dst == 0 {
+				dst = peer
+			}
+			if src == 0 {
+				src = r.cfg.RadioID
+			}
+			if dst == 0 {
+				r.sink.Event(&Event{Kind: EventError, Slot: i + 1, Err: errNoPeer})
+				continue
+			}
+			st := outStream{id: r.streamID(), group: o.Group, dst: dst, src: src, valid: true}
 			r.sendBurst(i, &st, &o.Burst, o.Hint)
 		case csbk.OutputDone:
 			if !s.check.active {
@@ -460,6 +479,7 @@ func (r *Radio) csbkOutputs(now time.Duration, i int) {
 			s.check = check{}
 			r.sink.Event(&Event{Kind: EventCheck, Slot: i + 1, ID: c.id, Target: o.Target, Reason: checkReason(o.Result), Elapsed: now - c.start})
 		case csbk.OutputRequest:
+			s.asker = o.Source
 			kind := EventRequest
 			if o.Service == csbk.ServiceCallAlert {
 				kind = EventCallAlert

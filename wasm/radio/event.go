@@ -58,6 +58,9 @@ const (
 	// EventRequest is a CSBK request that the radio answered, named in
 	// Text, from Source on Slot.
 	EventRequest
+	// EventRegistered reports that the ARS registration went out: Reason
+	// is "sent", or why not.
+	EventRegistered
 )
 
 // String returns the name of the kind.
@@ -91,6 +94,8 @@ func (k EventKind) String() string {
 		return "callAlert"
 	case EventRequest:
 		return "request"
+	case EventRegistered:
+		return "registered"
 	default:
 		return "unknown"
 	}

@@ -109,7 +109,7 @@ type hub struct {
 	codecs []*fakeCodec
 }
 
-func newHub(t *testing.T, ambe bool) *hub {
+func newHub(t *testing.T, ambe bool, opts ...func(*radio.Config)) *hub {
 	t.Helper()
 	m, err := dmrdsession.NewMaster(&dmrdsession.MasterConfig{Dialect: dmrd.DialectMMDVM})
 	require.NoError(t, err)
@@ -128,14 +128,18 @@ func newHub(t *testing.T, ambe bool) *hub {
 			return c, nil
 		}
 	}
-	r, err := radio.New(&radio.Config{
+	cfg := &radio.Config{
 		Hotspot:  hotspotID,
 		RadioID:  radioID,
 		Password: []byte("secret"),
 		Callsign: "N0CALL",
 		Options:  "TS2=1",
 		Codecs:   codecs,
-	}, h.s)
+	}
+	for _, o := range opts {
+		o(cfg)
+	}
+	r, err := radio.New(cfg, h.s)
 	require.NoError(t, err)
 	h.r = r
 	return h

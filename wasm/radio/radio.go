@@ -64,6 +64,9 @@ type Config struct {
 	Codecs Codecs
 	// Vocoder is the transmit vocoder choice.
 	Vocoder Vocoder
+	// ARS sends a MOTOTRBO ARS registration after each login, which also
+	// tells the hub where to send private calls and texts for RadioID.
+	ARS bool
 }
 
 // Sink takes what the radio produces. Send and Audio must copy what they
@@ -285,6 +288,11 @@ func (r *Radio) handle(now time.Duration) {
 		case dmrdsession.OutputUp:
 			r.up = true
 			r.sink.Event(&Event{Kind: EventUp})
+			if r.cfg.ARS {
+				if err := r.Register(now); err != nil {
+					r.sink.Event(&Event{Kind: EventRegistered, Slot: arsSlot, Reason: err.Error()})
+				}
+			}
 		case dmrdsession.OutputDown:
 			r.down(o.Reason.String())
 		case dmrdsession.OutputData:

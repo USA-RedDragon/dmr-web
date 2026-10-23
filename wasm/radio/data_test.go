@@ -30,6 +30,7 @@ import (
 	"github.com/USA-RedDragon/dmrgo/v2/enums"
 	"github.com/USA-RedDragon/dmrgo/v2/ip"
 	"github.com/USA-RedDragon/dmrgo/v2/layer2"
+	"github.com/USA-RedDragon/dmrgo/v2/mototrbo/ars"
 	"github.com/USA-RedDragon/dmrgo/v2/mototrbo/tms"
 	"github.com/USA-RedDragon/dmrgo/v2/sms"
 	"github.com/USA-RedDragon/dmrgo/v2/transport/dmrd"
@@ -47,6 +48,7 @@ type station struct {
 	resp   *csbk.Responder
 	texts  []sms.Text
 	acks   int
+	ars    []uint32
 	sent   []data.Result
 	checks []csbk.Output
 	alerts []csbk.Output
@@ -92,6 +94,13 @@ func (s *station) events(evs []data.Event) {
 			case errors.Is(err, sms.ErrNotText):
 				sap, _ := e.Message.Header.SAP()
 				d, err := ip.Decode(sap, e.Message.Payload)
+				if err == nil && d.DestinationPort == ip.PortARS {
+					if m, err := ars.DecodeMessage(d.Payload); err == nil {
+						if id, ok := m.DeviceID(); ok {
+							s.ars = append(s.ars, id)
+						}
+					}
+				}
 				if err == nil && d.DestinationPort == ip.PortTMS {
 					if m, err := tms.DecodeMessage(d.Payload); err == nil && m.Header.Type == tms.TypeAck {
 						s.acks++
@@ -142,6 +151,8 @@ func (s *station) run(d time.Duration) {
 		h.data = nil
 		for k := range in {
 			b := &in[k]
+			require.NotZero(s.t, b.Destination, "a DMRD packet from the radio has no destination")
+			require.NotZero(s.t, b.Source, "a DMRD packet from the radio has no source")
 			hint := b.Hint(h.now)
 			s.events(s.rx.Burst(h.now, &b.Burst, hint, nil))
 			s.outputs(s.tx.Burst(h.now, &b.Burst, hint, nil), false, radioID)
@@ -353,4 +364,27 @@ func TestIncomingCallAlert(t *testing.T) {
 	require.Equal(t, 2, e.Slot)
 	require.Len(t, s.checks, 1)
 	require.Equal(t, csbk.ResultAnswered, s.checks[0].Result)
+}
+
+func TestRegistersWithARS(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false, func(c *radio.Config) { c.ARS = true })
+	s := newStation(t, h, true)
+	s.run(3 * time.Second)
+
+	require.True(t, h.r.Up())
+	require.Equal(t, []uint32{radioID}, s.ars)
+	e, ok := h.s.first(radio.EventRegistered)
+	require.True(t, ok)
+	require.Equal(t, "sent", e.Reason)
+}
+
+func TestNoARSWhenOff(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	s := newStation(t, h, true)
+	s.run(3 * time.Second)
+
+	require.Empty(t, s.ars)
+	require.False(t, h.s.has(radio.EventRegistered))
 }

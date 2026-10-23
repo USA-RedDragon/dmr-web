@@ -162,6 +162,7 @@ func (b *bridge) start(args []js.Value) any {
 		Jitter:   time.Duration(cfg.Get("jitterMs").Int()) * time.Millisecond,
 		Codecs:   b.codecs(),
 		Vocoder:  b.choice,
+		ARS:      cfg.Get("ars").Truthy(),
 	}, b)
 	if err != nil {
 		b.r = nil
