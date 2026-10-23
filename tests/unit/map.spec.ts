@@ -23,7 +23,7 @@ import type { StyleSpecification } from 'maplibre-gl';
 
 import { archiveSource, latestKey, PartsSource, partName, spans } from '@/map/archive';
 import { BlockCachedSource } from '@/map/blockCache';
-import { basemapStyle, circleImage, FONTS, SOURCE, strictExpression, strictFilter, TERRAIN_BELOW, withTerrain } from '@/map/style';
+import { basemapStyle, circleImage, FONTS, SOURCE, strictExpression, strictFilter, TERRAIN_ATTRIBUTION, TERRAIN_BELOW, withTerrain } from '@/map/style';
 import { TERRAIN_SOURCE } from '@/map/terrain';
 import dark from '@/map/styles/dark.json';
 import light from '@/map/styles/light.json';
@@ -117,7 +117,7 @@ describe('basemap style', () => {
       const s = withTerrain(basemapStyle(raw as unknown as StyleSpecification, 'https://tiles.example/a.pmtiles', '/glyphs/{fontstack}/{range}.pbf'), name === 'dark');
       const ids = s.layers.map((l) => l.id);
       expect(ids.indexOf(TERRAIN_SOURCE)).toBe(ids.indexOf(TERRAIN_BELOW) - 1);
-      expect(s.sources[TERRAIN_SOURCE]).toMatchObject({ type: 'raster', tiles: ['hillshade://{z}/{x}/{y}'], maxzoom: 12 });
+      expect(s.sources[TERRAIN_SOURCE]).toMatchObject({ type: 'raster', tiles: ['hillshade://{z}/{x}/{y}'], maxzoom: 12, attribution: TERRAIN_ATTRIBUTION });
       const layer = s.layers.find((l) => l.id === TERRAIN_SOURCE)!;
       expect(layer.maxzoom).toBe(15);
       expect(layer.paint).toMatchObject({ 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 13, name === 'dark' ? 1 : 0.55, 15, 0] });

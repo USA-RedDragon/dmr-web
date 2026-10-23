@@ -114,6 +114,9 @@ export function basemapStyle(raw: StyleSpecification, archive: string, glyphs: s
   return style;
 }
 
+/** TERRAIN_ATTRIBUTION credits the elevation data the hillshade is made from. */
+export const TERRAIN_ATTRIBUTION = '© Copernicus DEM 2021';
+
 /** TERRAIN_BELOW is the layer the terrain shading draws under: above land cover and land use, under the lines, water, roads and labels. */
 export const TERRAIN_BELOW = 'boundary_county';
 
@@ -133,7 +136,7 @@ export function withTerrain(style: StyleSpecification, dark: boolean): StyleSpec
     ...style,
     sources: {
       ...style.sources,
-      [TERRAIN_SOURCE]: { type: 'raster', tiles: [`${TERRAIN_PROTOCOL}://{z}/{x}/{y}`], tileSize: 256, minzoom: 0, maxzoom: TERRAIN_MAX_ZOOM },
+      [TERRAIN_SOURCE]: { type: 'raster', tiles: [`${TERRAIN_PROTOCOL}://{z}/{x}/{y}`], tileSize: 256, minzoom: 0, maxzoom: TERRAIN_MAX_ZOOM, attribution: TERRAIN_ATTRIBUTION },
     },
     layers,
   };
