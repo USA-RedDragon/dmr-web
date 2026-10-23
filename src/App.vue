@@ -23,6 +23,7 @@
 import { computed, onMounted, watchEffect } from 'vue';
 
 import AppHeader from '@/components/AppHeader.vue';
+import CallLayer from '@/components/CallLayer.vue';
 import UpdateNotice from '@/components/UpdateNotice.vue';
 import { Toaster } from '@/components/ui/toast';
 import { useColorMode } from '@/composables/useColorMode';
@@ -50,6 +51,7 @@ onMounted(async () => {
 <template>
   <div class="flex min-h-dvh flex-col bg-radio-page text-radio-text">
     <AppHeader />
+    <CallLayer v-if="store.loaded" />
     <RouterView v-if="store.loaded" />
     <Toaster />
     <UpdateNotice />

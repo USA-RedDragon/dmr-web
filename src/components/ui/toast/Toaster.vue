@@ -55,7 +55,7 @@ const iconClasses: Record<Toast['variant'], string> = {
 <template>
   <Teleport to="body">
     <div
-      class="fixed bottom-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:max-w-[420px]"
+      class="pointer-events-none fixed bottom-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:max-w-[420px]"
     >
       <TransitionGroup
         enter-active-class="transition-all duration-300 ease-out"

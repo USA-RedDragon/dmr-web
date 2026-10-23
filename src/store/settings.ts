@@ -31,6 +31,7 @@ export type Settings = {
   hotspot: { id: number; password: string; callsign: string; location: string };
   vocoder: VocoderChoice;
   jitterMs: number;
+  ars: boolean;
   audio: {
     echoCancellation: boolean;
     noiseSuppression: boolean;
@@ -53,6 +54,7 @@ export function defaultSettings(): Settings {
     hotspot: { id: 0, password: '', callsign: '', location: '' },
     vocoder: 'auto',
     jitterMs: 360,
+    ars: true,
     audio: {
       echoCancellation: true,
       noiseSuppression: true,

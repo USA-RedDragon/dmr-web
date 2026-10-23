@@ -20,6 +20,7 @@
 -->
 
 <script setup lang="ts">
+import { format } from 'date-fns';
 import { computed } from 'vue';
 
 import { useRadio } from '@/store/radio';
@@ -73,4 +74,32 @@ const linked = computed(() => radio.link !== 'idle' && radio.link !== 'failed');
       <button v-else type="button" :class="primaryButton" :disabled="!store.configured" @click="radio.connect()">Connect</button>
     </div>
   </SettingsCard>
+
+  <section class="flex flex-col gap-3 rounded-2xl border border-radio-line bg-radio-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:px-[22px] sm:py-[18px]">
+    <div class="flex flex-col gap-1">
+      <div class="flex items-center gap-2.5">
+        <h2 class="m-0 text-[15px] font-semibold">MOTOTRBO ARS</h2>
+        <span v-if="s.ars && radio.ars.status !== 'none'" class="flex items-center gap-1.5 text-xs" :class="radio.ars.status === 'registered' ? 'text-radio-green' : 'text-radio-red'">
+          <span class="size-2 rounded-full" :class="radio.ars.status === 'registered' ? 'bg-radio-green' : 'bg-radio-red'" />
+          {{ radio.ars.status === 'registered' ? 'Registered' : 'Not registered' }}
+        </span>
+      </div>
+      <span class="text-xs text-radio-muted">
+        Tells MOTOTRBO systems this radio is on, so they can send it texts and location requests.<template v-if="s.ars && radio.ars.at">
+          Last registered {{ format(radio.ars.at, 'HH:mm') }}.</template
+        >
+      </span>
+    </div>
+    <button
+      type="button"
+      role="switch"
+      :aria-checked="s.ars"
+      aria-label="Register with ARS"
+      class="relative h-[30px] w-[52px] shrink-0 self-end rounded-full border sm:self-auto"
+      :class="s.ars ? 'border-radio-amber bg-radio-amber-soft' : 'border-radio-line bg-radio-raised'"
+      @click="s.ars = !s.ars"
+    >
+      <span class="absolute top-[3px] size-[22px] rounded-full transition-all" :class="s.ars ? 'right-[3px] bg-radio-amber' : 'left-[3px] bg-radio-muted'" />
+    </button>
+  </section>
 </template>

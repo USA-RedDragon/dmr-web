@@ -28,6 +28,7 @@ export type RadioConfig = {
   options: string;
   jitterMs: number;
   vocoder: VocoderChoice;
+  ars: boolean;
 };
 
 export type RadioEventKind =
@@ -44,7 +45,8 @@ export type RadioEventKind =
   | 'textStatus'
   | 'check'
   | 'callAlert'
-  | 'request';
+  | 'request'
+  | 'registered';
 
 export type RadioEvent = {
   kind: RadioEventKind;

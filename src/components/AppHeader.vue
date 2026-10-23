@@ -27,6 +27,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
+import AppNav from './AppNav.vue';
 import RadioLogo from './RadioLogo.vue';
 
 const radio = useRadio();
@@ -59,10 +60,13 @@ function toggleSettings(): void {
 
 <template>
   <header class="flex h-14 shrink-0 items-center justify-between gap-3 border-radio-line px-4 sm:h-16 sm:border-b sm:px-8">
-    <RouterLink to="/" class="no-underline flex items-center gap-3 text-radio-text">
-      <RadioLogo class="size-5 text-radio-accent sm:size-[22px]" />
-      <span class="text-base font-bold tracking-[0.02em] sm:text-[17px]">dmr-web</span>
-    </RouterLink>
+    <div class="flex items-center gap-6">
+      <RouterLink to="/" class="no-underline flex items-center gap-3 text-radio-text">
+        <RadioLogo class="size-5 text-radio-accent sm:size-[22px]" />
+        <span class="text-base font-bold tracking-[0.02em] sm:text-[17px]">dmr-web</span>
+      </RouterLink>
+      <AppNav v-if="store.configured" class="hidden lg:flex" />
+    </div>
     <div class="flex min-w-0 items-center gap-3">
       <div class="flex h-9 min-w-0 items-center gap-2 rounded-full border border-radio-line px-3.5 text-[13px] text-radio-text/80">
         <span class="size-2 shrink-0 rounded-full" :class="pill.dot" />

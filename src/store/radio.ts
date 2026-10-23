@@ -83,9 +83,12 @@ export const useRadio = defineStore('radio', () => {
   const calls = reactive<Record<Slot, SlotCall>>({ 1: emptyCall(), 2: emptyCall() });
   const heard = ref<HeardEntry[]>([]);
   const log = ref<LogEntry[]>([]);
-  const tx = reactive({ active: false, slot: 0 as number, target: 0, startedAt: 0, error: '' });
+  const tx = reactive({ active: false, slot: 0 as number, target: 0, group: true, startedAt: 0, error: '' });
+  const privateCall = ref<{ id: number; slot: number; startedAt: number } | null>(null);
+  const incoming = ref<{ source: number; slot: number } | null>(null);
   const transmitVocoder = ref('codec2');
   const endpoint = ref('');
+  const ars = reactive({ status: 'none' as 'none' | 'registered' | 'failed', at: 0, reason: '' });
   const micLevel = ref(0);
   const micPermission = ref<'unknown' | 'granted' | 'denied'>('unknown');
   const micPrompt = ref(false);
@@ -134,6 +137,9 @@ export const useRadio = defineStore('radio', () => {
           startedAt: Date.now(),
         });
         addLog(`RX call start, TS${slot}, ${e.group ? 'TG' : 'to'} ${e.target}, from ${e.source}, ${e.vocoder}`);
+        if (!e.group && e.target === settingsStore.radioId && privateCall.value?.id !== e.source) {
+          incoming.value = { source: e.source, slot };
+        }
         break;
       case 'callEnd': {
         const c = calls[slot];
@@ -162,7 +168,7 @@ export const useRadio = defineStore('radio', () => {
         calls[slot].longitude = e.longitude;
         break;
       case 'transmitStart':
-        Object.assign(tx, { active: true, slot: e.slot, target: e.target, startedAt: Date.now(), error: '' });
+        Object.assign(tx, { active: true, slot: e.slot, target: e.target, group: e.group, startedAt: Date.now(), error: '' });
         transmitVocoder.value = e.vocoder;
         addLog(`TX start, TS${e.slot}, ${e.group ? 'TG' : 'to'} ${e.target}, ${e.vocoder}`);
         break;
@@ -171,7 +177,7 @@ export const useRadio = defineStore('radio', () => {
           remember({
             source: settingsStore.radioId,
             target: tx.target,
-            group: true,
+            group: tx.group,
             slot: tx.slot,
             vocoder: transmitVocoder.value,
             alias: '',
@@ -204,6 +210,10 @@ export const useRadio = defineStore('radio', () => {
         break;
       case 'request':
         addLog(`Answered ${e.text} from ${e.source}, TS${slot}`);
+        break;
+      case 'registered':
+        Object.assign(ars, { status: e.reason === 'sent' ? 'registered' : 'failed', at: Date.now(), reason: e.reason });
+        addLog(`ARS registration: ${e.reason}`);
         break;
     }
   }
@@ -342,6 +352,7 @@ export const useRadio = defineStore('radio', () => {
       options: rptoOptions(s.talkgroups),
       jitterMs: s.jitterMs,
       vocoder: s.vocoder,
+      ars: s.ars,
     });
   }
 
@@ -371,9 +382,23 @@ export const useRadio = defineStore('radio', () => {
     }
   }
 
+  function startPrivateCall(id: number, slot: number): void {
+    privateCall.value = { id, slot, startedAt: Date.now() };
+    incoming.value = null;
+    addLog(`Private call with ${id} on TS${slot}`);
+  }
+
+  function endPrivateCall(): void {
+    if (privateCall.value) {
+      addLog(`Private call with ${privateCall.value.id} ended`);
+    }
+    privateCall.value = null;
+  }
+
   async function pttDown(): Promise<void> {
-    const slot = settingsStore.settings.selected.slot;
-    const target = settingsStore.target(slot);
+    const pc = privateCall.value;
+    const slot = pc ? (pc.slot as Slot) : settingsStore.settings.selected.slot;
+    const target = pc ? pc.id : settingsStore.target(slot);
     if (!client.value || !connected.value || !target) {
       return;
     }
@@ -388,7 +413,7 @@ export const useRadio = defineStore('radio', () => {
       return;
     }
     try {
-      await client.value.ptt(true, slot, true, target);
+      await client.value.ptt(true, slot, !pc, target);
       micPermission.value = 'granted';
     } catch (err) {
       micPermission.value = err instanceof DOMException && err.name === 'NotAllowedError' ? 'denied' : micPermission.value;
@@ -432,6 +457,7 @@ export const useRadio = defineStore('radio', () => {
     tx,
     transmitVocoder,
     endpoint,
+    ars,
     micLevel,
     micPermission,
     micPrompt,
@@ -447,6 +473,10 @@ export const useRadio = defineStore('radio', () => {
     pttDown,
     sendText,
     check,
+    privateCall,
+    incoming,
+    startPrivateCall,
+    endPrivateCall,
     pttUp,
     uploadAmbe,
     forgetAmbe,

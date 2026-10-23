@@ -23,6 +23,7 @@
 import { useEventListener, useMediaQuery, useWakeLock } from '@vueuse/core';
 import { computed, watch } from 'vue';
 
+import AppNav from '@/components/AppNav.vue';
 import LastHeard from '@/components/radio/LastHeard.vue';
 import OnAir from '@/components/radio/OnAir.vue';
 import LinkNotice from '@/components/radio/LinkNotice.vue';
@@ -109,5 +110,6 @@ function onLogin(): void {
       </template>
     </RadioPanel>
   </main>
+  <AppNav v-if="!desktop && store.configured" bar />
   <MicDialogs />
 </template>

@@ -102,7 +102,7 @@ const lcd = computed(() => {
       timer: elapsed(radio.tx.startedAt),
       headline: 'TRANSMIT',
       sub: `${s.value.hotspot.callsign || 'ID'}  ${store.radioId}`,
-      subRight: 'Group call',
+      subRight: radio.tx.group ? 'Group call' : 'Private call',
       details: [],
     };
   }
