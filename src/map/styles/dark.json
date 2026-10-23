@@ -287,7 +287,7 @@
         "squallar:phase": "ground",
         "squallar:source-index": 8
       },
-      "minzoom": 4,
+      "minzoom": 3,
       "paint": {
         "line-color": "rgba(103, 103, 114, 1)",
         "line-dasharray": [
