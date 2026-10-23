@@ -215,7 +215,8 @@ watch(() => [props.positions, props.here], project, { deep: true });
   color: var(--radio-muted);
 }
 .maplibregl-ctrl-attrib-button {
-  background-color: var(--radio-text);
+  background-color: #f4f5f6;
   border-radius: 9999px;
+  box-shadow: 0 0 0 1px var(--radio-line);
 }
 </style>
