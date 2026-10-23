@@ -25,6 +25,7 @@ import { Plus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 import PeerAvatar from '@/components/messages/PeerAvatar.vue';
+import { useNames } from '@/lib/names';
 import { matchContact, useContacts, type Contact } from '@/store/contacts';
 
 import StarButton from './StarButton.vue';
@@ -33,9 +34,10 @@ defineProps<{ selected: number | null; compact?: boolean }>();
 const emit = defineEmits<{ open: [id: number]; add: [] }>();
 
 const contacts = useContacts();
+const names = useNames();
 const query = ref('');
 
-const rows = computed(() => contacts.contacts.filter((c) => matchContact(c, query.value)));
+const rows = computed(() => contacts.contacts.filter((c) => matchContact({ ...c, callsign: c.callsign || names.callsign(c.id) }, query.value)));
 
 function sub(c: Contact): string {
   const heard = c.heardAt ? `heard ${formatDistanceToNowStrict(c.heardAt, { addSuffix: true })}` : 'not heard yet';
@@ -75,7 +77,7 @@ function sub(c: Contact): string {
           :aria-current="selected === c.id ? 'true' : undefined"
           @click="emit('open', c.id)"
         >
-          <span class="truncate font-mono font-semibold" :class="compact ? 'text-[15px]' : 'text-sm'">{{ c.callsign || c.id }}</span>
+          <span class="truncate font-mono font-semibold" :class="compact ? 'text-[15px]' : 'text-sm'">{{ c.callsign || names.callsign(c.id) || c.id }}</span>
           <span class="truncate text-radio-muted" :class="compact ? 'text-[13px]' : 'text-xs'">{{ sub(c) }}</span>
         </button>
         <StarButton :id="c.id" :callsign="c.callsign" />

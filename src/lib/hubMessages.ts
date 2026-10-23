@@ -99,6 +99,7 @@ export function syncHubMessages(): void {
     socket.onopen = () => {
       attempt = 0;
       backfill(gen).catch(() => undefined);
+      void account.refreshUser();
     };
     socket.onmessage = (e: MessageEvent<string>) => {
       let push: Push;
@@ -123,6 +124,12 @@ export function syncHubMessages(): void {
       }
     };
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && ws) {
+      void account.refreshUser();
+    }
+  });
 
   watch(
     () => account.loggedIn && account.can('messages:read') && store.loaded,

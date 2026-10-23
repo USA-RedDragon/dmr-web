@@ -26,6 +26,7 @@ import { computed } from 'vue';
 
 import RadioLogo from '@/components/RadioLogo.vue';
 import PeerAvatar from '@/components/messages/PeerAvatar.vue';
+import { useNames } from '@/lib/names';
 import { useContacts } from '@/store/contacts';
 
 import StarButton from './StarButton.vue';
@@ -34,8 +35,9 @@ const props = withDefaults(defineProps<{ id: number; compact?: boolean }>(), { c
 const emit = defineEmits<{ back: []; message: []; call: []; check: []; alert: [] }>();
 
 const contacts = useContacts();
+const names = useNames();
 const c = computed(() => contacts.get(props.id));
-const who = computed(() => c.value?.callsign || String(props.id));
+const who = computed(() => c.value?.callsign || names.callsign(props.id) || String(props.id));
 
 const heard = computed(() => {
   const x = c.value;

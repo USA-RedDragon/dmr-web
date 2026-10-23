@@ -25,6 +25,8 @@ import { computed, ref } from 'vue';
 
 import { useNames } from '@/lib/names';
 import { listTime } from '@/lib/when';
+import { hubOrigin } from '@/radio/discover';
+import { useAccount } from '@/store/account';
 import { useMessages } from '@/store/messages';
 
 import PeerAvatar from './PeerAvatar.vue';
@@ -34,7 +36,24 @@ const emit = defineEmits<{ open: [key: string]; compose: [] }>();
 
 const store = useMessages();
 const names = useNames();
+const account = useAccount();
 const query = ref('');
+
+const storageOff = computed(() => account.loggedIn && account.can('messages:read') && account.user?.smsStorage === false);
+const hubSettings = computed(() => {
+  try {
+    return new URL('/settings', hubOrigin(account.host)).toString();
+  } catch {
+    return '';
+  }
+});
+const hubName = computed(() => {
+  try {
+    return hubOrigin(account.host).host;
+  } catch {
+    return account.host;
+  }
+});
 
 const rows = computed(() => {
   const q = query.value.trim().toLowerCase();
@@ -79,6 +98,10 @@ const rows = computed(() => {
     <div v-if="!compact && $slots.tabs" class="px-4 pb-2"><slot name="tabs" /></div>
     <p v-if="rows.length === 0" class="m-0 px-4 py-6 text-sm text-radio-muted">
       {{ query ? 'Nothing matches.' : 'No messages yet. Texts you send and get show up here.' }}
+    </p>
+    <p v-if="rows.length === 0 && !query && storageOff" class="m-0 px-4 pb-6 text-sm text-radio-muted">
+      SMS Storage is off for your account on {{ hubName }}, so the hub keeps no inbox for you and only texts this radio hears show up here. Turn it on in
+      <a :href="hubSettings" target="_blank" rel="noopener" class="text-radio-accent underline">your DMRHub settings</a>.
     </p>
     <ul class="m-0 flex min-h-0 flex-col overflow-y-auto p-0">
       <li v-for="r in rows" :key="r.t.key" class="list-none">

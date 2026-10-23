@@ -24,9 +24,11 @@ import { useMediaQuery } from '@vueuse/core';
 import { Star } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
+import { useNames } from '@/lib/names';
 import { UNDO_MS, useContacts } from '@/store/contacts';
 
 const contacts = useContacts();
+const names = useNames();
 const desktop = useMediaQuery('(min-width: 1024px)');
 const shown = ref(false);
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -46,7 +48,7 @@ watch(
 
 const who = computed(() => {
   const c = contacts.undo?.contact;
-  return c ? c.callsign || String(c.id) : '';
+  return c ? c.callsign || names.callsign(c.id) || String(c.id) : '';
 });
 
 function undo(): void {

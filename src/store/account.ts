@@ -42,7 +42,13 @@ import { hubOrigin } from '@/radio/discover';
 import { useSettings } from '@/store/settings';
 
 /** HubUser is the account behind a login. */
-export type HubUser = { id: number; callsign: string; username: string };
+export type HubUser = { id: number; callsign: string; username: string; smsStorage?: boolean };
+
+type Me = { id: number; callsign: string; username: string; sms_storage?: boolean };
+
+function userOf(me: Me): HubUser {
+  return { id: me.id, callsign: me.callsign, username: me.username, smsStorage: me.sms_storage };
+}
 
 /** HubHotspot is a hotspot that the account owns on its hub. */
 export type HubHotspot = {
@@ -79,6 +85,16 @@ export const BROWSER_RADIO = 'dmr-web radio';
 
 /** LoginEndedError means the hub no longer accepts this app's tokens. */
 export class LoginEndedError extends Error {}
+
+/** HubError is an answer of the hub other than a success, with its HTTP status. */
+export class HubError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 
 /** hotspotOf reads a hotspot from the hub's repeater JSON. */
 export function hotspotOf(r: RepeaterAnswer): HubHotspot {
@@ -159,8 +175,8 @@ export const useAccount = defineStore('account', () => {
     }
     const code = callbackCode(p, query);
     const tokens = await exchange(p, clientId(), code);
-    const me = await fetchJSON<{ id: number; callsign: string; username: string }>(p.host, '/api/v1/users/me', tokens.access);
-    await storeAccount({ host: p.host, meta: p.meta, tokens, user: { id: me.id, callsign: me.callsign, username: me.username } });
+    const me = await fetchJSON<Me>(p.host, '/api/v1/users/me', tokens.access);
+    await storeAccount({ host: p.host, meta: p.meta, tokens, user: userOf(me) });
     hotspotsLoaded.value = false;
     return p.host;
   }
@@ -233,7 +249,7 @@ export const useAccount = defineStore('account', () => {
     }
     const body = (await res.json().catch(() => ({}))) as T & { error?: string };
     if (!res.ok) {
-      throw new Error(body.error ?? `${url.host} answered ${res.status}`);
+      throw new HubError(body.error ?? `${url.host} answered ${res.status}`, res.status);
     }
     return body;
   }
@@ -257,6 +273,19 @@ export const useAccount = defineStore('account', () => {
         return ended();
       }
       throw err;
+    }
+  }
+
+  /** refreshUser reads the account again, to learn of changes made on the hub, such as to SMS Storage. */
+  async function refreshUser(): Promise<void> {
+    const before = account.value;
+    if (!before) {
+      return;
+    }
+    const me = await api<Me>('/api/v1/users/me').catch(() => null);
+    const now = account.value;
+    if (me && now && now.host === before.host) {
+      await storeAccount({ ...now, user: userOf(me) });
     }
   }
 
@@ -371,6 +400,7 @@ export const useAccount = defineStore('account', () => {
     logout,
     accessToken,
     api,
+    refreshUser,
     loadHotspots,
     saveHotspot,
     register,

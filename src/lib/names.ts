@@ -17,6 +17,7 @@
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 import { useContacts } from '@/store/contacts';
+import { useDirectory } from '@/store/directory';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
@@ -26,6 +27,7 @@ export function useNames() {
   const radio = useRadio();
   const settings = useSettings();
   const contacts = useContacts();
+  const directory = useDirectory();
 
   function talkgroupName(id: number): string {
     const t = [...settings.settings.talkgroups[1], ...settings.settings.talkgroups[2]].find((x) => x.id === id);
@@ -34,7 +36,10 @@ export function useNames() {
 
   function callsign(id: number): string {
     const h = radio.heard.find((e) => e.source === id && e.alias);
-    return h ? h.alias.trim().split(/\s+/)[0]!.toUpperCase() : (contacts.get(id)?.callsign ?? '');
+    if (h) {
+      return h.alias.trim().split(/\s+/)[0]!.toUpperCase();
+    }
+    return contacts.get(id)?.callsign || directory.listing(id)?.callsign || '';
   }
 
   function name(p: Peer): string {
