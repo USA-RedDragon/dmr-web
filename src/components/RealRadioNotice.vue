@@ -60,11 +60,10 @@ const icon = 'mt-px size-[18px] shrink-0 text-radio-amber';
           <DialogTitle class="m-0 text-xl font-bold lg:text-[22px]">This is a real DMR radio</DialogTitle>
         </div>
         <DialogDescription class="m-0 text-[15px] leading-normal text-radio-text/80">
-          It has a DMR modem and AMBE and Codec2 vocoders, running <span class="lg:hidden">on this phone</span><span class="max-lg:hidden">in this browser</span>. It joins a DMRHub
-          network<span class="max-lg:hidden"> as a hotspot</span>, which can carry what you send to repeaters and hotspots on the amateur radio bands.
+          It has a DMR modem and AMBE and Codec2 vocoders, running in this browser. It joins a DMRHub network as a hotspot, which can carry what you send to repeaters and hotspots on the amateur radio bands.
         </DialogDescription>
         <ul class="m-0 flex list-none flex-col gap-3 p-0">
-          <li :class="point"><Radio :class="icon" aria-hidden="true" /><span>Talking, texting and sharing your location put real traffic on the air.<span class="max-lg:hidden"> Other hams hear it and see it.</span></span></li>
+          <li :class="point"><Radio :class="icon" aria-hidden="true" /><span>Talking, texting and sharing your location put real traffic on the air. Other hams hear it and see it.</span></li>
           <li :class="point">
             <ScrollText :class="icon" aria-hidden="true" /><span>It goes out under your callsign and DMR ID, so your license's rules apply, like identifying your station.</span>
           </li>
