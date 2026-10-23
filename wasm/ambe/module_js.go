@@ -187,12 +187,12 @@ func (m *Module) New() (*Codec, error) {
 	}
 	c := &Codec{m: m, handle: h}
 	pcm, err := m.call("ambe_alloc", pcmBytes)
-	if err != nil || pcm == 0 {
+	if err != nil || pcm <= 0 {
 		return nil, errors.Join(ErrAlloc, err, c.Close())
 	}
 	c.pcm = uint32(pcm)
 	frame, err := m.call("ambe_alloc", frameBytes)
-	if err != nil || frame == 0 {
+	if err != nil || frame <= 0 {
 		return nil, errors.Join(ErrAlloc, err, c.Close())
 	}
 	c.frame = uint32(frame)

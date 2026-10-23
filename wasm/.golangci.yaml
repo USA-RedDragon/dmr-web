@@ -12,8 +12,8 @@ linters:
           - dogsled
           - goconst
           - gosec
-      - path: ambe/module_js\.go
-        text: G115
+      - path: (ambe/module_js|cmd/radio/main)\.go
+        text: "G115: integer overflow conversion (int16 -> uint16|uint16 -> int16)"
         linters:
           - gosec
   settings:

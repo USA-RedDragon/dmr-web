@@ -147,7 +147,7 @@ func TestVectorsLossyThroughFEC(t *testing.T) {
 	for i := range frames {
 		q := quality(v.quality[i])
 		if v.quality[i] == 0x100 {
-			pcm, err = c.DecodeFrame(pcm, v.lossy[i], q)
+			pcm, err = c.DecodeFrame(pcm, v.frames[i], q)
 			require.NoError(t, err)
 			continue
 		}
@@ -211,7 +211,9 @@ func TestLostFrameBytes(t *testing.T) {
 		require.NoError(t, err)
 		return pcm
 	}
-	require.Equal(t, decode(vocoder.AMBEFrame{}), decode(vocoder.AMBEFrame{0xA5, 0xA5, 0xA5, 0xA5, 0xA5, 0xA5, 0xA5}))
+	want := decode(vocoder.AMBEFrame{})
+	require.Equal(t, want, decode(vocoder.AMBEFrame{0xA5, 0xA5, 0xA5, 0xA5, 0xA5, 0xA5, 0xA5}))
+	require.Equal(t, want, decode(vocoder.AMBEFrame{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}))
 }
 
 func TestSelfTest(t *testing.T) {
