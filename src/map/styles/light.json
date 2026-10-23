@@ -376,6 +376,40 @@
           "==",
           "$type",
           "Polygon"
+        ],
+        [
+          "!=",
+          "class",
+          "ocean"
+        ]
+      ],
+      "id": "water_inland",
+      "layout": {
+        "visibility": "visible"
+      },
+      "maxzoom": 24,
+      "metadata": {
+        "squallar:phase": "ground",
+        "squallar:source-index": 9
+      },
+      "minzoom": 0,
+      "paint": {
+        "fill-antialias": true,
+        "fill-color": "#B9CFDA",
+        "fill-opacity": 1,
+        "fill-translate-anchor": "map"
+      },
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "type": "fill"
+    },
+    {
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "Polygon"
         ]
       ],
       "id": "water_shadow",
@@ -429,7 +463,7 @@
         "squallar:source-index": 6
       },
       "paint": {
-        "line-color": "#d1dbdf",
+        "line-color": "#8FB0C2",
         "line-width": [
           "interpolate",
           [
@@ -438,14 +472,50 @@
           [
             "zoom"
           ],
-          8,
-          0.5,
-          9,
-          1,
-          15,
           2,
+          [
+            "match",
+            [
+              "get",
+              "class"
+            ],
+            "river",
+            0.8,
+            0.4
+          ],
+          6,
+          [
+            "match",
+            [
+              "get",
+              "class"
+            ],
+            "river",
+            1.2,
+            0.5
+          ],
+          10,
+          [
+            "match",
+            [
+              "get",
+              "class"
+            ],
+            "river",
+            1.8,
+            0.8
+          ],
           16,
-          3
+          [
+            "match",
+            [
+              "get",
+              "class"
+            ],
+            "river",
+            4,
+            2
+          ]
         ]
       },
       "source": "openmaptiles",
