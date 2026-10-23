@@ -96,7 +96,7 @@ function message(): void {
     <button type="button" class="ml-auto h-10 rounded-[10px] bg-radio-red/20 px-4 text-sm font-semibold text-radio-red" @click="radio.endPrivateCall()">End</button>
   </div>
 
-  <div v-if="pc && !desktop" class="fixed inset-0 z-40 flex flex-col items-center bg-radio-page px-5 pt-12 pb-6" role="dialog" :aria-label="`Private call with ${pcName}`">
+  <div v-if="pc && !desktop" class="fixed inset-0 z-40 flex flex-col items-center bg-radio-page px-5 pt-12 pb-6" role="dialog" aria-modal="true" :aria-label="`Private call with ${pcName}`">
     <span class="text-[13px] text-radio-muted">Private call · TS{{ pc.slot }}</span>
     <PeerAvatar class="mt-6 !text-[26px]" :peer="{ group: false, id: pc.id }" :size="96" />
     <span class="mt-5 font-mono text-[30px] font-bold">{{ pcName }}</span>

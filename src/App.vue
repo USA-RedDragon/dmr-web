@@ -20,6 +20,7 @@
 -->
 
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core';
 import { computed, onMounted, watchEffect } from 'vue';
 
 import AppHeader from '@/components/AppHeader.vue';
@@ -35,6 +36,8 @@ const { isDark } = useColorMode();
 const store = useSettings();
 const radio = useRadio();
 
+const desktop = useMediaQuery('(min-width: 1024px)');
+const phoneCall = computed(() => !!radio.privateCall && !desktop.value);
 const reduceMotion = computed(() => store.settings.display.reduceMotion);
 
 watchEffect(() => {
@@ -50,9 +53,13 @@ onMounted(async () => {
 
 <template>
   <div class="flex min-h-dvh flex-col bg-radio-page text-radio-text">
-    <AppHeader />
+    <div class="contents" :inert="phoneCall">
+      <AppHeader />
+    </div>
     <CallLayer v-if="store.loaded" />
-    <RouterView v-if="store.loaded" />
+    <div class="contents" :inert="phoneCall">
+      <RouterView v-if="store.loaded" />
+    </div>
     <Toaster />
     <UpdateNotice />
   </div>
