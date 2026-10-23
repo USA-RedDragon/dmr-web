@@ -31,8 +31,9 @@ import (
 )
 
 // ARSServer is the radio ID that the radio sends its ARS registration
-// to, the usual ID of a MOTOTRBO ARS server.
-const ARSServer = 16776415
+// to: 5057, one of the location service IDs 5050 to 5059 that
+// BrandMeister uses as its radios' ARS and location server.
+const ARSServer = 5057
 
 const (
 	arsSlot = 2
