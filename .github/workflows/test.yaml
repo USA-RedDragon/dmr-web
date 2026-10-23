@@ -30,6 +30,7 @@ jobs:
           node-version-file: .node-version
 
       - run: npm ci
+      - run: npm run build:wasm
       - run: npm run lint
       - run: npx vue-tsc -b
       - run: npm run test:unit
