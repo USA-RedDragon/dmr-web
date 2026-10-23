@@ -328,6 +328,20 @@ func TestReceiveCall(t *testing.T) {
 	require.Equal(t, radio.VocoderCodec2, c.Vocoder)
 	require.Equal(t, 18*160, h.s.audio[1])
 	require.True(t, h.s.has(radio.EventCallEnd))
+	st := h.r.Stats()
+	require.Equal(t, uint32(18/layer2.VoiceSlotsPerBurst), st.Bursts)
+	require.Zero(t, st.Lost)
+	require.True(t, h.s.has(radio.EventStats))
+}
+
+func TestRoundTrip(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	h.login()
+	require.False(t, h.s.has(radio.EventStats))
+	h.advance(20 * time.Second)
+	require.True(t, h.s.has(radio.EventStats), "a pong is measured")
+	require.Zero(t, h.r.Stats().RoundTrip, "the test hub answers at once")
 }
 
 func TestCloseClosesCodecs(t *testing.T) {

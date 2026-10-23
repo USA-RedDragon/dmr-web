@@ -61,6 +61,8 @@ const (
 	// EventRegistered reports that the ARS registration went out: Reason
 	// is "sent", or why not.
 	EventRegistered
+	// EventStats reports that Stats changed.
+	EventStats
 )
 
 // String returns the name of the kind.
@@ -96,6 +98,8 @@ func (k EventKind) String() string {
 		return "request"
 	case EventRegistered:
 		return "registered"
+	case EventStats:
+		return "stats"
 	default:
 		return "unknown"
 	}

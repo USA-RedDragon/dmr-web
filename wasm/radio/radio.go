@@ -116,6 +116,9 @@ type Radio struct {
 	tmsSeq     uint8
 	tmsWait    map[uint8]uint32
 	nextStream uint32
+	stats      Stats
+	pingAt     time.Duration
+	pinged     bool
 }
 
 // New returns a radio for cfg that reports to sink. The first Tick starts
@@ -264,6 +267,7 @@ func (r *Radio) Tick(now time.Duration) {
 
 // Packet takes one datagram from the hub.
 func (r *Radio) Packet(now time.Duration, b []byte) {
+	r.received(now, b)
 	r.out = r.peer.Packet(now, b, r.out[:0])
 	r.handle(now)
 }
@@ -284,6 +288,7 @@ func (r *Radio) handle(now time.Duration) {
 		o := &r.out[i]
 		switch o.Kind {
 		case dmrdsession.OutputSend:
+			r.sent(now, o.Packet)
 			r.sink.Send(o.Packet)
 		case dmrdsession.OutputUp:
 			r.up = true
@@ -375,9 +380,13 @@ func (r *Radio) events(now time.Duration, i int) {
 		case voice.EventTalkerAlias:
 			r.sink.Event(&Event{Kind: EventTalkerAlias, Slot: i + 1, Source: e.Call.Source, Text: string(e.Text)})
 		case voice.EventCallEnd:
+			r.stats.Bursts += e.Stats.Bursts
+			r.stats.Lost += e.Stats.Lost
+			r.stats.Late += e.Stats.Late
 			if s.active {
 				s.active = false
 				r.sink.Event(&Event{Kind: EventCallEnd, Slot: i + 1, Group: e.Call.Group, Target: e.Call.Target, Source: e.Call.Source, Reason: e.Reason.String()})
+				r.sink.Event(&Event{Kind: EventStats})
 				r.channel(now, i)
 			}
 		default:
@@ -425,6 +434,7 @@ func (r *Radio) voice(i int, e *voice.Event) {
 		for range lost {
 			if out, err := qd.DecodeQuality(pcm, [9]byte{}, voice.FrameQuality{Bad: true}); err == nil {
 				pcm = out
+				r.stats.Concealed++
 			}
 		}
 	}
@@ -438,8 +448,12 @@ func (r *Radio) voice(i int, e *voice.Event) {
 			out, err = s.codec.Decode(pcm, f)
 		}
 		if err != nil {
+			r.stats.FrameErrors++
 			r.sink.Event(&Event{Kind: EventError, Slot: i + 1, Err: fmt.Errorf("radio: decode: %w", err)})
 			continue
+		}
+		if quality && (e.Frames[k].Bad || e.Frames[k].ErrorsCorrected > 3) {
+			r.stats.Concealed++
 		}
 		pcm = out
 	}

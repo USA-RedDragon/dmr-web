@@ -373,6 +373,18 @@ func (b *bridge) Event(e *radio.Event) {
 	if e.Err != nil {
 		o.Set("error", e.Err.Error())
 	}
+	if e.Kind == radio.EventStats && b.r != nil {
+		st := b.r.Stats()
+		so := js.Global().Get("Object").New()
+		so.Set("roundTripMs", float64(st.RoundTrip)/float64(time.Millisecond))
+		so.Set("bursts", st.Bursts)
+		so.Set("lost", st.Lost)
+		so.Set("late", st.Late)
+		so.Set("frameErrors", st.FrameErrors)
+		so.Set("concealed", st.Concealed)
+		so.Set("codecs", st.Codecs)
+		o.Set("stats", so)
+	}
 	b.event.Invoke(o)
 }
 
