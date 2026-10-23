@@ -31,6 +31,7 @@ import (
 	"github.com/USA-RedDragon/dmrgo/v2/ip"
 	"github.com/USA-RedDragon/dmrgo/v2/layer2"
 	"github.com/USA-RedDragon/dmrgo/v2/mototrbo/ars"
+	"github.com/USA-RedDragon/dmrgo/v2/mototrbo/lrrp"
 	"github.com/USA-RedDragon/dmrgo/v2/mototrbo/tms"
 	"github.com/USA-RedDragon/dmrgo/v2/sms"
 	"github.com/USA-RedDragon/dmrgo/v2/transport/dmrd"
@@ -52,6 +53,7 @@ type station struct {
 	sent   []data.Result
 	checks []csbk.Output
 	alerts []csbk.Output
+	lrrp   []lrrp.Message
 	seq    uint8
 }
 
@@ -154,12 +156,16 @@ func (s *station) run(d time.Duration) {
 			require.NotZero(s.t, b.Destination, "a DMRD packet from the radio has no destination")
 			require.NotZero(s.t, b.Source, "a DMRD packet from the radio has no source")
 			hint := b.Hint(h.now)
-			s.events(s.rx.Burst(h.now, &b.Burst, hint, nil))
+			evs := s.rx.Burst(h.now, &b.Burst, hint, nil)
+			s.events(evs)
+			s.lrrpIn(evs)
 			s.outputs(s.tx.Burst(h.now, &b.Burst, hint, nil), false, radioID)
 			s.csbk(s.req.Burst(h.now, &b.Burst, hint, nil))
 			s.csbk(s.resp.Burst(h.now, &b.Burst, hint, nil))
 		}
-		s.events(s.rx.Tick(h.now, nil))
+		evs := s.rx.Tick(h.now, nil)
+		s.events(evs)
+		s.lrrpIn(evs)
 		for {
 			outs := s.tx.Tick(h.now, nil)
 			if len(outs) == 0 {

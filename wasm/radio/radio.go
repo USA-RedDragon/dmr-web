@@ -31,6 +31,8 @@ import (
 
 	"github.com/USA-RedDragon/dmrgo/v2/enums"
 	"github.com/USA-RedDragon/dmrgo/v2/layer2"
+	"github.com/USA-RedDragon/dmrgo/v2/location"
+	"github.com/USA-RedDragon/dmrgo/v2/mototrbo/lrrp"
 	"github.com/USA-RedDragon/dmrgo/v2/transport/dmrd"
 	"github.com/USA-RedDragon/dmrgo/v2/transport/dmrd/dmrdsession"
 	"github.com/USA-RedDragon/dmrgo/v2/vocoder"
@@ -119,6 +121,11 @@ type Radio struct {
 	stats      Stats
 	pingAt     time.Duration
 	pinged     bool
+	loc        location.Decoder
+	lrrpIn     lrrp.Message
+	here       Here
+	share      bool
+	triggers   []trigger
 }
 
 // New returns a radio for cfg that reports to sink. The first Tick starts
@@ -251,6 +258,7 @@ func (r *Radio) Deadline() (at time.Duration, ok bool) {
 	if r.tx.active {
 		consider(r.tx.t.Deadline())
 	}
+	r.triggerDeadline(consider)
 	return at, ok
 }
 
@@ -263,6 +271,7 @@ func (r *Radio) Tick(now time.Duration) {
 		r.dataTick(now, i)
 	}
 	r.txTick(now)
+	r.triggerTick(now)
 }
 
 // Packet takes one datagram from the hub.

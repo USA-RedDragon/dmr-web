@@ -30,11 +30,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"syscall/js"
 	"time"
 
 	"github.com/USA-RedDragon/dmr-web/wasm/ambe"
 	"github.com/USA-RedDragon/dmr-web/wasm/radio"
+	"github.com/USA-RedDragon/dmrgo/v2/location"
 	"github.com/USA-RedDragon/dmrgo/v2/sms"
 	"github.com/USA-RedDragon/dmrgo/v2/vocoder"
 	"github.com/USA-RedDragon/dmrgo/v2/vocoder/codec2"
@@ -69,6 +71,8 @@ func main() {
 	b.export(obj, "setVocoder", b.setVocoder)
 	b.export(obj, "sendText", b.sendText)
 	b.export(obj, "check", b.check)
+	b.export(obj, "requestLocation", b.requestLocation)
+	b.export(obj, "setLocation", b.setLocation)
 	js.Global().Set("dmrweb", obj)
 	select {}
 }
@@ -346,6 +350,76 @@ func (b *bridge) check(args []js.Value) any {
 	return o
 }
 
+func (b *bridge) requestLocation(args []js.Value) any {
+	if b.r == nil {
+		return result(errNoRadio)
+	}
+	err := b.r.RequestLocation(at(arg(args, 0)), id(arg(args, 1)), arg(args, 2).Int(), id(arg(args, 3)))
+	o := result(err)
+	o.Set("deadline", b.deadline())
+	return o
+}
+
+func (b *bridge) setLocation(args []js.Value) any {
+	if b.r == nil {
+		return result(errNoRadio)
+	}
+	p := arg(args, 0)
+	here := radio.Here{}
+	if p.Type() == js.TypeObject {
+		here.Valid = true
+		here.Latitude = p.Get("latitude").Float()
+		here.Longitude = p.Get("longitude").Float()
+		here.Radius = numberOr(p.Get("accuracy"))
+		if v := p.Get("speed"); v.Type() == js.TypeNumber && !math.IsNaN(v.Float()) {
+			here.Speed, here.HasSpeed = v.Float(), true
+		}
+		if v := p.Get("heading"); v.Type() == js.TypeNumber && !math.IsNaN(v.Float()) {
+			here.Course, here.HasCourse = v.Float(), true
+		}
+		if v := p.Get("at"); v.Type() == js.TypeNumber {
+			here.At = time.UnixMilli(int64(v.Float()))
+		}
+	}
+	b.r.SetLocation(here, arg(args, 1).Truthy())
+	o := result(nil)
+	o.Set("deadline", b.deadline())
+	return o
+}
+
+func numberOr(v js.Value) float64 {
+	if v.Type() != js.TypeNumber || math.IsNaN(v.Float()) {
+		return 0
+	}
+	return v.Float()
+}
+
+func fixObject(f *location.Fix) js.Value {
+	o := js.Global().Get("Object").New()
+	o.Set("format", strings.ToLower(f.Format.String()))
+	o.Set("valid", f.Valid)
+	if f.HasRadius {
+		o.Set("accuracy", f.Radius)
+	}
+	if f.HasSpeed {
+		o.Set("speed", f.Speed)
+	}
+	if f.HasCourse {
+		o.Set("heading", f.Course)
+	}
+	if f.HasAltitude {
+		o.Set("altitude", f.Altitude)
+	}
+	if f.HasTime {
+		t := time.Date(int(f.Year), time.Month(f.Month), int(f.Day), int(f.Hour), int(f.Minute), int(f.Second), 0, time.UTC)
+		o.Set("at", float64(t.UnixMilli()))
+	}
+	if f.HasResult {
+		o.Set("result", f.Result)
+	}
+	return o
+}
+
 // Send passes a datagram to the worker.
 func (b *bridge) Send(p []byte) {
 	a := js.Global().Get("Uint8Array").New(len(p))
@@ -372,6 +446,11 @@ func (b *bridge) Event(e *radio.Event) {
 	o.Set("elapsedMs", float64(e.Elapsed)/float64(time.Millisecond))
 	if e.Err != nil {
 		o.Set("error", e.Err.Error())
+	}
+	if e.Kind == radio.EventFix {
+		o.Set("latitude", e.Fix.Latitude)
+		o.Set("longitude", e.Fix.Longitude)
+		o.Set("fix", fixObject(&e.Fix))
 	}
 	if e.Kind == radio.EventStats && b.r != nil {
 		st := b.r.Stats()

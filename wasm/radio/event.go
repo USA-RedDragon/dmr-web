@@ -19,7 +19,11 @@
 
 package radio
 
-import "time"
+import (
+	"time"
+
+	"github.com/USA-RedDragon/dmrgo/v2/location"
+)
 
 // EventKind is the kind of an Event.
 type EventKind uint8
@@ -63,6 +67,13 @@ const (
 	EventRegistered
 	// EventStats reports that Stats changed.
 	EventStats
+	// EventFix is a position in a data message from Source, in Fix. ID is
+	// the ID of the RequestLocation it answers, and Reason is "noPosition"
+	// for an answer without one.
+	EventFix
+	// EventLocationRequest reports that Source asked for this radio's
+	// position. Reason is "answered", "stopped" or "notShared".
+	EventLocationRequest
 )
 
 // String returns the name of the kind.
@@ -100,6 +111,10 @@ func (k EventKind) String() string {
 		return "registered"
 	case EventStats:
 		return "stats"
+	case EventFix:
+		return "fix"
+	case EventLocationRequest:
+		return "locationRequest"
 	default:
 		return "unknown"
 	}
@@ -123,4 +138,5 @@ type Event struct {
 	ID        uint32
 	Format    string
 	Elapsed   time.Duration
+	Fix       location.Fix
 }

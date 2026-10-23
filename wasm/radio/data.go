@@ -369,6 +369,9 @@ func (r *Radio) delivered(now time.Duration, i int, e *data.Event) {
 	switch {
 	case err == nil || errors.Is(err, ip.ErrChecksum):
 	case errors.Is(err, sms.ErrNotText):
+		if r.located(now, i, e) {
+			return
+		}
 		r.tmsAck(e)
 		return
 	default:
