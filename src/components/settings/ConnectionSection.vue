@@ -140,6 +140,7 @@ if (account.loggedIn && !account.hotspotsLoaded) {
           <input v-model="s.hotspot.password" type="password" :class="inputClass" autocomplete="current-password" @change="savePassword" />
         </label>
       </div>
+      <p class="m-0 text-xs text-radio-muted sm:hidden">Sent to the hub in the hotspot login (RPTC).</p>
     </template>
     <template v-else>
       <div class="grid gap-4 sm:grid-cols-2">
@@ -162,15 +163,15 @@ if (account.loggedIn && !account.hotspotsLoaded) {
       </div>
       <p v-if="hotspotText && !idValid" class="m-0 text-xs text-radio-red">Hotspot IDs are 7 or 9 digits and start with your radio ID.</p>
     </template>
-    <div class="flex items-center justify-end gap-2.5" :class="account.loggedIn ? 'sm:justify-between' : ''">
+    <div class="flex items-center justify-end gap-2.5" :class="account.loggedIn ? 'max-sm:hidden sm:justify-between' : ''">
       <span v-if="account.loggedIn" class="hidden text-xs text-radio-muted sm:inline">Sent to the hub in the hotspot login (RPTC).</span>
       <button v-if="linked" type="button" :class="dangerButton" @click="radio.disconnect()">Disconnect</button>
       <button v-else type="button" :class="primaryButton" :disabled="!store.configured" @click="radio.connect()">Connect</button>
     </div>
   </SettingsCard>
 
-  <section class="flex flex-col gap-3 rounded-2xl border border-radio-line bg-radio-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:px-[22px] sm:py-[18px]">
-    <div class="flex flex-col gap-1">
+  <section class="flex items-center justify-between gap-3 rounded-2xl border border-radio-line bg-radio-surface px-4 py-3 sm:gap-5 sm:px-[22px] sm:py-[18px]">
+    <div class="flex min-w-0 flex-col gap-1">
       <div class="flex items-center gap-2.5">
         <h2 class="m-0 text-[15px] font-semibold">MOTOTRBO ARS</h2>
         <span v-if="s.ars && radio.ars.status !== 'none'" class="flex items-center gap-1.5 text-xs" :class="radio.ars.status === 'registered' ? 'text-radio-green' : 'text-radio-red'">
@@ -178,13 +179,19 @@ if (account.loggedIn && !account.hotspotsLoaded) {
           {{ radio.ars.status === 'registered' ? 'Registered' : 'Not registered' }}
         </span>
       </div>
-      <span class="text-xs text-radio-muted">
+      <span class="text-xs text-radio-muted max-sm:hidden">
         Tells MOTOTRBO systems this radio is on, so they can send it texts and location requests.<template v-if="s.ars && radio.ars.at">
           Last registered {{ format(radio.ars.at, 'HH:mm') }}.</template
         >
       </span>
     </div>
-    <ToggleSwitch v-model="s.ars" class="self-end sm:self-auto" label="Register with ARS" />
+    <ToggleSwitch v-model="s.ars" class="shrink-0" label="Register with ARS" />
   </section>
+  <template v-if="account.loggedIn">
+    <button v-if="linked" type="button" class="h-12 w-full rounded-xl border border-radio-red/60 text-[15px] font-semibold text-radio-red sm:hidden" @click="radio.disconnect()">Disconnect</button>
+    <button v-else type="button" class="h-12 w-full rounded-xl bg-radio-amber text-[15px] font-bold text-radio-amber-ink disabled:opacity-50 sm:hidden" :disabled="!store.configured" @click="radio.connect()">
+      Connect
+    </button>
+  </template>
   <RegisterHotspotDialog :open="registering" @close="registering = false" @connect="registered" />
 </template>
