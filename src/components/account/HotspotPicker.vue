@@ -167,7 +167,7 @@ const inputClass = 'h-11 w-full rounded-[10px] border border-radio-line bg-radio
       class="flex flex-col gap-2.5 rounded-2xl border bg-radio-surface p-3.5"
       :class="manual ? 'border-radio-amber' : 'border-radio-line'"
     >
-      <button type="button" class="flex items-center justify-between text-left" :aria-expanded="manual" @click="manual = !manual">
+      <button type="button" class="-m-3.5 flex items-center justify-between p-3.5 text-left" :aria-expanded="manual" @click="manual = !manual">
         <h2 class="m-0 text-[15px] font-semibold">Enter ID and password by hand</h2>
         <ChevronUp v-if="manual" class="size-[18px] text-radio-accent" />
         <ChevronDown v-else class="size-[18px] text-radio-muted" />
