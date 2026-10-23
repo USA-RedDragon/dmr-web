@@ -194,14 +194,14 @@ if (account.loggedIn && !account.hotspotsLoaded) {
   <section class="flex items-center justify-between gap-3 rounded-2xl border border-radio-line bg-radio-surface px-4 py-3 sm:gap-5 sm:px-[22px] sm:py-[18px]">
     <div class="flex min-w-0 flex-col gap-1">
       <div class="flex items-center gap-2.5">
-        <h2 class="m-0 text-[15px] font-semibold">MOTOTRBO ARS</h2>
+        <h2 class="m-0 text-[15px] font-semibold">ARS registration</h2>
         <span v-if="s.ars && radio.ars.status !== 'none'" class="flex items-center gap-1.5 text-xs" :class="radio.ars.status === 'registered' ? 'text-radio-green' : 'text-radio-red'">
           <span class="size-2 rounded-full" :class="radio.ars.status === 'registered' ? 'bg-radio-green' : 'bg-radio-red'" />
           {{ radio.ars.status === 'registered' ? 'Registered' : 'Not registered' }}
         </span>
       </div>
       <span class="text-xs text-radio-muted max-sm:hidden">
-        Tells MOTOTRBO systems this radio is on, so they can send it texts and location requests.<template v-if="s.ars && radio.ars.at">
+        Tells location and text servers this radio is on, so they can send it texts and location requests.<template v-if="s.ars && radio.ars.at">
           Last registered {{ format(radio.ars.at, 'HH:mm') }}.</template
         >
       </span>

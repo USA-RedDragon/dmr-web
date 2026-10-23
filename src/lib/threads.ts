@@ -48,7 +48,7 @@ export type Thread = {
 export const MAX_MESSAGES = 2000;
 
 export const FORMATS: { value: TextFormat; label: string }[] = [
-  { value: 'tms', label: 'MOTOTRBO TMS' },
+  { value: 'tms', label: 'TMS' },
   { value: 'ip', label: 'ETSI IP text' },
   { value: 'anytone', label: 'AnyTone text' },
   { value: 'dd', label: 'ETSI defined data' },
