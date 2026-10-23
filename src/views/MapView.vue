@@ -29,6 +29,7 @@ import { useRoute, useRouter } from 'vue-router';
 import AppNav from '@/components/AppNav.vue';
 import BaseMap from '@/components/map/BaseMap.vue';
 import ShareLocation from '@/components/map/ShareLocation.vue';
+import SymbolIcon from '@/components/map/SymbolIcon.vue';
 import { useColorMode } from '@/composables/useColorMode';
 import { useNames } from '@/lib/names';
 import { keyOf } from '@/lib/threads';
@@ -40,6 +41,7 @@ import { useSettings } from '@/store/settings';
 const desktop = useMediaQuery('(min-width: 1024px)');
 const { isDark } = useColorMode();
 const positions = usePositions();
+const mySymbol = computed(() => (positions.share ? positions.service : null));
 const radio = useRadio();
 const settings = useSettings();
 const messages = useMessages();
@@ -170,7 +172,10 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
         </li>
         <li class="list-none">
           <button type="button" class="flex w-full gap-3 border-l-[3px] border-transparent px-4 py-3 text-left" @click="showMe">
-            <span class="mt-1 box-border size-3 shrink-0 rounded-full border-2 border-radio-green" />
+            <span class="mt-px flex size-[18px] shrink-0 items-center justify-center">
+              <SymbolIcon v-if="mySymbol" :service="mySymbol" class="size-4 text-radio-green" />
+              <span v-else class="box-border size-3 rounded-full border-2 border-radio-green" />
+            </span>
             <span class="flex min-w-0 grow flex-col gap-0.5">
               <span class="flex justify-between gap-2">
                 <span class="truncate font-mono text-sm font-semibold">{{ myCall ? `${myCall} (you)` : 'You' }}</span>
@@ -186,7 +191,7 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
       </p>
       <ShareLocation class="mt-auto border-t border-radio-line p-4" />
     </aside>
-    <BaseMap ref="base" class="grow" :positions="positions.positions" :selected="selected" :here="positions.here" :dark="isDark" :label="label" @select="selected = $event" @ready="ready">
+    <BaseMap ref="base" class="grow" :positions="positions.positions" :selected="selected" :here="positions.here" :symbol="mySymbol" :dark="isDark" :label="label" @select="selected = $event" @ready="ready">
       <template #popup="{ point }">
         <div
           v-if="sel && point"
@@ -243,6 +248,7 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
         :positions="positions.positions"
         :selected="selected"
         :here="positions.here"
+        :symbol="mySymbol"
         :dark="isDark"
         :label="label"
         @select="selected = $event"

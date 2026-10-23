@@ -25,17 +25,26 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { LngLatBoundsLike, Map as MapLibre, StyleSpecification } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { PMTiles, Protocol } from 'pmtiles';
-import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 
+import SymbolIcon from '@/components/map/SymbolIcon.vue';
 import { archiveSource, clearOldArchives, latestKey, TILES_BASE } from '@/map/archive';
 import { basemapStyle, circleImage, withTerrain } from '@/map/style';
 import { TERRAIN_PROTOCOL, terrainTile } from '@/map/terrain';
 import type { Here } from '@/radio/protocol';
-import type { Position } from '@/store/positions';
+import { LOCATION_SERVICES, type Position } from '@/store/positions';
 
 const props = withDefaults(
-  defineProps<{ positions: Position[]; selected: number | null; here: Here | null; dark: boolean; label: (id: number) => string; attribution?: 'bottom-left' | 'top-left' }>(),
-  { attribution: 'bottom-left' },
+  defineProps<{
+    positions: Position[];
+    selected: number | null;
+    here: Here | null;
+    symbol?: number | null;
+    dark: boolean;
+    label: (id: number) => string;
+    attribution?: 'bottom-left' | 'top-left';
+  }>(),
+  { symbol: null, attribution: 'bottom-left' },
 );
 const emit = defineEmits<{ select: [id: number | null]; ready: [] }>();
 
@@ -45,6 +54,8 @@ const failure = ref('');
 const points = ref<{ id: number; x: number; y: number }[]>([]);
 const herePoint = ref<{ x: number; y: number } | null>(null);
 let archive = '';
+
+const symbolName = computed(() => LOCATION_SERVICES.find((s) => s.id === props.symbol)?.symbol ?? '');
 
 const TONES = ['bg-radio-cyan', 'bg-radio-text/80', 'bg-radio-green'];
 
@@ -174,10 +185,21 @@ watch(() => [props.positions, props.here], project, { deep: true });
     <div class="pointer-events-none absolute inset-0">
       <span
         v-if="herePoint"
-        class="absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-radio-green bg-radio-green/25"
+        class="absolute flex -translate-y-1/2 items-center gap-1.5"
+        :class="symbol ? '-translate-x-4' : '-translate-x-2'"
         :style="{ left: `${herePoint.x}px`, top: `${herePoint.y}px` }"
-        aria-hidden="true"
-      />
+      >
+        <span
+          v-if="symbol"
+          role="img"
+          :aria-label="`You, ${symbolName}`"
+          class="box-border flex size-8 items-center justify-center rounded-full border-2 border-radio-green bg-[color-mix(in_oklab,var(--radio-green)_14%,var(--radio-page))] shadow-[0_2px_8px_rgba(0,0,0,0.45)]"
+        >
+          <SymbolIcon :service="symbol" class="size-[17px] text-radio-green" />
+        </span>
+        <span v-else role="img" aria-label="You, not shared" class="box-border block size-4 rounded-full border-2 border-radio-green bg-radio-green/25" />
+        <span class="rounded-[5px] border border-radio-green bg-radio-page px-1.5 py-0.5 font-mono text-xs font-semibold">You</span>
+      </span>
       <button
         v-for="p in points"
         :key="p.id"
