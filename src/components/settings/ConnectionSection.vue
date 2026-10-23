@@ -21,17 +21,22 @@
 
 <script setup lang="ts">
 import { format } from 'date-fns';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
+import HotspotList from '@/components/account/HotspotList.vue';
+import RegisterHotspotDialog from '@/components/account/RegisterHotspotDialog.vue';
+import { allowedSummary } from '@/lib/oauth';
+import { useAccount } from '@/store/account';
 import { useRadio } from '@/store/radio';
 import { useSettings, validHotspot } from '@/store/settings';
 
-import { dangerButton, inputClass, labelClass, primaryButton } from './fields';
+import { dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from './fields';
 import SettingsCard from './SettingsCard.vue';
 import ToggleSwitch from './ToggleSwitch.vue';
 
 const store = useSettings();
 const radio = useRadio();
+const account = useAccount();
 const s = computed(() => store.settings);
 
 const hotspotText = computed({
@@ -42,35 +47,123 @@ const hotspotText = computed({
 });
 const idValid = computed(() => validHotspot(s.value.hotspot.id));
 const linked = computed(() => radio.link !== 'idle' && radio.link !== 'failed');
+const registering = ref(false);
+const loginFailure = ref('');
+
+const selected = computed({
+  get: () => s.value.hotspot.id,
+  set: (id: number) => {
+    const saved = account.saved[String(id)]?.password ?? '';
+    void account.choose(id, saved, s.value.hotspot.callsign || account.user?.callsign || '');
+  },
+});
+const initials = computed(() => (account.user?.callsign ?? '').slice(0, 2));
+const endpoint = computed(() => {
+  const url = radio.endpoint;
+  if (!url) {
+    return '';
+  }
+  const u = new URL(url);
+  return `UDP ${u.port || 443}, path ${u.pathname}`;
+});
+
+function savePassword(): void {
+  const id = s.value.hotspot.id;
+  if (account.loggedIn && validHotspot(id) && s.value.hotspot.password) {
+    void account.saveHotspot(id, { password: s.value.hotspot.password, name: account.saved[String(id)]?.name ?? '' });
+  }
+}
+
+async function login(): Promise<void> {
+  loginFailure.value = '';
+  try {
+    await account.login(s.value.hub.host);
+  } catch (err) {
+    loginFailure.value = err instanceof Error ? err.message : String(err);
+  }
+}
+
+function registered(id: number, password: string): void {
+  registering.value = false;
+  void account.choose(id, password, s.value.hotspot.callsign || account.user?.callsign || '').then(() => radio.connect());
+}
+
+if (account.loggedIn && !account.hotspotsLoaded) {
+  account.loadHotspots().catch(() => undefined);
+}
 </script>
 
 <template>
   <SettingsCard title="Hub">
-    <label :class="labelClass">Host<input v-model.trim="s.hub.host" :class="inputClass" autocomplete="url" /></label>
-    <p class="m-0 text-xs text-radio-muted">Any DMRHub. The hub tells dmr-web its WebTransport port and certificate.</p>
+    <label :class="labelClass">Host<input v-model.trim="s.hub.host" :class="inputClass" autocomplete="url" :disabled="account.loggedIn" /></label>
+    <p class="m-0 text-xs text-radio-muted">
+      <template v-if="endpoint">{{ endpoint }}, from the hub.</template>
+      <template v-else>Any DMRHub. The hub tells dmr-web its WebTransport port and certificate.</template>
+      <template v-if="account.loggedIn"> Log out to change the hub.</template>
+    </p>
   </SettingsCard>
 
-  <SettingsCard title="Hotspot" description="Sent to the hub in the hotspot login (RPTC).">
-    <div class="grid gap-4 sm:grid-cols-2">
-      <label :class="labelClass">
-        Hotspot ID
-        <input v-model="hotspotText" :class="[inputClass, 'font-mono', idValid || !hotspotText ? '' : 'border-radio-red']" inputmode="numeric" />
-      </label>
-      <label :class="labelClass">
-        Hotspot password
-        <input v-model="s.hotspot.password" type="password" :class="inputClass" autocomplete="current-password" />
-      </label>
-      <label :class="labelClass">
-        Callsign
-        <input v-model.trim="s.hotspot.callsign" :class="[inputClass, 'font-mono uppercase']" />
-      </label>
-      <label :class="labelClass">
-        Radio ID
-        <input :value="store.radioId || ''" :class="[inputClass, 'font-mono']" disabled />
-      </label>
+  <section v-if="account.loggedIn" class="flex items-center justify-between gap-3 rounded-2xl border border-radio-line bg-radio-surface p-4 sm:p-[22px]">
+    <div class="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-radio-raised text-[13px] font-bold text-radio-accent sm:size-10 sm:text-sm">{{ initials }}</span>
+      <div class="flex min-w-0 flex-col gap-0.5">
+        <span class="truncate text-sm font-semibold sm:text-[15px]">{{ account.user?.callsign }}<span class="hidden sm:inline">, DMRHub account</span></span>
+        <span class="truncate text-xs text-radio-muted sm:hidden">DMRHub account</span>
+        <span class="hidden truncate text-xs text-radio-muted sm:inline">Allowed: {{ allowedSummary(account.scope) }}</span>
+      </div>
     </div>
-    <p v-if="hotspotText && !idValid" class="m-0 text-xs text-radio-red">Hotspot IDs are 7 or 9 digits and start with your radio ID.</p>
-    <div class="flex justify-end gap-2.5">
+    <button type="button" :class="[secondaryButton, 'shrink-0']" @click="account.logout()">Log out</button>
+  </section>
+  <SettingsCard v-else title="DMRHub account" description="Log in to pick a hotspot from your account, register new ones and keep your talkgroups in step.">
+    <p v-if="loginFailure || account.error" role="alert" class="m-0 text-xs text-radio-red">{{ loginFailure || account.error }}</p>
+    <div class="flex justify-end">
+      <button type="button" :class="primaryButton" @click="login">Log in with DMRHub</button>
+    </div>
+  </SettingsCard>
+
+  <SettingsCard title="Hotspot" :description="account.loggedIn ? undefined : 'Sent to the hub in the hotspot login (RPTC).'">
+    <template v-if="account.loggedIn" #action>
+      <button type="button" :class="[secondaryButton, 'hidden sm:block']" @click="registering = true">Register a new hotspot</button>
+    </template>
+    <template v-if="account.loggedIn">
+      <fieldset class="m-0 flex flex-col gap-2.5 border-none p-0">
+        <legend class="sr-only">Your hotspots</legend>
+        <p v-if="account.hotspotsLoaded && !account.hotspots.length" class="m-0 text-sm text-radio-muted">No hotspots on this account yet.</p>
+        <HotspotList v-model="selected" :extra="s.hotspot.id" saved-text="password saved" />
+        <button type="button" :class="[secondaryButton, 'sm:hidden']" @click="registering = true">Register a new hotspot</button>
+      </fieldset>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <label :class="labelClass">Callsign<input v-model.trim="s.hotspot.callsign" :class="[inputClass, 'font-mono uppercase']" /></label>
+        <label :class="labelClass">Location<input v-model="s.hotspot.location" :class="inputClass" placeholder="City, State" /></label>
+        <label :class="labelClass">
+          Hotspot password
+          <input v-model="s.hotspot.password" type="password" :class="inputClass" autocomplete="current-password" @change="savePassword" />
+        </label>
+      </div>
+    </template>
+    <template v-else>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label :class="labelClass">
+          Hotspot ID
+          <input v-model="hotspotText" :class="[inputClass, 'font-mono', idValid || !hotspotText ? '' : 'border-radio-red']" inputmode="numeric" />
+        </label>
+        <label :class="labelClass">
+          Hotspot password
+          <input v-model="s.hotspot.password" type="password" :class="inputClass" autocomplete="current-password" />
+        </label>
+        <label :class="labelClass">
+          Callsign
+          <input v-model.trim="s.hotspot.callsign" :class="[inputClass, 'font-mono uppercase']" />
+        </label>
+        <label :class="labelClass">
+          Radio ID
+          <input :value="store.radioId || ''" :class="[inputClass, 'font-mono']" disabled />
+        </label>
+      </div>
+      <p v-if="hotspotText && !idValid" class="m-0 text-xs text-radio-red">Hotspot IDs are 7 or 9 digits and start with your radio ID.</p>
+    </template>
+    <div class="flex items-center justify-end gap-2.5" :class="account.loggedIn ? 'sm:justify-between' : ''">
+      <span v-if="account.loggedIn" class="hidden text-xs text-radio-muted sm:inline">Sent to the hub in the hotspot login (RPTC).</span>
       <button v-if="linked" type="button" :class="dangerButton" @click="radio.disconnect()">Disconnect</button>
       <button v-else type="button" :class="primaryButton" :disabled="!store.configured" @click="radio.connect()">Connect</button>
     </div>
@@ -93,4 +186,5 @@ const linked = computed(() => radio.link !== 'idle' && radio.link !== 'failed');
     </div>
     <ToggleSwitch v-model="s.ars" class="self-end sm:self-auto" label="Register with ARS" />
   </section>
+  <RegisterHotspotDialog :open="registering" @close="registering = false" @connect="registered" />
 </template>

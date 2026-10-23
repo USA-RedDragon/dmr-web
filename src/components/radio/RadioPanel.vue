@@ -334,7 +334,7 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
       @pointercancel="pttUp"
       @contextmenu.prevent
     >
-      <span>{{ radio.tx.active ? 'TRANSMITTING' : powered ? 'PUSH TO TALK' : store.configured ? 'CONNECT' : 'LOG IN TO TALK' }}</span>
+      <span>{{ radio.tx.active ? 'TRANSMITTING' : powered ? 'PUSH TO TALK' : store.configured ? 'CONNECT' : compact ? 'LOG IN WITH DMRHUB' : 'LOG IN TO TALK' }}</span>
       <span class="text-xs font-medium tracking-[0.08em] text-radio-muted">
         {{
           radio.tx.active
@@ -351,6 +351,7 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
         }}
       </span>
     </button>
+    <slot name="after" />
     <div v-if="!compact" aria-hidden="true" class="grille min-h-6 grow rounded-[14px] border border-radio-line" />
 
     <TalkgroupKeypad v-model:open="keypad" :ts="slot" @set="setManual" />

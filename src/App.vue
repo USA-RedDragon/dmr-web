@@ -28,6 +28,7 @@ import CallLayer from '@/components/CallLayer.vue';
 import UpdateNotice from '@/components/UpdateNotice.vue';
 import { Toaster } from '@/components/ui/toast';
 import { useColorMode } from '@/composables/useColorMode';
+import { useAccount } from '@/store/account';
 import { useMessages } from '@/store/messages';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
@@ -35,6 +36,7 @@ import { useSettings } from '@/store/settings';
 const { isDark } = useColorMode();
 const store = useSettings();
 const radio = useRadio();
+const account = useAccount();
 
 const desktop = useMediaQuery('(min-width: 1024px)');
 const phoneCall = computed(() => !!radio.privateCall && !desktop.value);
@@ -46,7 +48,7 @@ watchEffect(() => {
 });
 
 onMounted(async () => {
-  await Promise.all([store.load(), useMessages().load()]);
+  await Promise.all([store.load(), useMessages().load(), account.load()]);
   radio.init();
 });
 </script>
@@ -58,7 +60,7 @@ onMounted(async () => {
     </div>
     <CallLayer v-if="store.loaded" />
     <div class="contents" :inert="phoneCall">
-      <RouterView v-if="store.loaded" />
+      <RouterView v-if="store.loaded && account.loaded" />
     </div>
     <Toaster />
     <UpdateNotice />

@@ -24,6 +24,7 @@ import { Settings } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { useAccount } from '@/store/account';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
@@ -32,6 +33,8 @@ import RadioLogo from './RadioLogo.vue';
 
 const radio = useRadio();
 const store = useSettings();
+const account = useAccount();
+const choosing = computed(() => account.loggedIn && !store.configured);
 const route = useRoute();
 const router = useRouter();
 
@@ -49,7 +52,7 @@ const pill = computed(() => {
     case 'failed':
       return { dot: 'bg-radio-red', text: hub, extra: ['No link'] };
     default:
-      return { dot: 'bg-led-off', text: 'Not connected', extra: [] };
+      return choosing.value ? { dot: 'bg-led-off', text: hub, extra: ['Logged in, no hotspot yet'] } : { dot: 'bg-led-off', text: 'Not connected', extra: [] };
   }
 });
 
@@ -59,7 +62,7 @@ const short = computed(() => {
     case 'failed':
       return 'No link';
     case 'idle':
-      return 'Not connected';
+      return choosing.value ? 'No hotspot yet' : 'Not connected';
     default:
       return host;
   }

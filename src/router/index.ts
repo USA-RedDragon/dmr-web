@@ -23,6 +23,7 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'radio', component: () => import('../views/RadioView.vue') },
+    { path: '/oauth/callback', name: 'oauth', component: () => import('../views/OAuthCallbackView.vue') },
     { path: '/messages/:thread?', name: 'messages', component: () => import('../views/MessagesView.vue') },
     {
       path: '/settings/:section?',

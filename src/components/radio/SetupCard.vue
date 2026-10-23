@@ -20,27 +20,22 @@
 -->
 
 <script setup lang="ts">
-import { Eye, EyeOff } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 import OnAir from '@/components/radio/OnAir.vue';
 import { hubOrigin } from '@/radio/discover';
-import { useRadio } from '@/store/radio';
-import { useSettings, validHotspot } from '@/store/settings';
+import { useAccount } from '@/store/account';
+import { useSettings } from '@/store/settings';
 
-const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false });
+withDefaults(defineProps<{ compact?: boolean }>(), { compact: false });
 
 const store = useSettings();
-const radio = useRadio();
+const account = useAccount();
 
 const host = ref(store.settings.hub.host);
-const hotspot = ref(store.settings.hotspot.id ? String(store.settings.hotspot.id) : '');
-const password = ref(store.settings.hotspot.password);
-const callsign = ref(store.settings.hotspot.callsign);
-const show = ref(false);
-const touched = ref(false);
+const busy = ref(false);
+const failure = ref('');
 
-const idValid = computed(() => /^\d+$/.test(hotspot.value) && validHotspot(Number(hotspot.value)));
 const hubLink = computed(() => {
   try {
     return hubOrigin(host.value || 'dmrhub.net').origin;
@@ -48,82 +43,58 @@ const hubLink = computed(() => {
     return 'https://dmrhub.net';
   }
 });
-const canConnect = computed(() => idValid.value && password.value !== '' && host.value.trim() !== '');
+const hubName = computed(() => new URL(hubLink.value).host);
 
-function connect(): void {
-  touched.value = true;
-  if (!canConnect.value) {
+async function login(): Promise<void> {
+  const h = host.value.trim();
+  if (!h) {
     return;
   }
-  const s = store.settings;
-  s.hub.host = host.value.trim();
-  s.hotspot.id = Number(hotspot.value);
-  s.hotspot.password = password.value;
-  s.hotspot.callsign = callsign.value.trim().toUpperCase();
-  radio.connect();
+  store.settings.hub.host = h;
+  busy.value = true;
+  failure.value = '';
+  try {
+    await account.login(h);
+  } catch (err) {
+    failure.value = err instanceof Error ? err.message : String(err);
+    busy.value = false;
+  }
 }
+
+defineExpose({ login });
 
 const inputClass =
   'h-11 w-full rounded-[10px] border border-radio-line bg-radio-page px-3 text-[15px] text-radio-text outline-none focus-visible:border-radio-amber';
-void props;
 </script>
 
 <template>
-  <section class="flex flex-col gap-4 rounded-[20px] border border-radio-line bg-radio-surface" :class="compact ? 'gap-3 rounded-[14px] p-4' : 'p-6'">
+  <section v-if="compact" class="flex flex-col gap-2.5 rounded-[14px] border border-radio-line bg-radio-surface p-3.5">
+    <h1 class="m-0 text-lg font-bold">Your phone is a DMR radio</h1>
+    <p class="m-0 text-[13px] leading-normal text-radio-text/80">Talk on talkgroups, text any DMR radio and see who's on the air. Nothing to install.</p>
+    <p v-if="failure || account.error" role="alert" class="m-0 text-xs text-radio-red">{{ failure || account.error }}</p>
+    <OnAir :host="store.settings.hub.host" compact />
+  </section>
+  <section v-else class="flex flex-col gap-4 rounded-[20px] border border-radio-line bg-radio-surface p-6">
     <div class="flex flex-col gap-2">
-      <h1 class="m-0 font-bold leading-tight" :class="compact ? 'text-lg' : 'text-2xl'">Your browser is a DMR radio</h1>
-      <p class="m-0 text-sm leading-relaxed text-radio-text/80">
-        Talk on DMR talkgroups and hear who's on the air. Nothing to install. Use a hotspot that you registered on your DMRHub account.
-      </p>
+      <h1 class="m-0 text-2xl font-bold leading-tight">Your browser is a DMR radio</h1>
+      <p class="m-0 text-sm leading-relaxed text-radio-text/80">Talk on DMR talkgroups, send texts to any DMR radio, and see who's on the air. Nothing to install.</p>
     </div>
-    <form class="flex flex-col gap-3" @submit.prevent="connect">
+    <form class="flex flex-col gap-4" @submit.prevent="login">
       <label class="flex flex-col gap-1.5 text-xs text-radio-muted">
         Hub
         <input v-model="host" :class="inputClass" autocomplete="url" />
       </label>
-      <div class="grid grid-cols-2 gap-3">
-        <label class="flex flex-col gap-1.5 text-xs text-radio-muted">
-          Hotspot ID
-          <input
-            v-model="hotspot"
-            :class="[inputClass, 'font-mono', touched && !idValid ? 'border-radio-red' : '']"
-            inputmode="numeric"
-            autocomplete="username"
-            :aria-invalid="touched && !idValid"
-          />
-        </label>
-        <label class="flex flex-col gap-1.5 text-xs text-radio-muted">
-          Callsign
-          <input v-model="callsign" :class="[inputClass, 'font-mono uppercase']" autocomplete="off" />
-        </label>
-      </div>
-      <p v-if="touched && !idValid" class="m-0 text-xs text-radio-red">Hotspot IDs are 7 or 9 digits and start with your radio ID.</p>
-      <label class="flex flex-col gap-1.5 text-xs text-radio-muted">
-        Hotspot password
-        <span class="relative">
-          <input v-model="password" :type="show ? 'text' : 'password'" :class="[inputClass, 'pr-12']" autocomplete="current-password" />
-          <button
-            type="button"
-            :aria-label="show ? 'Hide password' : 'Show password'"
-            class="absolute right-0 top-0 flex size-11 items-center justify-center text-radio-muted"
-            @click="show = !show"
-          >
-            <EyeOff v-if="show" class="size-4" />
-            <Eye v-else class="size-4" />
-          </button>
-        </span>
-      </label>
+      <p v-if="failure || account.error" role="alert" class="m-0 text-xs text-radio-red">{{ failure || account.error }}</p>
       <button
         type="submit"
         class="h-[52px] rounded-xl bg-radio-amber text-base font-bold text-radio-amber-ink disabled:opacity-50"
-        :disabled="!radio.supported || radio.link === 'connecting'"
+        :disabled="busy || !host.trim()"
       >
-        {{ radio.link === 'connecting' ? 'Connecting' : 'Connect' }}
+        {{ busy ? `Opening ${hubName}` : 'Log in with DMRHub' }}
       </button>
       <span class="text-[13px] text-radio-muted">
-        No hotspot yet? Register one on <a :href="hubLink" target="_blank" rel="noopener">your hub</a>. It shows the password once.
+        No account? <a :href="`${hubLink}/register`" target="_blank" rel="noopener">Sign up on {{ hubName }}</a>. You need an amateur radio license and a DMR ID.
       </span>
     </form>
-    <OnAir v-if="compact" :host="host" compact />
   </section>
 </template>
