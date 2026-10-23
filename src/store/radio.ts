@@ -22,7 +22,7 @@ import { computed, reactive, ref, shallowRef } from 'vue';
 
 import { loadModule, removeModule, saveModule, sha256Hex } from '@/lib/ambeStore';
 import { RadioClient } from '@/radio/client';
-import type { FromWorker, LinkState, RadioEvent } from '@/radio/protocol';
+import type { FromWorker, LinkState, RadioEvent, RadioStats } from '@/radio/protocol';
 import { webTransportSupported } from '@/radio/transport';
 
 import { useMessages } from './messages';
@@ -71,6 +71,9 @@ function emptyCall(): SlotCall {
   return { active: false, source: 0, target: 0, group: true, vocoder: '', alias: '', latitude: null, longitude: null, startedAt: 0 };
 }
 
+export const TIME_OUT_MS = 180_000;
+const MIN_RADIO_ID = 1_000_000;
+
 export const useRadio = defineStore('radio', () => {
   const settingsStore = useSettings();
   const messagesStore = useMessages();
@@ -84,10 +87,12 @@ export const useRadio = defineStore('radio', () => {
   const heard = ref<HeardEntry[]>([]);
   const log = ref<LogEntry[]>([]);
   const tx = reactive({ active: false, slot: 0 as number, target: 0, group: true, startedAt: 0, error: '' });
+  let totTimer: ReturnType<typeof setTimeout> | undefined;
   const privateCall = ref<{ id: number; slot: number; startedAt: number } | null>(null);
   const incoming = ref<{ source: number; slot: number } | null>(null);
   const transmitVocoder = ref('codec2');
   const endpoint = ref('');
+  const stats = reactive<RadioStats>({ roundTripMs: 0, bursts: 0, lost: 0, late: 0, frameErrors: 0, concealed: 0, codecs: 0 });
   const ars = reactive({ status: 'none' as 'none' | 'registered' | 'failed', at: 0, reason: '' });
   const micLevel = ref(0);
   const micPermission = ref<'unknown' | 'granted' | 'denied'>('unknown');
@@ -137,7 +142,7 @@ export const useRadio = defineStore('radio', () => {
           startedAt: Date.now(),
         });
         addLog(`RX call start, TS${slot}, ${e.group ? 'TG' : 'to'} ${e.target}, from ${e.source}, ${e.vocoder}`);
-        if (!e.group && e.target === settingsStore.radioId && privateCall.value?.id !== e.source) {
+        if (!e.group && e.target === settingsStore.radioId && e.source >= MIN_RADIO_ID && privateCall.value?.id !== e.source) {
           incoming.value = { source: e.source, slot };
         }
         break;
@@ -169,10 +174,16 @@ export const useRadio = defineStore('radio', () => {
         break;
       case 'transmitStart':
         Object.assign(tx, { active: true, slot: e.slot, target: e.target, group: e.group, startedAt: Date.now(), error: '' });
+        clearTimeout(totTimer);
+        totTimer = setTimeout(() => {
+          addLog('Time-out timer: transmission stopped');
+          pttUp();
+        }, TIME_OUT_MS);
         transmitVocoder.value = e.vocoder;
         addLog(`TX start, TS${e.slot}, ${e.group ? 'TG' : 'to'} ${e.target}, ${e.vocoder}`);
         break;
       case 'transmitEnd':
+        clearTimeout(totTimer);
         if (tx.active) {
           remember({
             source: settingsStore.radioId,
@@ -210,6 +221,11 @@ export const useRadio = defineStore('radio', () => {
         break;
       case 'request':
         addLog(`Answered ${e.text} from ${e.source}, TS${slot}`);
+        break;
+      case 'stats':
+        if (e.stats) {
+          Object.assign(stats, e.stats);
+        }
         break;
       case 'registered':
         Object.assign(ars, { status: e.reason === 'sent' ? 'registered' : 'failed', at: Date.now(), reason: e.reason });
@@ -312,6 +328,13 @@ export const useRadio = defineStore('radio', () => {
     const a = settingsStore.settings.audio;
     client.value.setVolume(a.volume);
     client.value.setMicGain(a.micGainDb);
+    void client.value.setMicOptions({
+      echoCancellation: a.echoCancellation,
+      noiseSuppression: a.noiseSuppression,
+      autoGainControl: a.autoGainControl,
+      deviceId: a.inputId || undefined,
+    });
+    void client.value.setOutput(a.outputId);
     void loadModule().then((m) => {
       if (m) {
         checkAmbe(m.bytes, m.name, m.sha256);
@@ -441,7 +464,9 @@ export const useRadio = defineStore('radio', () => {
       echoCancellation: a.echoCancellation,
       noiseSuppression: a.noiseSuppression,
       autoGainControl: a.autoGainControl,
+      deviceId: a.inputId || undefined,
     });
+    void client.value?.setOutput(a.outputId);
   }
 
   return {
@@ -458,6 +483,7 @@ export const useRadio = defineStore('radio', () => {
     transmitVocoder,
     endpoint,
     ars,
+    stats,
     micLevel,
     micPermission,
     micPrompt,

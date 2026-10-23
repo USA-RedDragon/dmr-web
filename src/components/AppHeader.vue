@@ -53,6 +53,18 @@ const pill = computed(() => {
   }
 });
 
+const short = computed(() => {
+  const host = store.settings.hub.host.replace(/^https?:\/\//, '');
+  switch (radio.link) {
+    case 'failed':
+      return 'No link';
+    case 'idle':
+      return 'Not connected';
+    default:
+      return host;
+  }
+});
+
 function toggleSettings(): void {
   void router.push(inSettings.value ? '/' : '/settings');
 }
@@ -60,15 +72,19 @@ function toggleSettings(): void {
 
 <template>
   <header class="flex h-14 shrink-0 items-center justify-between gap-3 border-radio-line px-4 sm:h-16 sm:border-b sm:px-8">
-    <div class="flex items-center gap-6">
-      <RouterLink to="/" class="no-underline flex items-center gap-3 text-radio-text">
+    <div class="flex min-w-0 items-center gap-2.5 lg:gap-6">
+      <RouterLink to="/" class="no-underline flex shrink-0 items-center gap-2.5 text-radio-text sm:gap-3">
         <RadioLogo class="size-5 text-radio-accent sm:size-[22px]" />
         <span class="text-base font-bold tracking-[0.02em] sm:text-[17px]">dmr-web</span>
       </RouterLink>
+      <span class="flex min-w-0 items-center gap-1.5 text-xs lg:hidden" :class="radio.link === 'failed' ? 'text-radio-red' : 'text-radio-text/80'">
+        <span class="size-2 shrink-0 rounded-full" :class="pill.dot" />
+        <span class="truncate">{{ short }}</span>
+      </span>
       <AppNav v-if="store.configured" class="hidden lg:flex" />
     </div>
     <div class="flex min-w-0 items-center gap-3">
-      <div class="flex h-9 min-w-0 items-center gap-2 rounded-full border border-radio-line px-3.5 text-[13px] text-radio-text/80">
+      <div class="hidden h-9 min-w-0 items-center gap-2 rounded-full border border-radio-line px-3.5 text-[13px] text-radio-text/80 lg:flex">
         <span class="size-2 shrink-0 rounded-full" :class="pill.dot" />
         <span class="truncate">{{ pill.text }}</span>
         <span v-for="x in pill.extra" :key="x" class="hidden text-radio-muted md:inline">{{ x }}</span>

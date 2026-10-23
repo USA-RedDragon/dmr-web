@@ -20,7 +20,9 @@
 -->
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue';
+
+const props = defineProps<{
   slots: { slot: 1 | 2; label: string; selected: boolean }[];
   status: string;
   badge: string;
@@ -30,7 +32,11 @@ defineProps<{
   subRight: string;
   details: string[];
   compact?: boolean;
+  meter?: { dbfs: number; lit: number };
+  timeout?: { left: string; fraction: number };
 }>();
+
+const segments = computed(() => (props.compact ? 18 : 24));
 </script>
 
 <template>
@@ -62,12 +68,23 @@ defineProps<{
       <span class="truncate">{{ sub }}</span>
       <span class="shrink-0 text-lcd-dim">{{ subRight }}</span>
     </div>
-    <template v-if="details.length && !compact">
+    <template v-if="meter && timeout">
+      <div class="h-px bg-lcd-line" />
+      <div class="flex flex-col text-lcd-dim" :class="compact ? 'gap-1.5 text-xs' : 'gap-2 text-sm'">
+        <div class="flex justify-between"><span>MIC</span><span>{{ meter.dbfs }} dBFS</span></div>
+        <div class="grid gap-[3px]" :class="compact ? 'h-2.5' : 'h-3.5'" :style="{ gridTemplateColumns: `repeat(${segments}, minmax(0, 1fr))` }" aria-hidden="true">
+          <span v-for="i in segments" :key="i" :class="i <= Math.round(meter.lit * segments) ? 'bg-lcd-text' : 'bg-lcd-line'" />
+        </div>
+        <div class="mt-1 flex justify-between"><span>TIME-OUT</span><span>{{ timeout.left }} left</span></div>
+        <div class="h-1.5 rounded-full bg-lcd-line"><div class="h-1.5 rounded-full bg-lcd-text" :style="{ width: `${Math.round(timeout.fraction * 100)}%` }" /></div>
+      </div>
+    </template>
+    <template v-else-if="details.length && !compact">
       <div class="h-px bg-lcd-line" />
       <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-[15px] text-lcd-dim">
         <span v-for="d in details" :key="d" class="truncate">{{ d }}</span>
       </div>
     </template>
-    <div v-else-if="details.length" class="truncate text-[13px] text-lcd-dim">{{ details[0] }}</div>
+    <div v-else-if="details.length && headline !== 'NO LINK'" class="truncate text-[13px] text-lcd-dim">{{ details[0] }}</div>
   </div>
 </template>

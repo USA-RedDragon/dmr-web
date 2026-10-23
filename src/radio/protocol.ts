@@ -46,7 +46,8 @@ export type RadioEventKind =
   | 'check'
   | 'callAlert'
   | 'request'
-  | 'registered';
+  | 'registered'
+  | 'stats';
 
 export type RadioEvent = {
   kind: RadioEventKind;
@@ -64,6 +65,17 @@ export type RadioEvent = {
   format: string;
   elapsedMs: number;
   error?: string;
+  stats?: RadioStats;
+};
+
+export type RadioStats = {
+  roundTripMs: number;
+  bursts: number;
+  lost: number;
+  late: number;
+  frameErrors: number;
+  concealed: number;
+  codecs: number;
 };
 
 export type TextFormat = 'tms' | 'ip' | 'anytone' | 'dd' | 'hytera';

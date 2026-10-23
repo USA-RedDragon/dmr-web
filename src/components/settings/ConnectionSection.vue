@@ -28,6 +28,7 @@ import { useSettings, validHotspot } from '@/store/settings';
 
 import { dangerButton, inputClass, labelClass, primaryButton } from './fields';
 import SettingsCard from './SettingsCard.vue';
+import ToggleSwitch from './ToggleSwitch.vue';
 
 const store = useSettings();
 const radio = useRadio();
@@ -90,16 +91,6 @@ const linked = computed(() => radio.link !== 'idle' && radio.link !== 'failed');
         >
       </span>
     </div>
-    <button
-      type="button"
-      role="switch"
-      :aria-checked="s.ars"
-      aria-label="Register with ARS"
-      class="relative h-[30px] w-[52px] shrink-0 self-end rounded-full border sm:self-auto"
-      :class="s.ars ? 'border-radio-amber bg-radio-amber-soft' : 'border-radio-line bg-radio-raised'"
-      @click="s.ars = !s.ars"
-    >
-      <span class="absolute top-[3px] size-[22px] rounded-full transition-all" :class="s.ars ? 'right-[3px] bg-radio-amber' : 'left-[3px] bg-radio-muted'" />
-    </button>
+    <ToggleSwitch v-model="s.ars" class="self-end sm:self-auto" label="Register with ARS" />
   </section>
 </template>

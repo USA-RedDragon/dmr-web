@@ -18,7 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 import { describe, expect, it } from 'vitest';
 
-import { describeChanges, exportBackup, openBackup, readBackup } from '@/lib/backup';
+import { applyParts, describeChanges, exportBackup, openBackup, pickParts, readBackup } from '@/lib/backup';
 import { defaultSettings } from '@/store/settings';
 
 describe('backup', () => {
@@ -58,5 +58,29 @@ describe('backup', () => {
     next.hub.host = 'example.org';
     const changes = describeChanges(cur, next, { from: 'system', to: 'dark' });
     expect(changes.map((c) => c.label)).toEqual(['Hub', 'Hotspot', 'Theme']);
+  });
+
+  it('exports only the parts asked for', () => {
+    const c = content();
+    const only = pickParts(c.settings, 'dark', ['talkgroups']);
+    expect(only.settings.talkgroups).toEqual(c.settings.talkgroups);
+    expect(only.settings.hub).toBeUndefined();
+    expect(only.settings.hotspot).toBeUndefined();
+    expect(only.theme).toBeUndefined();
+    expect(JSON.stringify(only)).not.toContain('secret');
+  });
+
+  it('imports a part without touching the rest', () => {
+    const cur = defaultSettings();
+    cur.hotspot.id = 310000101;
+    cur.hotspot.password = 'mine';
+    cur.hotspot.callsign = 'N0CALL';
+    const from = content().settings;
+    from.hotspot.callsign = 'N1CALL';
+    const next = applyParts(cur, pickParts(from, 'dark', ['identity']).settings);
+    expect(next.hotspot).toEqual({ id: 310000101, password: 'mine', callsign: 'N1CALL', location: '' });
+    const both = applyParts(cur, pickParts(from, 'dark', ['hotspot']).settings);
+    expect(both.hotspot.password).toBe('secret');
+    expect(both.hotspot.callsign).toBe('N0CALL');
   });
 });

@@ -39,7 +39,7 @@ const desktop = useMediaQuery('(min-width: 1024px)');
 const wake = useWakeLock();
 
 const showSetup = computed(() => !store.configured || radio.link === 'idle');
-const showNotice = computed(() => !radio.supported || radio.link === 'failed' || radio.link === 'reconnecting');
+const showFailure = computed(() => !radio.supported || radio.link === 'failed');
 
 watch(
   () => radio.connected && store.settings.display.keepScreenOn,
@@ -88,11 +88,13 @@ function onLogin(): void {
 </script>
 
 <template>
-  <main v-if="desktop" class="flex grow gap-8 p-8">
+  <main v-if="showFailure" class="flex grow flex-col" :class="desktop ? 'p-8 pt-16' : 'gap-3 px-4 pt-3 pb-4'">
+    <LinkNotice mode="failed" :compact="!desktop" />
+  </main>
+  <main v-else-if="desktop" class="flex grow gap-8 p-8">
     <RadioPanel class="w-[780px] shrink-0" @login="onLogin" />
     <aside class="flex min-w-0 grow flex-col gap-4">
-      <LinkNotice v-if="showNotice" />
-      <SetupCard v-if="showSetup && radio.link !== 'failed' && radio.supported" />
+      <SetupCard v-if="showSetup" />
       <OnAir v-if="showSetup && !radio.heard.length" :host="store.settings.hub.host" />
       <section v-if="!showSetup || radio.heard.length" class="grow rounded-[20px] border border-radio-line bg-radio-surface p-[22px]">
         <LastHeard :entries="radio.heard" :limit="12" />
@@ -100,16 +102,16 @@ function onLogin(): void {
     </aside>
   </main>
   <main v-else class="flex grow flex-col gap-3 px-4 pb-4">
-    <LinkNotice v-if="showNotice" compact />
     <RadioPanel compact class="grow" @login="onLogin">
       <template #middle>
-        <SetupCard v-if="showSetup && radio.link !== 'failed' && radio.supported" compact />
+        <SetupCard v-if="showSetup" compact />
         <div v-else class="rounded-[14px] border border-radio-line bg-radio-surface px-3.5 py-1">
           <LastHeard :entries="radio.heard" :limit="3" compact />
         </div>
       </template>
     </RadioPanel>
   </main>
-  <AppNav v-if="!desktop && store.configured" bar />
+  <LinkNotice v-if="radio.link === 'reconnecting'" mode="reconnecting" :compact="!desktop" />
+  <AppNav v-if="!desktop && store.configured && !showFailure" bar />
   <MicDialogs />
 </template>

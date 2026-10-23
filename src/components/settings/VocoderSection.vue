@@ -21,6 +21,7 @@
 
 <script setup lang="ts">
 import { CheckCircle2, LoaderCircle, Upload, XCircle } from 'lucide-vue-next';
+import { useMediaQuery } from '@vueuse/core';
 import { computed, ref } from 'vue';
 
 import VocoderBadge from '@/components/radio/VocoderBadge.vue';
@@ -35,6 +36,7 @@ const store = useSettings();
 const radio = useRadio();
 const file = ref<HTMLInputElement | null>(null);
 const dragging = ref(false);
+const desktop = useMediaQuery('(min-width: 1024px)');
 
 const options: { value: VocoderChoice; label: string; hint: string }[] = [
   { value: 'auto', label: 'Auto', hint: 'AMBE when a module is loaded' },
@@ -66,8 +68,29 @@ function onDrop(e: DragEvent): void {
 </script>
 
 <template>
-  <SettingsCard title="Transmit vocoder" description="Received calls always play, whichever vocoder they use.">
-    <div role="radiogroup" aria-label="Transmit vocoder" class="grid gap-2 rounded-xl border border-radio-line bg-radio-page p-1 sm:grid-cols-3">
+  <SettingsCard title="Transmit vocoder" :description="desktop ? 'Received calls always play, whichever vocoder they use.' : ''">
+    <div v-if="!desktop" role="radiogroup" aria-label="Transmit vocoder" class="flex flex-col gap-1.5">
+      <button
+        v-for="o in options"
+        :key="o.value"
+        type="button"
+        role="radio"
+        :aria-checked="store.settings.vocoder === o.value"
+        :disabled="o.value === 'ambe' && !loaded"
+        class="flex min-h-[52px] items-center justify-between rounded-[10px] border px-3.5 text-left disabled:opacity-45"
+        :class="store.settings.vocoder === o.value ? 'border-radio-amber bg-radio-amber-soft' : 'border-radio-line'"
+        @click="choose(o.value)"
+      >
+        <span class="flex flex-col gap-0.5">
+          <span class="text-sm font-bold" :class="store.settings.vocoder === o.value ? 'text-radio-accent' : ''">{{ o.label }}</span>
+          <span class="text-xs" :class="store.settings.vocoder === o.value ? 'text-radio-text/80' : 'text-radio-muted'">
+            {{ o.value === 'ambe' && !loaded ? 'Load a module first' : o.hint }}
+          </span>
+        </span>
+        <VocoderBadge v-if="store.settings.vocoder === o.value" :vocoder="radio.transmitVocoder" />
+      </button>
+    </div>
+    <div v-else role="radiogroup" aria-label="Transmit vocoder" class="grid grid-cols-3 gap-2 rounded-xl border border-radio-line bg-radio-page p-1">
       <button
         v-for="o in options"
         :key="o.value"
@@ -83,7 +106,7 @@ function onDrop(e: DragEvent): void {
         <span class="text-xs text-radio-muted">{{ o.value === 'ambe' && !loaded ? 'Load a module first' : o.hint }}</span>
       </button>
     </div>
-    <div class="flex items-center gap-2.5 text-[13px] text-radio-text/80">
+    <div v-if="desktop" class="flex items-center gap-2.5 text-[13px] text-radio-text/80">
       Now using <VocoderBadge :vocoder="radio.transmitVocoder" />
     </div>
   </SettingsCard>
@@ -100,11 +123,13 @@ function onDrop(e: DragEvent): void {
         <XCircle class="size-4" />Refused
       </span>
     </template>
-    <dl v-if="radio.ambe.status !== 'none'" class="m-0 grid grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-[13px]">
-      <dt class="text-radio-muted">File</dt>
-      <dd class="m-0 truncate">{{ radio.ambe.name }}</dd>
+    <dl v-if="radio.ambe.status !== 'none'" class="m-0 grid grid-cols-[84px_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs lg:grid-cols-[110px_minmax(0,1fr)] lg:gap-x-4 lg:gap-y-2.5 lg:text-[13px]">
+      <template v-if="desktop">
+        <dt class="text-radio-muted">File</dt>
+        <dd class="m-0 truncate">{{ radio.ambe.name }}</dd>
+      </template>
       <dt class="text-radio-muted">SHA-256</dt>
-      <dd class="m-0 break-all font-mono text-xs">{{ radio.ambe.sha256 }}</dd>
+      <dd class="m-0 break-all font-mono text-[11px] lg:text-xs">{{ radio.ambe.sha256 }}</dd>
       <template v-if="radio.ambe.status === 'loaded'">
         <dt class="text-radio-muted">ABI version</dt>
         <dd class="m-0">{{ radio.ambe.version }}</dd>
@@ -131,7 +156,7 @@ function onDrop(e: DragEvent): void {
       <span :class="[secondaryButton, 'flex items-center']">Choose file</span>
       <input ref="file" type="file" accept=".wasm,application/wasm" class="sr-only" @change="pick(($event.target as HTMLInputElement).files)" />
     </label>
-    <div v-else class="flex gap-2.5">
+    <div v-else class="grid grid-cols-2 gap-2 lg:flex lg:gap-2.5">
       <button type="button" :class="secondaryButton" @click="file?.click()">Replace</button>
       <button type="button" :class="dangerButton" @click="radio.forgetAmbe()">Remove</button>
       <input ref="file" type="file" accept=".wasm,application/wasm" class="sr-only" @change="pick(($event.target as HTMLInputElement).files)" />

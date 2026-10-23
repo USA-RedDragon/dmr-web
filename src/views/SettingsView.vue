@@ -60,7 +60,7 @@ watch(
   <main class="flex grow flex-col gap-4 px-4 pb-6 lg:flex-row lg:gap-8 lg:p-8">
     <div class="flex items-center justify-between lg:hidden">
       <h1 class="m-0 text-[22px] font-bold">Settings</h1>
-      <RouterLink to="/" class="flex min-h-11 items-center text-sm">Back to radio</RouterLink>
+      <RouterLink to="/" class="no-underline flex min-h-11 items-center text-sm text-radio-accent">Back to radio</RouterLink>
     </div>
     <nav ref="nav" aria-label="Settings sections" class="flex shrink-0 gap-2 overflow-x-auto lg:w-[220px] lg:flex-col lg:gap-1 lg:overflow-visible">
       <RouterLink
@@ -84,7 +84,7 @@ watch(
         {{ s.label }}
       </RouterLink>
     </nav>
-    <div class="flex min-w-0 max-w-[920px] grow flex-col gap-5">
+    <div class="flex min-w-0 max-w-[920px] grow flex-col gap-3 lg:gap-5">
       <component :is="current.component" />
     </div>
   </main>

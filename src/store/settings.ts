@@ -38,6 +38,8 @@ export type Settings = {
     autoGainControl: boolean;
     micGainDb: number;
     volume: number;
+    inputId: string;
+    outputId: string;
     pttMode: 'hold' | 'toggle';
     pttKey: string;
   };
@@ -60,6 +62,8 @@ export function defaultSettings(): Settings {
       noiseSuppression: true,
       autoGainControl: false,
       micGainDb: 0,
+      inputId: '',
+      outputId: '',
       volume: 0.6,
       pttMode: 'hold',
       pttKey: 'Space',

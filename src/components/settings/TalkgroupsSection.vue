@@ -18,28 +18,34 @@
 
   The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 -->
-
 <script setup lang="ts">
-import { ArrowDown, ArrowUp, X } from 'lucide-vue-next';
-import { reactive } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
+import { GripVertical, X } from 'lucide-vue-next';
+import { reactive, ref } from 'vue';
 
 import { useSettings, type Slot } from '@/store/settings';
 
 import { inputClass, primaryButton } from './fields';
 
+const LONG_PRESS_MS = 450;
+
 const store = useSettings();
-const draft = reactive<Record<Slot, { id: string; name: string }>>({ 1: { id: '', name: '' }, 2: { id: '', name: '' } });
+const desktop = useMediaQuery('(min-width: 1024px)');
+const tab = ref<Slot>(store.settings.selected.slot);
+const draft = reactive<Record<Slot, string>>({ 1: '', 2: '' });
+const drag = ref<{ slot: Slot; from: number; to: number } | null>(null);
+let press: ReturnType<typeof setTimeout> | null = null;
 
 function add(slot: Slot): void {
-  const id = Number(draft[slot].id);
+  const id = Number(draft[slot]);
   if (!Number.isInteger(id) || id <= 0 || id >= 1 << 24) {
     return;
   }
   const list = store.settings.talkgroups[slot];
   if (!list.some((t) => t.id === id)) {
-    list.push({ id, name: draft[slot].name.trim(), static: false });
+    list.push({ id, name: '', static: false });
   }
-  draft[slot] = { id: '', name: '' };
+  draft[slot] = '';
 }
 
 function remove(slot: Slot, i: number): void {
@@ -48,64 +54,154 @@ function remove(slot: Slot, i: number): void {
   sel[slot] = Math.min(sel[slot], Math.max(0, store.settings.talkgroups[slot].length - 1));
 }
 
-function move(slot: Slot, i: number, d: number): void {
-  const list = store.settings.talkgroups[slot];
-  const j = i + d;
-  if (j < 0 || j >= list.length) {
+function rowAt(slot: Slot, y: number): number {
+  const rows = [...document.querySelectorAll<HTMLElement>(`[data-tg-row="${slot}"]`)];
+  const i = rows.findIndex((r) => y < r.getBoundingClientRect().top + r.offsetHeight / 2);
+  return i < 0 ? rows.length - 1 : i;
+}
+
+function startDrag(e: PointerEvent, slot: Slot, i: number): void {
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  drag.value = { slot, from: i, to: i };
+}
+
+function onPress(e: PointerEvent, slot: Slot, i: number): void {
+  if (desktop.value) {
     return;
   }
-  [list[i], list[j]] = [list[j]!, list[i]!];
+  const target = e.currentTarget as HTMLElement;
+  const id = e.pointerId;
+  press = setTimeout(() => {
+    press = null;
+    target.setPointerCapture(id);
+    drag.value = { slot, from: i, to: i };
+    navigator.vibrate?.(10);
+  }, LONG_PRESS_MS);
+}
+
+function onMove(e: PointerEvent): void {
+  if (press) {
+    clearTimeout(press);
+    press = null;
+  }
+  if (drag.value) {
+    e.preventDefault();
+    drag.value.to = rowAt(drag.value.slot, e.clientY);
+  }
+}
+
+function onUp(): void {
+  if (press) {
+    clearTimeout(press);
+    press = null;
+  }
+  const d = drag.value;
+  drag.value = null;
+  if (!d || d.from === d.to) {
+    return;
+  }
+  const list = store.settings.talkgroups[d.slot];
+  const [item] = list.splice(d.from, 1);
+  list.splice(d.to, 0, item!);
+}
+
+function now(slot: Slot): string {
+  const t = store.target(slot);
+  return t ? `TG ${t}` : 'nothing';
 }
 </script>
 
 <template>
-  <p class="m-0 text-sm text-radio-text/80">The talkgroup knob steps through the list for the selected slot, in this order.</p>
-  <div class="grid gap-5 lg:grid-cols-2">
-    <section
-      v-for="slot in [1, 2] as Slot[]"
-      :key="slot"
-      :aria-label="`Timeslot ${slot}`"
-      class="flex flex-col gap-2.5 rounded-2xl border border-radio-line bg-radio-surface p-4 sm:p-5"
+  <div v-if="desktop" class="flex items-center justify-between gap-4">
+    <p class="m-0 text-sm text-radio-text/80">The talkgroup knob steps through the list for the selected slot, in this order.</p>
+  </div>
+  <div v-else role="tablist" aria-label="Timeslot" class="grid grid-cols-2 gap-1 rounded-xl border border-radio-line bg-radio-page p-1">
+    <button
+      v-for="s in [1, 2] as Slot[]"
+      :key="s"
+      type="button"
+      role="tab"
+      :aria-selected="tab === s"
+      class="h-11 rounded-[9px] text-sm font-semibold"
+      :class="tab === s ? 'bg-radio-raised text-radio-accent' : 'text-radio-text/80'"
+      @click="tab = s"
     >
-      <div class="flex items-center justify-between">
+      TS{{ s }} · {{ store.target(s) ? `TG ${store.target(s)}` : '---' }}
+    </button>
+  </div>
+
+  <div class="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
+    <section
+      v-for="slot in (desktop ? [1, 2] : [tab]) as Slot[]"
+      :key="slot"
+      :aria-label="`Talkgroups on TS${slot}`"
+      class="flex flex-col rounded-2xl border border-radio-line bg-radio-surface"
+      :class="desktop ? 'gap-0 p-5' : 'px-3.5 py-1'"
+    >
+      <div v-if="desktop" class="flex items-center justify-between pb-2">
         <h2 class="m-0 text-[17px] font-semibold">TS{{ slot }}</h2>
-        <span class="text-xs text-radio-muted">Now on {{ store.target(slot) ? `TG ${store.target(slot)}` : 'nothing' }}</span>
+        <span class="text-xs text-radio-muted">Now on {{ now(slot) }}</span>
       </div>
-      <p v-if="store.settings.talkgroups[slot].length === 0" class="m-0 py-2 text-sm text-radio-muted">No talkgroups yet.</p>
+      <p v-if="store.settings.talkgroups[slot].length === 0" class="m-0 py-4 text-sm text-radio-muted">No talkgroups yet.</p>
       <div
         v-for="(t, i) in store.settings.talkgroups[slot]"
         :key="t.id"
-        class="flex min-h-14 items-center gap-2 border-b border-radio-line"
+        :data-tg-row="slot"
+        class="flex min-h-14 select-none items-center gap-2.5 border-radio-line"
+        :class="[
+          i < store.settings.talkgroups[slot].length - 1 || desktop ? 'border-b' : '',
+          drag && drag.slot === slot && drag.from === i ? 'opacity-50' : '',
+          drag && drag.slot === slot && drag.to === i && drag.from !== i ? 'shadow-[0_-2px_0_var(--radio-amber)_inset]' : '',
+        ]"
+        @pointerdown="onPress($event, slot, i)"
+        @pointermove="onMove"
+        @pointerup="onUp"
+        @pointercancel="onUp"
+        @contextmenu.prevent
       >
-        <span class="w-14 font-mono font-semibold">{{ t.id }}</span>
-        <input v-model="t.name" :aria-label="`Name of TG ${t.id}`" class="min-w-0 grow bg-transparent text-sm outline-none" placeholder="Name" />
-        <label class="flex items-center gap-1.5 text-[11px] font-semibold" :class="t.static ? 'text-radio-green' : 'text-radio-muted'">
-          <input v-model="t.static" type="checkbox" class="accent-radio-green" />STATIC
-        </label>
-        <button type="button" :aria-label="`Move TG ${t.id} up`" class="flex size-9 items-center justify-center text-radio-muted" :disabled="i === 0" @click="move(slot, i, -1)">
-          <ArrowUp class="size-4" />
+        <button
+          v-if="desktop"
+          type="button"
+          :aria-label="`Drag to reorder TG ${t.id}`"
+          class="flex h-9 w-5 cursor-grab items-center justify-center text-radio-muted"
+          style="touch-action: none"
+          @pointerdown.stop="startDrag($event, slot, i)"
+        >
+          <GripVertical class="size-3.5" />
         </button>
+        <span class="w-14 shrink-0 font-mono font-semibold">{{ t.id }}</span>
+        <input v-model="t.name" :aria-label="`Name of TG ${t.id}`" class="min-w-0 grow bg-transparent text-sm outline-none" placeholder="Name" @pointerdown.stop />
         <button
           type="button"
-          :aria-label="`Move TG ${t.id} down`"
-          class="flex size-9 items-center justify-center text-radio-muted"
-          :disabled="i === store.settings.talkgroups[slot].length - 1"
-          @click="move(slot, i, 1)"
+          :aria-pressed="t.static"
+          :aria-label="t.static ? `TG ${t.id} is static, tap to make it dynamic` : `Make TG ${t.id} static`"
+          class="shrink-0 rounded-[5px] border px-1.5 py-0.5 text-[10px] font-semibold"
+          :class="t.static ? 'border-radio-green text-radio-green' : 'border-radio-line text-radio-muted/70'"
+          @pointerdown.stop
+          @click="t.static = !t.static"
         >
-          <ArrowDown class="size-4" />
+          STATIC
         </button>
-        <button type="button" :aria-label="`Remove TG ${t.id}`" class="flex size-11 items-center justify-center text-radio-muted" @click="remove(slot, i)">
+        <button type="button" :aria-label="`Remove TG ${t.id}`" class="flex size-11 shrink-0 items-center justify-center text-radio-muted" @pointerdown.stop @click="remove(slot, i)">
           <X class="size-4" />
         </button>
       </div>
-      <form class="mt-1 flex gap-2" @submit.prevent="add(slot)">
-        <input v-model="draft[slot].id" :aria-label="`Add a talkgroup to TS${slot}`" :class="[inputClass, 'w-32 font-mono']" inputmode="numeric" placeholder="Number" />
-        <input v-model="draft[slot].name" aria-label="Talkgroup name" :class="inputClass" placeholder="Name" />
+      <form v-if="desktop" class="flex gap-2.5 pt-4" @submit.prevent="add(slot)">
+        <input v-model="draft[slot]" :aria-label="`Add a talkgroup to TS${slot}`" :class="inputClass" inputmode="numeric" placeholder="Talkgroup number" />
         <button type="submit" :class="primaryButton">Add</button>
       </form>
     </section>
   </div>
+
+  <form v-if="!desktop" class="flex gap-2" @submit.prevent="add(tab)">
+    <input v-model="draft[tab]" :aria-label="`Add a talkgroup to TS${tab}`" :class="inputClass" inputmode="numeric" placeholder="Add talkgroup number" />
+    <button type="submit" :class="primaryButton">Add</button>
+  </form>
   <p class="m-0 text-xs text-radio-muted">
-    STATIC talkgroups are linked on the hub for this hotspot at login. The rest link when you key up on them. Changes apply at the next connect.
+    {{
+      desktop
+        ? 'STATIC talkgroups are linked on the hub for this hotspot. The rest link when you key up on them.'
+        : 'The knob steps through this list in order. Long-press a row to reorder it.'
+    }}
   </p>
 </template>

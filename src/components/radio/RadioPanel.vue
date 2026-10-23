@@ -23,7 +23,7 @@
 import { useIntervalFn } from '@vueuse/core';
 import { computed, ref } from 'vue';
 
-import { useRadio } from '@/store/radio';
+import { TIME_OUT_MS, useRadio } from '@/store/radio';
 import { useSettings, type Slot } from '@/store/settings';
 
 import LcdDisplay from './LcdDisplay.vue';
@@ -67,6 +67,13 @@ function slotLabel(n: Slot): string {
   return `TG ${tg}${name ? ` ${name.toUpperCase()}` : ''}`;
 }
 
+const micDbfs = computed(() => (radio.micLevel > 0 ? Math.max(-60, Math.round(20 * Math.log10(radio.micLevel))) : -60));
+const totLeft = computed(() => {
+  const used = Math.min(TIME_OUT_MS, Math.max(0, now.value - radio.tx.startedAt));
+  const left = Math.ceil((TIME_OUT_MS - used) / 1000);
+  return { left: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, fraction: used / TIME_OUT_MS };
+});
+
 function elapsed(since: number): string {
   const sec = Math.max(0, Math.floor((now.value - since) / 1000));
   return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
@@ -101,9 +108,11 @@ const lcd = computed(() => {
       badge: radio.transmitVocoder === 'ambe' ? 'AMBE' : 'CODEC2',
       timer: elapsed(radio.tx.startedAt),
       headline: 'TRANSMIT',
-      sub: `${s.value.hotspot.callsign || 'ID'}  ${store.radioId}`,
+      sub: s.value.hotspot.callsign ? `${s.value.hotspot.callsign}  ID ${store.radioId}` : `ID ${store.radioId}`,
       subRight: radio.tx.group ? 'Group call' : 'Private call',
       details: [],
+      meter: { dbfs: micDbfs.value, lit: (micDbfs.value + 60) / 60 },
+      timeout: totLeft.value,
     };
   }
   const a = activeCall.value;
@@ -236,7 +245,7 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
       <RadioKnob
         :position="knobPos"
         :count="Math.max(1, list.length)"
-        :label="radio.tx.active ? 'TALKGROUP, LOCKED' : `TALKGROUP TS${slot}`"
+        :label="radio.tx.active ? (compact ? 'LOCKED' : 'TALKGROUP, LOCKED') : powered ? `TALKGROUP TS${slot}` : 'TALKGROUP'"
         :spoken="`Talkgroup knob for TS${slot}`"
         :size="knobSize"
         :disabled="radio.tx.active || list.length < 2"
@@ -249,10 +258,10 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
             v-for="n in [1, 2] as Slot[]"
             :key="n"
             type="button"
-            :aria-pressed="slot === n"
+            :aria-pressed="powered && slot === n"
             :disabled="radio.tx.active"
             class="h-11 rounded-[9px] text-sm font-semibold"
-            :class="[compact ? 'w-16' : 'w-[72px]', slot === n ? 'bg-radio-raised text-radio-accent' : 'text-radio-muted']"
+            :class="[compact ? 'w-16' : 'w-[72px]', powered && slot === n ? 'bg-radio-raised text-radio-accent' : 'text-radio-muted']"
             @click="pickSlot(n)"
           >
             TS{{ n }}
@@ -298,7 +307,7 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
       <RadioKnob
         :position="volumePos"
         :count="11"
-        :label="`VOLUME ${volumePos}`"
+        :label="powered ? `VOLUME ${volumePos}` : 'VOLUME'"
         spoken="Volume knob"
         :size="compact ? 68 : 72"
         @step="stepVolume"

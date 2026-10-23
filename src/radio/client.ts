@@ -37,6 +37,7 @@ export class RadioClient {
   private micOptions: MicOptions = { echoCancellation: true, noiseSuppression: true, autoGainControl: false };
   private gainDb = 0;
   private volume = 0.6;
+  private outputId = '';
 
   constructor(private readonly onMessage: (msg: FromWorker) => void, private readonly onLevel?: (level: number) => void) {
     this.worker = new Worker(new URL('./radio.worker.ts', import.meta.url), { type: 'module' });
@@ -66,6 +67,9 @@ export class RadioClient {
     playback.port.postMessage({ type: 'volume', value: this.volume });
     this.ctx = ctx;
     this.playback = playback;
+    if (this.outputId) {
+      await this.setOutput(this.outputId);
+    }
     return ctx;
   }
 
@@ -142,14 +146,23 @@ export class RadioClient {
     this.playback?.port.postMessage({ type: 'volume', value });
   }
 
+  async setOutput(id: string): Promise<void> {
+    this.outputId = id;
+    const ctx = this.ctx as (AudioContext & { setSinkId?: (id: string) => Promise<void> }) | null;
+    if (ctx?.setSinkId) {
+      await ctx.setSinkId(id).catch(() => undefined);
+    }
+  }
+
   setMicGain(db: number): void {
     this.gainDb = db;
     this.capture?.port.postMessage({ type: 'gain', db });
   }
 
   async setMicOptions(options: MicOptions): Promise<void> {
+    const same = JSON.stringify(options) === JSON.stringify(this.micOptions);
     this.micOptions = options;
-    if (this.mic) {
+    if (this.mic && !same) {
       this.mic.getTracks().forEach((t) => t.stop());
       this.capture?.disconnect();
       this.mic = null;

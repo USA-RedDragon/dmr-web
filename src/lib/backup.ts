@@ -17,13 +17,60 @@
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
-import type { Settings } from '@/store/settings';
+import { mergeSettings, type Settings } from '@/store/settings';
 
 export const BACKUP_FORMAT = 'dmr-web-settings';
 export const BACKUP_VERSION = 1;
 const ITERATIONS = 600_000;
 
-export type BackupContent = { settings: Settings; theme: string };
+export type BackupPart = 'hotspot' | 'identity' | 'talkgroups' | 'preferences';
+
+export const BACKUP_PARTS: BackupPart[] = ['hotspot', 'identity', 'talkgroups', 'preferences'];
+
+export type BackupContent = { settings: Partial<Settings>; theme?: string };
+
+export function pickParts(settings: Settings, theme: string, parts: BackupPart[]): BackupContent {
+  const s = structuredClone(JSON.parse(JSON.stringify(settings)) as Settings);
+  const out: Partial<Settings> = {};
+  if (parts.includes('hotspot') || parts.includes('identity')) {
+    out.hotspot = { id: 0, password: '', callsign: '', location: '' };
+  }
+  if (parts.includes('hotspot')) {
+    out.hub = s.hub;
+    out.hotspot!.id = s.hotspot.id;
+    out.hotspot!.password = s.hotspot.password;
+  }
+  if (parts.includes('identity')) {
+    out.hotspot!.callsign = s.hotspot.callsign;
+    out.hotspot!.location = s.hotspot.location;
+  }
+  if (parts.includes('talkgroups')) {
+    out.talkgroups = s.talkgroups;
+    out.selected = s.selected;
+  }
+  if (parts.includes('preferences')) {
+    out.vocoder = s.vocoder;
+    out.jitterMs = s.jitterMs;
+    out.ars = s.ars;
+    out.audio = s.audio;
+    out.display = s.display;
+  }
+  return parts.includes('preferences') ? { settings: out, theme } : { settings: out };
+}
+
+export function applyParts(current: Settings, next: Partial<Settings>): Settings {
+  const merged = mergeSettings(current, next);
+  if (next.hotspot) {
+    const h = next.hotspot;
+    merged.hotspot = {
+      id: h.id || current.hotspot.id,
+      password: h.id ? h.password : current.hotspot.password,
+      callsign: h.callsign || current.hotspot.callsign,
+      location: h.callsign || h.location ? h.location : current.hotspot.location,
+    };
+  }
+  return merged;
+}
 
 type PlainFile = { format: string; version: number; exportedAt: string; encrypted: false; content: BackupContent };
 type SealedFile = {
@@ -108,7 +155,8 @@ export async function openBackup(file: BackupFile, passphrase: string): Promise<
 
 export type Change = { label: string; from: string; to: string };
 
-export function describeChanges(current: Settings, next: Settings, theme: { from: string; to: string }): Change[] {
+export function describeChanges(current: Settings, incoming: Partial<Settings>, theme: { from: string; to?: string }): Change[] {
+  const next = applyParts(current, incoming);
   const out: Change[] = [];
   const add = (label: string, from: string, to: string) => {
     if (from !== to) {
@@ -118,10 +166,12 @@ export function describeChanges(current: Settings, next: Settings, theme: { from
   add('Hub', current.hub.host, next.hub.host);
   add('Hotspot', String(current.hotspot.id || '-'), String(next.hotspot.id || '-'));
   add('Callsign', current.hotspot.callsign || '-', next.hotspot.callsign || '-');
-  const tg = (s: Settings) => `TS1: ${s.talkgroups[1].length}, TS2: ${s.talkgroups[2].length}`;
+  const tg = (x: Settings) => `TS1: ${x.talkgroups[1].length}, TS2: ${x.talkgroups[2].length}`;
   add('Talkgroups', tg(current), tg(next));
   add('Vocoder', current.vocoder, next.vocoder);
   add('Jitter buffer', `${current.jitterMs} ms`, `${next.jitterMs} ms`);
-  add('Theme', theme.from, theme.to);
+  if (theme.to) {
+    add('Theme', theme.from, theme.to);
+  }
   return out;
 }

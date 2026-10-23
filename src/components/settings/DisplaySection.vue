@@ -18,59 +18,83 @@
 
   The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 -->
-
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core';
+import { computed } from 'vue';
+
 import { useColorMode } from '@/composables/useColorMode';
 import { useSettings } from '@/store/settings';
 
 import SettingsCard from './SettingsCard.vue';
+import ToggleSwitch from './ToggleSwitch.vue';
 
 const store = useSettings();
 const { mode, setMode } = useColorMode();
+const desktop = useMediaQuery('(min-width: 1024px)');
 
-const themes = [
-  { value: 'system', label: 'Auto', hint: 'Follow the system' },
-  { value: 'light', label: 'Light', hint: 'Always light' },
-  { value: 'dark', label: 'Dark', hint: 'Always dark' },
-] as const;
+const themes = computed(() => [
+  { value: 'system', label: 'Auto', hint: desktop.value ? 'Follows your system. Default' : 'System', sides: ['dark', 'light'] },
+  { value: 'light', label: 'Light', hint: 'Always light', sides: ['light'] },
+  { value: 'dark', label: 'Dark', hint: 'Always dark', sides: ['dark'] },
+] as const);
+
+const switches = computed(() => [
+  {
+    key: 'reduceMotion' as const,
+    label: 'Reduce motion',
+    hint: desktop.value ? 'Turns off knob and meter animation. Follows your system unless set here.' : 'Fewer animations',
+  },
+  {
+    key: 'keepScreenOn' as const,
+    label: desktop.value ? 'Keep screen on while connected' : 'Keep screen on',
+    hint: desktop.value ? 'Stops the screen from sleeping while the radio is on the air.' : 'While connected',
+  },
+]);
 </script>
 
 <template>
   <SettingsCard title="Theme">
-    <div role="radiogroup" aria-label="Theme" class="grid gap-2 sm:grid-cols-3">
+    <div role="radiogroup" aria-label="Theme" class="grid grid-cols-3 gap-2 lg:gap-3">
       <button
         v-for="t in themes"
         :key="t.value"
         type="button"
         role="radio"
         :aria-checked="mode === t.value"
-        class="flex flex-col gap-3 rounded-xl border p-3 text-left"
+        class="flex flex-col items-start gap-2.5 rounded-xl border p-2.5 text-left lg:p-3.5"
         :class="mode === t.value ? 'border-radio-amber bg-radio-amber-soft' : 'border-radio-line'"
         @click="setMode(t.value)"
       >
-        <span class="flex h-14 overflow-hidden rounded-lg border border-radio-line" aria-hidden="true">
-          <span v-if="t.value !== 'light'" class="flex grow items-center justify-center bg-[#1b1d21]">
-            <span class="rounded bg-[#140f05] px-2 py-1 font-mono text-[10px] text-[#ffb547]">TG 1</span>
-          </span>
-          <span v-if="t.value !== 'dark'" class="flex grow items-center justify-center bg-[#e4e5e8]">
-            <span class="rounded bg-[#f3e2b8] px-2 py-1 font-mono text-[10px] text-[#3a2600]">TG 1</span>
+        <span aria-hidden="true" class="flex h-14 w-20 overflow-hidden rounded-[10px] border border-[#34383f] lg:h-20 lg:w-full">
+          <span
+            v-for="side in t.sides"
+            :key="side"
+            class="flex flex-1 flex-col gap-1.5 p-2"
+            :class="side === 'dark' ? 'bg-[#1b1d21]' : 'bg-[#e4e5e8]'"
+          >
+            <span class="h-3.5 rounded-[3px] border" :class="side === 'dark' ? 'border-[#2a2010] bg-[#140f05]' : 'border-[#cdb57a] bg-[#f3e2b8]'" />
+            <span class="size-4 rounded-full border" :class="side === 'dark' ? 'border-[#3a3e45] bg-[#24272c]' : 'border-[#c9ccd1] bg-[#f7f7f8]'" />
           </span>
         </span>
-        <span class="flex flex-col">
+        <span class="flex flex-col gap-0.5">
           <span class="text-sm font-bold" :class="mode === t.value ? 'text-radio-accent' : ''">{{ t.label }}</span>
           <span class="text-xs text-radio-muted">{{ t.hint }}</span>
         </span>
       </button>
     </div>
   </SettingsCard>
-  <SettingsCard>
-    <label class="flex min-h-11 items-center justify-between text-sm">
-      Reduce motion
-      <input v-model="store.settings.display.reduceMotion" type="checkbox" class="size-5 accent-radio-amber" />
-    </label>
-    <label class="flex min-h-11 items-center justify-between border-t border-radio-line pt-3 text-sm">
-      Keep the screen on while connected
-      <input v-model="store.settings.display.keepScreenOn" type="checkbox" class="size-5 accent-radio-amber" />
-    </label>
-  </SettingsCard>
+  <section class="flex flex-col rounded-2xl border border-radio-line bg-radio-surface px-4 py-1 lg:px-[22px]">
+    <div
+      v-for="(s, i) in switches"
+      :key="s.key"
+      class="flex min-h-[52px] items-center justify-between gap-4 py-1.5"
+      :class="i > 0 ? 'border-t border-radio-line' : ''"
+    >
+      <span class="flex flex-col gap-0.5">
+        <span class="text-sm">{{ s.label }}</span>
+        <span class="text-xs text-radio-muted">{{ s.hint }}</span>
+      </span>
+      <ToggleSwitch v-model="store.settings.display[s.key]" :label="s.label" />
+    </div>
+  </section>
 </template>
