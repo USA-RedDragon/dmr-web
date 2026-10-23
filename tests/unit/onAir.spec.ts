@@ -18,7 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 import { describe, expect, it } from 'vitest';
 
-import { entryOf } from '@/lib/onAir';
+import { entryOf, lastHeardSocketURL, mergeCall } from '@/lib/onAir';
 
 describe('entryOf', () => {
   it('reads a DMRHub last heard row', () => {
@@ -49,5 +49,41 @@ describe('entryOf', () => {
       source_id: 3100009,
     });
     expect(e).toMatchObject({ callsign: '3100009', target: 'Private', active: true });
+  });
+});
+
+describe('mergeCall', () => {
+  const call = (id: number, start: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    start_time: start,
+    duration: 0,
+    active: true,
+    group_call: true,
+    is_to_talkgroup: true,
+    destination_id: 91,
+    source_id: 3100001,
+    ...extra,
+  });
+
+  it('puts a new call first and keeps the limit', () => {
+    let list = [entryOf(call(1, '2026-10-23T08:00:00Z')), entryOf(call(2, '2026-10-23T07:00:00Z'))];
+    list = mergeCall(list, call(3, '2026-10-23T09:00:00Z'), 2);
+    expect(list.map((e) => e.id)).toEqual([3, 1]);
+  });
+
+  it('updates a call in place when it ends', () => {
+    const list = mergeCall([entryOf(call(1, '2026-10-23T08:00:00Z'))], call(1, '2026-10-23T08:00:00Z', { active: false, duration: 5e9 }), 5);
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ active: false, seconds: 5 });
+  });
+
+  it('leaves out calls other than voice', () => {
+    expect(mergeCall([], call(1, '2026-10-23T08:00:00Z', { kind: 'data' }), 5)).toEqual([]);
+  });
+});
+
+describe('lastHeardSocketURL', () => {
+  it('is the public websocket of the hub', () => {
+    expect(lastHeardSocketURL('dmrhub.net')).toBe('wss://dmrhub.net/ws/lastheard');
   });
 });

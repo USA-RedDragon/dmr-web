@@ -17,8 +17,9 @@
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 import { useDebounceFn, useEventListener } from '@vueuse/core';
-import { ref, watch, type Ref } from 'vue';
+import { onScopeDispose, ref, watch, type Ref } from 'vue';
 
+import { retryDelay } from '@/lib/hubMessages';
 import { hubOrigin } from '@/radio/discover';
 
 export type OnAirEntry = {
@@ -33,6 +34,7 @@ export type OnAirEntry = {
 
 type Call = {
   id: number;
+  kind?: string;
   user?: { id?: number; callsign?: string };
   start_time: string;
   duration: number;
@@ -58,6 +60,24 @@ export function entryOf(c: Call): OnAirEntry {
   };
 }
 
+/** lastHeardSocketURL is the hub's public websocket of the calls on the air. */
+export function lastHeardSocketURL(host: string): string {
+  const u = hubOrigin(host);
+  u.protocol = u.protocol === 'http:' ? 'ws:' : 'wss:';
+  u.pathname = '/ws/lastheard';
+  return u.toString();
+}
+
+/** mergeCall puts a pushed call into entries, newest first, keeping at most limit of them. Calls other than voice are left out. */
+export function mergeCall(entries: OnAirEntry[], c: Call, limit: number): OnAirEntry[] {
+  if (c.kind && c.kind !== 'voice') {
+    return entries;
+  }
+  const e = entryOf(c);
+  const rest = entries.filter((x) => x.id !== e.id);
+  return [e, ...rest].sort((a, b) => b.start.getTime() - a.start.getTime()).slice(0, limit);
+}
+
 export async function fetchOnAir(host: string, limit: number, signal?: AbortSignal): Promise<OnAirEntry[]> {
   const url = new URL('/api/v1/lastheard', hubOrigin(host));
   url.searchParams.set('types', 'voice');
@@ -71,42 +91,121 @@ export async function fetchOnAir(host: string, limit: number, signal?: AbortSign
   return (body.calls ?? []).map(entryOf);
 }
 
+const NEVER_OPENED_TRIES = 3;
+
+/** useOnAir keeps the latest voice calls of the hub at host, live over its public websocket. */
 export function useOnAir(host: Ref<string>, limit: number) {
   const entries = ref<OnAirEntry[]>([]);
   const failed = ref(false);
   let ctrl: AbortController | null = null;
+  let ws: WebSocket | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let attempt = 0;
+  let opened = false;
+  let generation = 0;
 
-  async function load(): Promise<void> {
-    const h = host.value.trim();
+  async function load(h: string, gen: number): Promise<void> {
     ctrl?.abort();
-    if (!h) {
-      entries.value = [];
-      return;
-    }
     const mine = new AbortController();
     ctrl = mine;
     try {
       const got = await fetchOnAir(h, limit, mine.signal);
-      if (ctrl === mine) {
-        entries.value = got;
+      if (gen === generation) {
+        let merged = got;
+        for (const e of entries.value) {
+          if (!merged.some((x) => x.id === e.id)) {
+            merged = [...merged, e];
+          }
+        }
+        entries.value = merged.sort((a, b) => b.start.getTime() - a.start.getTime()).slice(0, limit);
         failed.value = false;
       }
     } catch {
-      if (ctrl === mine) {
-        entries.value = [];
+      if (gen === generation && !mine.signal.aborted) {
         failed.value = true;
       }
     }
   }
 
-  const later = useDebounceFn(load, 600);
+  function close(): void {
+    clearTimeout(timer);
+    ctrl?.abort();
+    if (ws) {
+      ws.onclose = null;
+      ws.close();
+      ws = null;
+    }
+  }
+
+  function open(h: string, gen: number): void {
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(lastHeardSocketURL(h), ['dmrhub']);
+    } catch {
+      failed.value = true;
+      return;
+    }
+    ws = socket;
+    socket.onopen = () => {
+      opened = true;
+      if (attempt > 0) {
+        void load(h, gen);
+      }
+      attempt = 0;
+    };
+    socket.onmessage = (e: MessageEvent<string>) => {
+      let c: Call;
+      try {
+        c = JSON.parse(e.data) as Call;
+      } catch {
+        return;
+      }
+      if (typeof c?.id === 'number') {
+        entries.value = mergeCall(entries.value, c, limit);
+        failed.value = false;
+      }
+    };
+    socket.onclose = () => {
+      if (ws !== socket || gen !== generation) {
+        return;
+      }
+      ws = null;
+      if (document.visibilityState === 'visible' && (opened || attempt < NEVER_OPENED_TRIES)) {
+        clearTimeout(timer);
+        timer = setTimeout(() => open(h, gen), retryDelay(attempt++));
+      }
+    };
+  }
+
+  function start(): void {
+    generation++;
+    close();
+    attempt = 0;
+    opened = false;
+    const h = host.value.trim();
+    if (!h) {
+      entries.value = [];
+      failed.value = false;
+      return;
+    }
+    void load(h, generation);
+    open(h, generation);
+  }
+
+  const later = useDebounceFn(() => {
+    entries.value = [];
+    start();
+  }, 600);
   watch(host, () => void later());
-  useEventListener(window, 'focus', () => void load());
   useEventListener(document, 'visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      void load();
+    if (document.visibilityState === 'visible' && !ws) {
+      start();
     }
   });
-  void load();
-  return { entries, failed, load };
+  onScopeDispose(() => {
+    generation++;
+    close();
+  });
+  start();
+  return { entries, failed };
 }
