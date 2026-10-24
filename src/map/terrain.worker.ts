@@ -46,8 +46,10 @@ function open(): Promise<PMTiles> {
   return archive;
 }
 
+const PREMULTIPLIED: ImageBitmapOptions = { premultiplyAlpha: 'premultiply' };
+
 function blank(): Promise<ImageBitmap> {
-  return createImageBitmap(new ImageData(1, 1));
+  return createImageBitmap(new ImageData(1, 1), PREMULTIPLIED);
 }
 
 async function tile(id: number, z: number, x: number, y: number): Promise<ImageBitmap | null> {
@@ -72,7 +74,7 @@ async function tile(id: number, z: number, x: number, y: number): Promise<ImageB
   if (!out.some((v, i) => i % 4 === 3 && v !== 0)) {
     return blank();
   }
-  return createImageBitmap(new ImageData(out, width, height));
+  return createImageBitmap(new ImageData(out, width, height), PREMULTIPLIED);
 }
 
 scope.onmessage = (e) => {
