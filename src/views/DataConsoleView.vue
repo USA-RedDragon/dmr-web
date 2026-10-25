@@ -99,7 +99,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
       <span class="text-radio-muted" aria-hidden="true">/</span>
       <h1 class="m-0 text-sm font-semibold">Data console</h1>
     </nav>
-    <main class="flex min-h-0 grow gap-6 px-8 pt-4 pb-8">
+    <main class="flex min-h-0 grow gap-6 overflow-y-auto px-8 pt-4 pb-8">
       <form aria-label="Send data" class="flex w-[380px] shrink-0 flex-col gap-3.5 rounded-2xl border border-radio-line bg-radio-surface p-5" @submit.prevent="send">
         <h2 class="m-0 text-base font-semibold">Send</h2>
         <div class="grid grid-cols-2 gap-3">
@@ -143,6 +143,8 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
             </button>
           </div>
         </div>
+        <div class="flex min-h-0 grow flex-col overflow-x-auto">
+        <div class="flex min-h-0 min-w-[640px] grow flex-col">
         <div class="grid grid-cols-[76px_34px_190px_110px_70px_minmax(0,1fr)] gap-x-3 border-b border-radio-line px-2 pb-1.5 text-xs text-radio-muted">
           <span>Time</span><span>Dir</span><span>From, to</span><span>Kind</span><span>Status</span><span>Payload</span>
         </div>
@@ -157,10 +159,12 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
             <span class="truncate font-mono text-xs text-radio-text/80" :title="r.payload">{{ r.payload }}</span>
           </div>
         </div>
+        </div>
+        </div>
       </section>
     </main>
   </div>
-  <main v-else class="fixed inset-0 z-30 flex flex-col gap-3 bg-radio-page pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-[calc(1rem+env(safe-area-inset-bottom))]">
+  <main v-else class="fixed inset-0 z-30 flex flex-col gap-3 overflow-y-auto overscroll-contain bg-radio-page pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-[calc(1rem+env(safe-area-inset-bottom))]">
     <div class="flex h-14 shrink-0 items-center gap-1">
       <RouterLink to="/settings/diagnostics" aria-label="Back to diagnostics" class="-ml-2.5 flex size-11 items-center justify-center text-radio-accent"><ChevronLeft class="size-[22px]" /></RouterLink>
       <h1 class="m-0 grow text-lg font-bold">Data console</h1>
@@ -174,7 +178,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
         {{ { all: 'All', data: 'Data', ip: 'IP' }[f] }}
       </button>
     </div>
-    <div class="flex min-h-0 grow flex-col gap-2 overflow-y-auto">
+    <div class="flex min-h-40 grow flex-col gap-2 overflow-y-auto">
       <p v-if="!rows.length" class="m-0 py-2 text-sm text-radio-muted">No data yet.</p>
       <div v-for="r in rows" :key="r.key" class="flex flex-col gap-1 rounded-xl border border-radio-line bg-radio-surface px-3 py-2.5">
         <div class="flex justify-between gap-2 text-xs">
@@ -187,7 +191,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
         <span class="truncate font-mono text-[11px] text-radio-text/80">{{ r.payload }}</span>
       </div>
     </div>
-    <form aria-label="Send data" class="flex flex-col gap-2.5 rounded-2xl border border-radio-line bg-radio-raised p-3.5" @submit.prevent="send">
+    <form aria-label="Send data" class="flex shrink-0 flex-col gap-2.5 rounded-2xl border border-radio-line bg-radio-raised p-3.5" @submit.prevent="send">
       <div class="grid grid-cols-[minmax(0,1fr)_84px] gap-2">
         <input v-model="to" aria-label="To radio or group" :class="[inputClass, 'font-mono text-sm']" placeholder="3100002 or TG 9" autocomplete="off" />
         <select v-model.number="slot" aria-label="Slot" :class="select"><option :value="2">TS2</option><option :value="1">TS1</option></select>

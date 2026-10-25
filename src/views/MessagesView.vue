@@ -180,18 +180,18 @@ function call(): void {
     <div v-else class="flex items-center justify-center text-sm text-radio-muted">Pick a conversation, or start one with +.</div>
   </main>
   <template v-else>
-    <main v-if="!selected && !contactId" class="relative flex min-h-0 grow flex-col px-4">
+    <main v-if="!selected && !contactId" class="flex min-h-0 grow flex-col overflow-y-auto overscroll-contain px-4">
       <h1 class="m-0 pb-3 text-[28px] font-bold">Messages</h1>
-      <ContactList v-if="tab === 'contacts'" compact class="min-h-0 grow" :selected="null" @open="openContact">
+      <ContactList v-if="tab === 'contacts'" compact class="shrink-0" :selected="null" @open="openContact">
         <template #tabs><MessagesTabs tab="contacts" compact /></template>
       </ContactList>
-      <ThreadList v-else compact class="min-h-0 grow" :selected="null" @open="open">
+      <ThreadList v-else compact class="shrink-0" :selected="null" @open="open">
         <template #tabs><MessagesTabs tab="chats" compact /></template>
       </ThreadList>
       <button
         type="button"
         :aria-label="tab === 'contacts' ? 'Add a contact by ID' : 'New message'"
-        class="absolute right-4 bottom-4 flex size-14 items-center justify-center rounded-[18px] bg-radio-amber text-radio-amber-ink shadow-lg"
+        class="sticky bottom-4 mt-auto mb-4 flex size-14 shrink-0 items-center justify-center self-end rounded-[18px] bg-radio-amber text-radio-amber-ink shadow-lg"
         @click="tab === 'contacts' ? (adding = true) : (composing = true)"
       >
         <Plus class="size-6" />
