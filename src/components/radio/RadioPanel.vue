@@ -45,7 +45,6 @@ const names = useNames();
 const route = useRoute();
 const router = useRouter();
 const now = ref(Date.now());
-const toggled = ref(false);
 
 useIntervalFn(() => {
   now.value = Date.now();
@@ -269,21 +268,21 @@ function pttDown(e: PointerEvent): void {
   if (!canTalk.value) {
     return;
   }
-  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  e.preventDefault();
   if (s.value.audio.pttMode === 'toggle') {
-    toggled.value = !toggled.value;
-    if (toggled.value) {
-      void radio.pttDown();
-    } else {
+    if (radio.tx.active || radio.keyed) {
       radio.pttUp();
+    } else {
+      void radio.pttDown();
     }
     return;
   }
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   void radio.pttDown();
 }
 
 function pttUp(): void {
-  if (s.value.audio.pttMode === 'hold' && radio.tx.active) {
+  if (s.value.audio.pttMode === 'hold' && (radio.tx.active || radio.keyed)) {
     radio.pttUp();
   }
 }
@@ -406,6 +405,7 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
       @pointerdown="pttDown"
       @pointerup="pttUp"
       @pointercancel="pttUp"
+      @lostpointercapture="pttUp"
       @contextmenu.prevent
     >
       <span>{{

@@ -142,9 +142,13 @@ export class RadioClient {
     this.post({ type: 'disconnect' });
   }
 
-  async ptt(on: boolean, slot: number, group: boolean, target: number): Promise<void> {
+  /** Keys or unkeys the transmitter. keep is checked after the microphone opens, so a release during that wait never keys up. */
+  async ptt(on: boolean, slot: number, group: boolean, target: number, keep: () => boolean = () => true): Promise<void> {
     if (on) {
       await this.microphone();
+      if (!keep()) {
+        return;
+      }
       this.capture?.port.postMessage({ type: 'active', active: true });
     } else {
       this.capture?.port.postMessage({ type: 'active', active: false });

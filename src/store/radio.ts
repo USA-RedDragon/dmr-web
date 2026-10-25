@@ -120,6 +120,7 @@ export const useRadio = defineStore('radio', () => {
   const micLevel = ref(0);
   const micPermission = ref<'unknown' | 'granted' | 'denied'>('unknown');
   const micPrompt = ref(false);
+  const keyed = ref(false);
   const ambe = reactive<AmbeState>({ status: 'none', name: '', sha256: '', version: 0, error: '' });
   const upSince = ref(0);
   const client = shallowRef<RadioClient | null>(null);
@@ -281,6 +282,7 @@ export const useRadio = defineStore('radio', () => {
           setTalkback(txEnd(talkback.value, tx.target, tx.group, Date.now()));
         }
         tx.active = false;
+        keyed.value = false;
         addLog(`TX end: ${e.reason}`);
         break;
       case 'error':
@@ -451,6 +453,7 @@ export const useRadio = defineStore('radio', () => {
           calls[1].active = false;
           calls[2].active = false;
           tx.active = false;
+          keyed.value = false;
         }
         addLog(`Link ${msg.state}${msg.detail ? `: ${msg.detail}` : ''}`);
         break;
@@ -637,26 +640,31 @@ export const useRadio = defineStore('radio', () => {
     if (!client.value || !connected.value || !target) {
       return;
     }
+    keyed.value = true;
     if (micPermission.value !== 'granted') {
       await checkMicPermission();
     }
     if (micPermission.value === 'unknown') {
+      keyed.value = false;
       micPrompt.value = true;
       return;
     }
-    if (micPermission.value === 'denied') {
+    if (micPermission.value === 'denied' || !keyed.value) {
+      keyed.value = false;
       return;
     }
     try {
-      await client.value.ptt(true, slot, group, target);
+      await client.value.ptt(true, slot, group, target, () => keyed.value);
       micPermission.value = 'granted';
     } catch (err) {
+      keyed.value = false;
       micPermission.value = err instanceof DOMException && err.name === 'NotAllowedError' ? 'denied' : micPermission.value;
       tx.error = err instanceof Error ? err.message : String(err);
     }
   }
 
   function pttUp(): void {
+    keyed.value = false;
     if (!client.value) {
       return;
     }
@@ -699,6 +707,7 @@ export const useRadio = defineStore('radio', () => {
     micLevel,
     micPermission,
     micPrompt,
+    keyed,
     enableMic,
     checkMicPermission,
     ambe,

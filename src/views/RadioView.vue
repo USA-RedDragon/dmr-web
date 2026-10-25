@@ -72,11 +72,14 @@ function typing(e: KeyboardEvent): boolean {
 }
 
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
-  if (e.code !== store.settings.audio.pttKey || e.repeat || typing(e) || !radio.connected) {
+  if (e.code !== store.settings.audio.pttKey || typing(e) || !radio.connected) {
     return;
   }
   e.preventDefault();
-  if (store.settings.audio.pttMode === 'toggle' && radio.tx.active) {
+  if (e.repeat) {
+    return;
+  }
+  if (store.settings.audio.pttMode === 'toggle' && (radio.tx.active || radio.keyed)) {
     radio.pttUp();
   } else {
     void radio.pttDown();
@@ -84,12 +87,25 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 });
 
 useEventListener(window, 'keyup', (e: KeyboardEvent) => {
-  if (e.code !== store.settings.audio.pttKey || typing(e)) {
+  if (e.code !== store.settings.audio.pttKey || typing(e) || !radio.connected) {
     return;
   }
-  if (store.settings.audio.pttMode === 'hold' && radio.tx.active) {
-    e.preventDefault();
+  e.preventDefault();
+  if (store.settings.audio.pttMode === 'hold') {
     radio.pttUp();
+  }
+});
+
+function releaseHeld(): void {
+  if (store.settings.audio.pttMode === 'hold' && (radio.tx.active || radio.keyed)) {
+    radio.pttUp();
+  }
+}
+
+useEventListener(window, 'blur', releaseHeld);
+useEventListener(document, 'visibilitychange', () => {
+  if (document.hidden) {
+    releaseHeld();
   }
 });
 
