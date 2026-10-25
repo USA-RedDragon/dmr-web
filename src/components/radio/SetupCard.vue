@@ -68,10 +68,10 @@ const inputClass =
 </script>
 
 <template>
-  <section v-if="compact" class="flex flex-col gap-2.5 rounded-[14px] border border-radio-line bg-radio-surface p-3.5">
-    <h1 class="m-0 text-lg font-bold">Your phone is a DMR radio</h1>
-    <p class="m-0 text-[13px] leading-normal text-radio-text/80">Talk on talkgroups, text any DMR radio and see who's on the air. Nothing to install.</p>
-    <OnAir :host="store.settings.hub.host" compact />
+  <section v-if="compact" class="flex max-h-full min-h-[3.75rem] flex-col flex-wrap content-start gap-x-8 gap-y-2.5 overflow-hidden rounded-[14px] border border-radio-line bg-radio-surface p-3.5">
+    <h1 class="m-0 w-full text-lg leading-snug font-bold">Your phone is a DMR radio</h1>
+    <p class="m-0 w-full text-[13px] leading-normal text-radio-text/80">Talk on talkgroups, text any DMR radio and see who's on the air. Nothing to install.</p>
+    <OnAir :host="store.settings.hub.host" compact class="w-full" />
   </section>
   <section v-else class="flex flex-col gap-4 rounded-[20px] border border-radio-line bg-radio-surface p-6">
     <div class="flex flex-col gap-2">

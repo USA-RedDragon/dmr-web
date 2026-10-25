@@ -20,9 +20,10 @@
 -->
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 import StarButton from '@/components/contacts/StarButton.vue';
+import { useInertOverflow } from '@/composables/useInertOverflow';
 import { useNow } from '@/composables/useNow';
 import { useNames } from '@/lib/names';
 import { since } from '@/lib/when';
@@ -37,6 +38,8 @@ const props = withDefaults(defineProps<{ entries: HeardEntry[]; limit?: number; 
 
 const names = useNames();
 const now = useNow();
+const rowsBox = ref<HTMLElement | null>(null);
+useInertOverflow(rowsBox);
 const shown = computed(() => props.entries.slice(0, props.limit));
 
 function callsign(e: HeardEntry): string {
@@ -55,7 +58,7 @@ function when(e: HeardEntry): string {
       <span class="text-xs text-radio-muted">This session</span>
     </div>
     <p v-if="shown.length === 0" class="py-3 text-sm text-radio-muted">Nothing heard yet.</p>
-    <div v-else class="flex min-h-0 flex-col" :class="compact ? 'flex-wrap overflow-hidden' : ''">
+    <div v-else ref="rowsBox" class="relative flex min-h-0 flex-col" :class="compact ? 'flex-wrap gap-x-8 overflow-hidden' : ''">
     <div
       v-for="(e, i) in shown"
       :key="`${e.at}-${e.source}`"
