@@ -242,7 +242,7 @@ function onKey(e: KeyboardEvent): void {
               rows="1"
               placeholder="Message"
               aria-label="Message"
-              class="min-h-12 min-w-0 grow resize-none rounded-3xl border border-radio-line bg-radio-raised px-4 py-3 text-[15px] text-radio-text outline-none"
+              class="max-h-40 min-h-12 min-w-0 grow resize-none rounded-3xl [field-sizing:content] border border-radio-line bg-radio-raised px-4 py-3 text-[15px] text-radio-text outline-none"
             />
             <button
               type="submit"

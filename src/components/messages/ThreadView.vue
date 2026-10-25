@@ -22,6 +22,7 @@
 <script setup lang="ts">
 import { format as formatDate } from 'date-fns';
 import { Check, ChevronLeft, Crosshair, MoreHorizontal, SendHorizontal, ArrowUp } from 'lucide-vue-next';
+import { onClickOutside, onKeyStroke, useResizeObserver } from '@vueuse/core';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -56,6 +57,8 @@ const format = ref<TextFormat | 'auto'>('auto');
 const slot = ref(thread.value?.slot ?? 2);
 const scroller = ref<HTMLElement | null>(null);
 const menu = ref(false);
+const menuBox = ref<HTMLElement | null>(null);
+const pinned = ref(true);
 const router = useRouter();
 const located = usePositionRequest(
   computed(() => peer.value.id),
@@ -169,16 +172,47 @@ function failure(reason: string): string {
 async function bottom(): Promise<void> {
   await nextTick();
   scroller.value?.scrollTo({ top: scroller.value.scrollHeight });
+  pinned.value = true;
 }
 
+function onScroll(): void {
+  const el = scroller.value;
+  if (el) {
+    pinned.value = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+  }
+}
+
+useResizeObserver(scroller, () => {
+  if (pinned.value) {
+    void bottom();
+  }
+});
+
 watch(
-  () => [props.threadKey, msgs.value.length],
+  () => props.threadKey,
   () => {
     store.markRead(props.threadKey);
     void bottom();
   },
   { immediate: true },
 );
+watch(
+  () => msgs.value.length,
+  () => {
+    store.markRead(props.threadKey);
+    if (pinned.value || msgs.value.at(-1)?.dir === 'out') {
+      void bottom();
+    }
+  },
+);
+watch([() => pill.value, () => answer.value], () => {
+  if (pinned.value) {
+    void bottom();
+  }
+});
+
+onClickOutside(menuBox, () => (menu.value = false));
+onKeyStroke('Escape', () => (menu.value = false));
 watch(
   () => props.threadKey,
   () => {
@@ -234,7 +268,7 @@ function onKey(e: KeyboardEvent): void {
           <Crosshair class="size-4" aria-hidden="true" />{{ askLabel }}
         </button>
       </div>
-      <div v-if="compact && !peer.group" class="relative">
+      <div v-if="compact && !peer.group" ref="menuBox" class="relative">
         <button type="button" aria-label="More" :aria-expanded="menu" class="flex size-11 items-center justify-center text-radio-text" @click="menu = !menu">
           <MoreHorizontal class="size-5" />
         </button>
@@ -250,7 +284,7 @@ function onKey(e: KeyboardEvent): void {
       </div>
     </header>
 
-    <div ref="scroller" class="flex min-h-0 grow flex-col gap-1 overflow-y-auto" :class="compact ? 'px-4 py-4' : 'px-6 py-5'" aria-live="polite">
+    <div ref="scroller" role="log" class="flex min-h-0 grow flex-col gap-1 overflow-y-auto overscroll-contain" :class="compact ? 'px-4 py-4' : 'px-6 py-5'" @scroll.passive="onScroll">
       <template v-for="r in rows" :key="r.m.id">
         <div v-if="r.day" class="py-3 text-center text-xs text-radio-muted">{{ r.day }}</div>
         <div class="flex flex-col pb-2" :class="r.m.dir === 'out' ? 'items-end' : 'items-start'">
@@ -269,7 +303,7 @@ function onKey(e: KeyboardEvent): void {
           <span class="flex items-center gap-1 pt-1 text-[11px]" :class="r.m.status === 'failed' ? 'text-radio-red' : 'text-radio-muted'">
             {{ meta(r.m) }}
             <Check v-if="r.m.status === 'delivered'" class="size-3.5 text-radio-green" aria-hidden="true" />
-            <button v-if="r.m.status === 'failed'" type="button" class="text-radio-accent underline" @click="retry(r.m)">Retry</button>
+            <button v-if="r.m.status === 'failed'" type="button" class="-my-3 inline-flex min-h-11 items-center px-2 text-[13px] text-radio-accent underline" @click="retry(r.m)">Retry</button>
           </span>
         </div>
       </template>
@@ -297,7 +331,7 @@ function onKey(e: KeyboardEvent): void {
           :aria-label="`Message ${who}`"
           :placeholder="compact ? 'Message' : `Message ${who}`"
           :rows="compact ? 1 : 2"
-          class="min-h-12 min-w-0 grow resize-none rounded-[14px] border border-radio-line bg-radio-raised px-4 py-3 text-[15px] text-radio-text outline-none focus-visible:border-radio-amber"
+          class="max-h-40 min-h-12 min-w-0 grow resize-none rounded-[14px] [field-sizing:content] border border-radio-line bg-radio-raised px-4 py-3 text-[15px] text-radio-text outline-none focus-visible:border-radio-amber"
           :class="compact ? 'rounded-3xl' : ''"
           @keydown="onKey"
         />
@@ -313,17 +347,16 @@ function onKey(e: KeyboardEvent): void {
         </button>
       </div>
       <div class="flex items-center justify-between gap-3 pt-2 text-xs text-radio-muted">
-        <span v-if="compact">{{ shownFormat }} · TS{{ slot }}</span>
-        <span v-else class="flex items-center gap-2">
-          <label class="flex items-center gap-2">
-            Format
-            <select v-model="format" class="h-9 rounded-lg border border-radio-line bg-radio-raised px-2 text-[13px] text-radio-text">
-              <option value="auto">{{ autoLabel }}</option>
+        <span class="flex min-w-0 items-center gap-2">
+          <label class="flex min-w-0 items-center gap-2">
+            <template v-if="!compact">Format</template>
+            <select v-model="format" :aria-label="compact ? 'Format' : undefined" class="h-9 min-w-0 rounded-lg border border-radio-line bg-radio-raised px-2 text-[13px] text-radio-text">
+              <option value="auto">{{ compact ? `Auto (${shownFormat})` : autoLabel }}</option>
               <option v-for="f in FORMATS" :key="f.value" :value="f.value">{{ f.label }}</option>
             </select>
           </label>
-          <label class="flex items-center gap-1">
-            on
+          <label class="flex shrink-0 items-center gap-1">
+            <template v-if="!compact">on</template>
             <select v-model.number="slot" aria-label="Timeslot" class="h-9 rounded-lg border border-radio-line bg-radio-raised px-2 text-[13px] text-radio-text">
               <option :value="1">TS1</option>
               <option :value="2">TS2</option>
