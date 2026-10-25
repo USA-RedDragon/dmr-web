@@ -20,13 +20,14 @@
 -->
 
 <script setup lang="ts">
-import { formatDistanceToNowStrict } from 'date-fns';
 import { ArrowUp, X } from 'lucide-vue-next';
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui';
 import { computed, ref, watch } from 'vue';
 
+import { useNow } from '@/composables/useNow';
 import { useNames } from '@/lib/names';
 import { FORMATS, keyOf, type Peer } from '@/lib/threads';
+import { since } from '@/lib/when';
 import type { TextFormat } from '@/radio/protocol';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
@@ -41,6 +42,7 @@ const emit = defineEmits<{ 'update:open': [open: boolean]; sent: [key: string] }
 const radio = useRadio();
 const settings = useSettings();
 const names = useNames();
+const now = useNow();
 
 const query = ref('');
 const to = ref<Peer | null>(null);
@@ -97,7 +99,7 @@ const options = computed<Option[]>(() => {
       push({
         peer: { group: false, id: h.source },
         title,
-        sub: `ID ${h.source} · heard ${formatDistanceToNowStrict(h.at)} ago${h.group ? ` on TG ${h.target}` : ''}`,
+        sub: `ID ${h.source} · heard ${since(h.at, now.value)} ago${h.group ? ` on TG ${h.target}` : ''}`,
         section: 'heard',
       });
     }

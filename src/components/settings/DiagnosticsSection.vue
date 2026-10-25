@@ -20,11 +20,13 @@
 -->
 
 <script setup lang="ts">
-import { format, formatDistanceToNowStrict } from 'date-fns';
+import { format } from 'date-fns';
 import { useMediaQuery } from '@vueuse/core';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import { toast } from '@/components/ui/toast';
+import { useNow } from '@/composables/useNow';
+import { since } from '@/lib/when';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
@@ -35,6 +37,7 @@ type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<
 
 const radio = useRadio();
 const store = useSettings();
+const now = useNow();
 const install = ref<InstallPrompt | null>(null);
 const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const standalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -70,7 +73,7 @@ const ambeText = computed(() =>
 function stamp(at: number): string {
   return `${format(at, desktop.value ? 'HH:mm:ss' : 'HH:mm')} ${zone}`;
 }
-const up = computed(() => (radio.connected && radio.upSince ? formatDistanceToNowStrict(radio.upSince) : '-'));
+const up = computed(() => (radio.connected && radio.upSince ? since(radio.upSince, now.value) : '-'));
 
 async function copy(): Promise<void> {
   const lines = [

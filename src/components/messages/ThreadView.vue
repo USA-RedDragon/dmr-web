@@ -20,17 +20,17 @@
 -->
 
 <script setup lang="ts">
-import { formatDistanceToNowStrict } from 'date-fns';
 import { format as formatDate } from 'date-fns';
 import { Check, ChevronLeft, Crosshair, MoreHorizontal, SendHorizontal, ArrowUp } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import StarButton from '@/components/contacts/StarButton.vue';
+import { useNow } from '@/composables/useNow';
 import { useNames } from '@/lib/names';
 import { failedReason, SHOW_MS, usePositionRequest } from '@/lib/positionRequest';
 import { autoFormat, FORMATS, formatLabel, type Message } from '@/lib/threads';
-import { dayLabel } from '@/lib/when';
+import { dayLabel, since } from '@/lib/when';
 import type { CheckKind, TextFormat } from '@/radio/protocol';
 import { useMessages } from '@/store/messages';
 import { degrees, describe } from '@/store/positions';
@@ -46,6 +46,7 @@ const emit = defineEmits<{ back: []; check: [kind: CheckKind] ; call: [] }>();
 const store = useMessages();
 const radio = useRadio();
 const names = useNames();
+const now = useNow();
 
 const thread = computed(() => store.threadMap[props.threadKey]);
 const peer = computed(() => thread.value?.peer ?? { group: false, id: 0 });
@@ -113,7 +114,7 @@ const sub = computed(() => {
     return 'Everyone on this talkgroup';
   }
   const h = names.lastHeard(peer.value.id);
-  const heard = h ? ` · ${props.compact ? 'heard' : `last heard on ${h.group ? `TG ${h.target}` : 'a private call'},`} ${formatDistanceToNowStrict(h.at)} ago` : '';
+  const heard = h ? ` · ${props.compact ? 'heard' : `last heard on ${h.group ? `TG ${h.target}` : 'a private call'},`} ${since(h.at, now.value)} ago` : '';
   return `ID ${peer.value.id}${heard}`;
 });
 const autoLabel = computed(() => {
@@ -127,7 +128,7 @@ const rows = computed(() => {
   const out: Row[] = [];
   let last = '';
   for (const m of msgs.value) {
-    const d = dayLabel(m.at);
+    const d = dayLabel(m.at, new Date(now.value));
     out.push(d !== last ? { day: d, m } : { m });
     last = d;
   }

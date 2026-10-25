@@ -16,7 +16,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
-import { format, isSameDay, isYesterday } from 'date-fns';
+import { format, formatDistanceStrict, isSameDay, isYesterday } from 'date-fns';
+
+/** Like formatDistanceToNowStrict, but against a given now so callers can make it reactive. */
+export function since(at: number, now: number, options?: { addSuffix?: boolean }): string {
+  return formatDistanceStrict(at, Math.max(at, now), options);
+}
 
 export function listTime(at: number, now = new Date()): string {
   const d = new Date(at);

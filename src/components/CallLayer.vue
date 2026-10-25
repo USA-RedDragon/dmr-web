@@ -25,12 +25,15 @@ import { Bell } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
+import { useNow } from '@/composables/useNow';
 import { useNames } from '@/lib/names';
 import { keyOf } from '@/lib/threads';
+import { since } from '@/lib/when';
 import { useMessages } from '@/store/messages';
 
 const messages = useMessages();
 const names = useNames();
+const now = useNow();
 const router = useRouter();
 const desktop = useMediaQuery('(min-width: 1024px)');
 
@@ -67,14 +70,14 @@ function message(): void {
       <span class="flex size-10 items-center justify-center rounded-full bg-radio-amber-soft text-radio-accent"><Bell class="size-5" /></span>
       <span class="flex flex-col">
         <span class="font-semibold">Call alert from {{ names.name({ group: false, id: alert.source }) }}</span>
-        <span class="text-xs text-radio-muted">ID {{ alert.source }} · TS{{ alert.slot }} · just now</span>
+        <span class="text-xs text-radio-muted">ID {{ alert.source }} · TS{{ alert.slot }} · {{ now - alert.at < 60_000 ? 'just now' : since(alert.at, now, { addSuffix: true }) }}</span>
       </span>
     </div>
     <template v-else>
       <span class="flex size-[88px] items-center justify-center rounded-full bg-radio-amber-soft text-radio-accent"><Bell class="size-8" /></span>
       <span class="text-[13px] text-radio-muted">Call alert</span>
       <span class="font-mono text-[30px] font-bold">{{ names.name({ group: false, id: alert.source }) }}</span>
-      <span class="text-[13px] text-radio-muted">ID {{ alert.source }} · TS{{ alert.slot }} · just now</span>
+      <span class="text-[13px] text-radio-muted">ID {{ alert.source }} · TS{{ alert.slot }} · {{ now - alert.at < 60_000 ? 'just now' : since(alert.at, now, { addSuffix: true }) }}</span>
     </template>
     <div class="grid w-full gap-2" :class="desktop ? 'grid-cols-3' : 'grid-cols-2'">
       <button

@@ -20,12 +20,13 @@
 -->
 
 <script setup lang="ts">
-import { formatDistanceToNowStrict } from 'date-fns';
 import { Plus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 import PeerAvatar from '@/components/messages/PeerAvatar.vue';
+import { useNow } from '@/composables/useNow';
 import { useNames } from '@/lib/names';
+import { since } from '@/lib/when';
 import { matchContact, useContacts, type Contact } from '@/store/contacts';
 
 import StarButton from './StarButton.vue';
@@ -35,12 +36,13 @@ const emit = defineEmits<{ open: [id: number]; add: [] }>();
 
 const contacts = useContacts();
 const names = useNames();
+const now = useNow();
 const query = ref('');
 
 const rows = computed(() => contacts.contacts.filter((c) => matchContact({ ...c, callsign: c.callsign || names.callsign(c.id) }, query.value)));
 
 function sub(c: Contact): string {
-  const heard = c.heardAt ? `heard ${formatDistanceToNowStrict(c.heardAt, { addSuffix: true })}` : 'not heard yet';
+  const heard = c.heardAt ? `heard ${since(c.heardAt, now.value, { addSuffix: true })}` : 'not heard yet';
   return `${c.name ? `${c.name} · ` : ''}ID ${c.id} · ${heard}`;
 }
 </script>

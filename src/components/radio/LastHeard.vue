@@ -20,12 +20,12 @@
 -->
 
 <script setup lang="ts">
-import { useIntervalFn } from '@vueuse/core';
-import { formatDistanceStrict } from 'date-fns';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 import StarButton from '@/components/contacts/StarButton.vue';
+import { useNow } from '@/composables/useNow';
 import { useNames } from '@/lib/names';
+import { since } from '@/lib/when';
 import type { HeardEntry } from '@/store/radio';
 
 import VocoderBadge from './VocoderBadge.vue';
@@ -36,10 +36,7 @@ const props = withDefaults(defineProps<{ entries: HeardEntry[]; limit?: number; 
 });
 
 const names = useNames();
-const now = ref(Date.now());
-useIntervalFn(() => {
-  now.value = Date.now();
-}, 10_000);
+const now = useNow();
 const shown = computed(() => props.entries.slice(0, props.limit));
 
 function callsign(e: HeardEntry): string {
@@ -47,7 +44,7 @@ function callsign(e: HeardEntry): string {
 }
 
 function when(e: HeardEntry): string {
-  return formatDistanceStrict(e.at, Math.max(e.at, now.value), { addSuffix: true });
+  return since(e.at, now.value, { addSuffix: true });
 }
 </script>
 

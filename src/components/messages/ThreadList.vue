@@ -23,6 +23,7 @@
 import { Plus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
+import { useNow } from '@/composables/useNow';
 import { useNames } from '@/lib/names';
 import { listTime } from '@/lib/when';
 import { hubOrigin } from '@/radio/discover';
@@ -36,6 +37,7 @@ const emit = defineEmits<{ open: [key: string]; compose: [] }>();
 
 const store = useMessages();
 const names = useNames();
+const now = useNow();
 const account = useAccount();
 const query = ref('');
 
@@ -116,7 +118,7 @@ const rows = computed(() => {
           <span class="flex min-w-0 grow flex-col gap-1" :class="compact ? 'border-b border-radio-line pb-3' : ''">
             <span class="flex items-center justify-between gap-2">
               <span class="truncate text-[15px] font-semibold">{{ r.who }}</span>
-              <span class="shrink-0 text-xs" :class="r.t.unread ? 'font-semibold text-radio-accent' : 'text-radio-muted'">{{ listTime(r.at) }}</span>
+              <span class="shrink-0 text-xs" :class="r.t.unread ? 'font-semibold text-radio-accent' : 'text-radio-muted'">{{ listTime(r.at, new Date(now)) }}</span>
             </span>
             <span class="flex items-center justify-between gap-2">
               <span class="truncate text-sm" :class="r.t.unread ? 'font-semibold text-radio-text' : 'text-radio-text/75'">{{ r.preview }}</span>

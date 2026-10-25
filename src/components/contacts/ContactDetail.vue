@@ -20,14 +20,15 @@
 -->
 
 <script setup lang="ts">
-import { formatDistanceToNowStrict } from 'date-fns';
 import { Bell, Check, ChevronLeft, MessageCircle } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 import RadioLogo from '@/components/RadioLogo.vue';
 import PeerAvatar from '@/components/messages/PeerAvatar.vue';
+import { useNow } from '@/composables/useNow';
 import { useNames } from '@/lib/names';
 import { keyOf } from '@/lib/threads';
+import { since } from '@/lib/when';
 import { useContacts } from '@/store/contacts';
 import { useMessages } from '@/store/messages';
 
@@ -39,6 +40,7 @@ const emit = defineEmits<{ back: []; message: []; call: []; check: []; alert: []
 
 const contacts = useContacts();
 const names = useNames();
+const now = useNow();
 const messages = useMessages();
 const c = computed(() => contacts.get(props.id));
 const who = computed(() => c.value?.callsign || names.callsign(props.id) || String(props.id));
@@ -51,7 +53,7 @@ const heard = computed(() => {
     return 'not heard yet';
   }
   const where = x.heardGroup ? `TG ${x.heardTarget}` : 'a private call';
-  return `last heard on ${where}, ${formatDistanceToNowStrict(x.heardAt, { addSuffix: true })}`;
+  return `last heard on ${where}, ${since(x.heardAt, now.value, { addSuffix: true })}`;
 });
 
 const name = computed({
