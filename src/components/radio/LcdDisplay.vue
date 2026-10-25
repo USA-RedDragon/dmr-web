@@ -50,7 +50,7 @@ const segments = computed(() => (props.compact ? 18 : 24));
       <div
         v-for="s in slots"
         :key="s.slot"
-        class="truncate rounded-md border border-lcd-line px-2.5 py-1.5"
+        class="truncate rounded-md border border-lcd-line px-2.5 py-1.5 short:py-1"
         :class="s.selected ? 'bg-lcd-chip text-lcd-chip-text' : 'text-lcd-dim'"
       >
         TS{{ s.slot }}&nbsp;&nbsp;{{ s.label }}
@@ -68,7 +68,7 @@ const segments = computed(() => (props.compact ? 18 : 24));
     </div>
     <div role="status" aria-live="polite" class="flex flex-col" :class="compact ? 'gap-[clamp(4px,1dvh,8px)]' : 'gap-[clamp(8px,1.4dvh,12px)]'">
       <div class="truncate font-bold leading-none tracking-[0.04em]" :class="compact ? 'text-[clamp(28px,5dvh,38px)]' : 'text-[clamp(40px,6.5dvh,54px)]'">{{ headline }}</div>
-      <div class="flex justify-between gap-3" :class="compact ? 'text-[13px] text-lcd-dim' : 'text-lg'">
+      <div class="flex justify-between gap-3 tiny:hidden" :class="compact ? 'text-[13px] text-lcd-dim' : 'text-lg'">
         <span class="truncate">{{ sub }}</span>
         <span class="shrink-0 text-lcd-dim">{{ subRight }}</span>
       </div>

@@ -2,9 +2,12 @@
 @import "tw-animate-css";
 
 @custom-variant short (@media (max-height: 640px));
+@custom-variant tiny (@media (max-height: 300px));
+/* Landscape phones: the header and nav move to a rail on the left, so the radio gets the full height. */
+@custom-variant rail (@media (orientation: landscape) and (max-height: 500px) and (max-width: 1023px));
 @custom-variant wide {
   @media (orientation: landscape) {
-    @container radio (min-width: 40rem) {
+    @container radio (min-width: 34rem) {
       @slot;
     }
   }
@@ -295,5 +298,12 @@ label {
   textarea,
   select {
     font-size: 16px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 1023px) {
+  .app-shell > main {
+    grid-column: 2;
+    grid-row: 1 / span 2;
   }
 }

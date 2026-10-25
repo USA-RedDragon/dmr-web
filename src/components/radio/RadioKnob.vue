@@ -140,7 +140,7 @@ function onKey(e: KeyboardEvent): void {
         :style="{ width: '4px', height: '22%', top: '9%', marginLeft: '-2px' }"
       />
     </button>
-    <span class="grid whitespace-nowrap text-center text-[11px] font-semibold tracking-[0.14em] text-radio-muted">
+    <span class="grid whitespace-nowrap text-center text-[11px] font-semibold tracking-[0.14em] text-radio-muted tiny:text-[10px] tiny:tracking-[0.08em]">
       <span class="col-start-1 row-start-1">{{ label }}</span>
       <span v-if="sizer" aria-hidden="true" class="invisible col-start-1 row-start-1">{{ sizer }}</span>
     </span>

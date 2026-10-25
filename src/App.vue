@@ -63,7 +63,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="fixed inset-x-0 top-[var(--app-top,0px)] h-[var(--app-h,100dvh)] flex flex-col overflow-hidden bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-radio-text">
+  <div class="app-shell fixed inset-x-0 top-[var(--app-top,0px)] h-[var(--app-h,100dvh)] flex flex-col overflow-hidden rail:grid rail:grid-cols-[auto_minmax(0,1fr)] rail:grid-rows-[auto_minmax(0,1fr)] bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-radio-text">
     <AppHeader />
     <CallLayer v-if="store.loaded" />
     <RouterView v-if="store.loaded && account.loaded" />

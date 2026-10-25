@@ -79,19 +79,19 @@ function toggleSettings(): void {
 </script>
 
 <template>
-  <header class="sticky top-0 z-10 flex h-14 shrink-0 items-center bg-radio-page justify-between gap-3 border-radio-line px-4 sm:h-16 sm:border-b sm:px-8">
-    <div class="flex min-w-0 items-center gap-2.5 lg:gap-6">
+  <header class="sticky top-0 z-10 flex h-14 shrink-0 items-center bg-radio-page justify-between gap-3 border-radio-line px-4 sm:h-16 sm:border-b sm:px-8 rail:col-start-1 rail:row-start-1 rail:h-auto! rail:w-[72px] rail:flex-col rail:justify-start rail:border-r rail:border-b-0! rail:px-0! rail:py-3">
+    <div class="flex min-w-0 items-center gap-2.5 lg:gap-6 rail:flex-col">
       <RouterLink to="/" class="no-underline flex shrink-0 items-center gap-2.5 text-radio-text sm:gap-3">
         <RadioLogo class="size-5 text-radio-accent sm:size-[22px]" />
-        <span class="text-base font-bold tracking-[0.02em] sm:text-[17px]">dmr-web</span>
+        <span class="text-base font-bold tracking-[0.02em] sm:text-[17px] rail:sr-only">dmr-web</span>
       </RouterLink>
       <span class="flex min-w-0 items-center gap-1.5 text-xs lg:hidden" :class="radio.link === 'failed' ? 'text-radio-red' : 'text-radio-text/80'">
         <span class="size-2 shrink-0 rounded-full" :class="pill.dot" />
-        <span class="truncate">{{ short }}</span>
+        <span class="truncate rail:sr-only">{{ short }}</span>
       </span>
       <AppNav v-if="store.configured" class="hidden lg:flex" />
     </div>
-    <div class="flex min-w-0 items-center gap-3">
+    <div class="flex min-w-0 items-center gap-3 rail:flex-col">
       <div class="hidden h-9 min-w-0 items-center gap-2 rounded-full border border-radio-line px-3.5 text-[13px] text-radio-text/80 lg:flex">
         <span class="size-2 shrink-0 rounded-full" :class="pill.dot" />
         <span class="truncate">{{ pill.text }}</span>
