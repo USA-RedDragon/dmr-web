@@ -20,7 +20,8 @@
 import './wasm_exec.js';
 
 import type { FromWorker, Here, LinkState, RadioConfig, RadioEvent, ToWorker } from './protocol';
-import { discover, HubRefusedError } from './discover';
+import { discover, HubRefusedError, type HubEndpoint } from './discover';
+import { isDMRD, moveSession, RecentBursts } from './handoff';
 import { Transport } from './transport';
 
 type Result = { ok: boolean; error?: string; version?: number; transmit?: string };
@@ -60,6 +61,10 @@ type GoRuntime = {
 
 const MAX_ATTEMPTS = 6;
 const MAX_RETRY_MS = 30_000;
+const MOVE_TRIES = 100;
+const MOVE_RETRY_MS = 200;
+const MOVE_OVERLAP_MS = 1_000;
+const DEDUP_MS = 2_000;
 
 const scope = self as unknown as {
   postMessage: (message: FromWorker, transfer?: Transferable[]) => void;
@@ -78,6 +83,10 @@ let attempt = 0;
 let everUp = false;
 let wanted = false;
 let located: { here: Here | null; share: boolean } = { here: null, share: false };
+let endpoint: HubEndpoint | null = null;
+let moving = false;
+const retiring = new Set<Transport>();
+const recent = new RecentBursts(DEDUP_MS);
 let locationServer = 0;
 let reportingMs = 0;
 
@@ -112,6 +121,10 @@ function stopRadio(): void {
     timer = null;
   }
   dmr?.stop(performance.now());
+  for (const t of retiring) {
+    t.close();
+  }
+  retiring.clear();
 }
 
 function lost(reason: string): void {
@@ -137,6 +150,78 @@ function lost(reason: string): void {
   }, retryInMs);
 }
 
+function datagram(t: Transport, data: Uint8Array): void {
+  if (!dmr) {
+    return;
+  }
+  const current = transport === t;
+  if (!current && !(retiring.has(t) && isDMRD(data))) {
+    return;
+  }
+  if (isDMRD(data) && recent.repeated(data, performance.now())) {
+    return;
+  }
+  schedule(dmr.packet(performance.now(), data));
+}
+
+function openTransport(): Transport {
+  const t: Transport = new Transport({
+    onDatagram: (data) => datagram(t, data),
+    onClosed: (reason) => {
+      if (transport === t) {
+        lost(reason);
+      }
+    },
+    onDrain: (token) => {
+      if (transport === t) {
+        void move(t, token);
+      }
+    },
+  });
+  return t;
+}
+
+/**
+ * move takes the radio from the session old, whose hub replica stops, to
+ * one with another replica that resumes the login with token, and closes
+ * old once the new one carries the radio. When no replica takes it over,
+ * the radio stays on old until it closes, and then connects again.
+ */
+async function move(old: Transport, token: string): Promise<void> {
+  const ep = endpoint;
+  if (moving || !ep) {
+    return;
+  }
+  moving = true;
+  try {
+    const next = await moveSession(
+      async () => {
+        const t = openTransport();
+        await t.connect(ep.url, ep.hashes);
+        return t;
+      },
+      (t) => t.resume(token),
+      (t) => t.close(),
+      { tries: MOVE_TRIES, retryMs: MOVE_RETRY_MS, still: () => transport === old && wanted },
+    );
+    if (!next) {
+      return;
+    }
+    if (transport !== old) {
+      next.close();
+      return;
+    }
+    retiring.add(old);
+    transport = next;
+    setTimeout(() => {
+      retiring.delete(old);
+      old.close();
+    }, MOVE_OVERLAP_MS);
+  } finally {
+    moving = false;
+  }
+}
+
 async function connect(cfg: RadioConfig): Promise<void> {
   if (!dmr) {
     return;
@@ -144,24 +229,14 @@ async function connect(cfg: RadioConfig): Promise<void> {
   config = cfg;
   wanted = true;
   link(attempt === 0 ? 'connecting' : 'reconnecting');
-  const t = new Transport({
-    onDatagram: (data) => {
-      if (dmr && transport === t) {
-        schedule(dmr.packet(performance.now(), data));
-      }
-    },
-    onClosed: (reason) => {
-      if (transport === t) {
-        lost(reason);
-      }
-    },
-  });
+  const t = openTransport();
   transport = t;
   try {
     const ep = await discover(cfg.hub);
     if (transport !== t) {
       return;
     }
+    endpoint = ep;
     post({ type: 'endpoint', url: ep.url });
     await t.connect(ep.url, ep.hashes);
   } catch (err) {
@@ -187,7 +262,7 @@ async function connect(cfg: RadioConfig): Promise<void> {
   const res = dmr.start(
     { ...radioConfig, locationServer: locationServer || radioConfig.locationServer },
     {
-      send: (packet) => t.send(packet),
+      send: (packet) => transport?.send(packet),
       event: (event) => onEvent(event, t),
       audio: (slot, samples) => playback?.postMessage({ slot, samples }, [samples.buffer]),
     },

@@ -18,6 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 import type { CertificateHash } from './discover';
+import { drainToken, resumeRequest, resumed } from './handoff';
 
 export type DatagramWriter = {
   write: (data: Uint8Array) => Promise<void>;
@@ -52,6 +53,13 @@ export function webTransportSupported(): boolean {
 export type TransportHandlers = {
   onDatagram: (data: Uint8Array) => void;
   onClosed: (reason: string) => void;
+  /** onDrain gets the resume token of a hub replica that stops. */
+  onDrain?: (token: string) => void;
+};
+
+type BidirectionalStream = {
+  readable: ReadableStream<Uint8Array>;
+  writable: WritableStream<Uint8Array>;
 };
 
 type WebTransportLike = {
@@ -59,7 +67,41 @@ type WebTransportLike = {
   closed: Promise<unknown>;
   datagrams: DatagramDuplex;
   close: (info?: { closeCode?: number; reason?: string }) => void;
+  incomingUnidirectionalStreams?: ReadableStream<ReadableStream<Uint8Array>>;
+  createBidirectionalStream?: () => Promise<BidirectionalStream>;
 };
+
+/** MAX_CONTROL is the longest control message, in octets. */
+const MAX_CONTROL = 4096;
+
+async function readText(readable: ReadableStream<Uint8Array>): Promise<string> {
+  const reader = readable.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done || !value) {
+        break;
+      }
+      parts.push(value);
+      size += value.length;
+      if (size >= MAX_CONTROL || value.includes(0x0a)) {
+        break;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const all = new Uint8Array(Math.min(size, MAX_CONTROL));
+  let at = 0;
+  for (const p of parts) {
+    const n = Math.min(p.length, all.length - at);
+    all.set(p.subarray(0, n), at);
+    at += n;
+  }
+  return new TextDecoder().decode(all);
+}
 
 type WebTransportConstructor = new (
   url: string,
@@ -88,6 +130,29 @@ export class Transport {
     await wt.ready;
     this.writer = datagramWriter(wt.datagrams);
     void this.read(wt.datagrams.readable);
+    if (wt.incomingUnidirectionalStreams) {
+      void this.control(wt.incomingUnidirectionalStreams);
+    }
+  }
+
+  /**
+   * resume asks the hub replica of this session to take over the login
+   * that token names, and reports whether it did.
+   */
+  async resume(token: string): Promise<boolean> {
+    const wt = this.wt;
+    if (!wt?.createBidirectionalStream) {
+      return false;
+    }
+    const stream = await wt.createBidirectionalStream();
+    const writer = stream.writable.getWriter();
+    try {
+      await writer.write(new TextEncoder().encode(resumeRequest(token)));
+      await writer.close();
+    } finally {
+      writer.releaseLock();
+    }
+    return resumed(await readText(stream.readable));
   }
 
   send(data: Uint8Array): void {
@@ -115,6 +180,30 @@ export class Transport {
         }
         if (value) {
           this.handlers.onDatagram(value);
+        }
+      }
+    } catch {
+      return;
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+  private async control(streams: ReadableStream<ReadableStream<Uint8Array>>): Promise<void> {
+    const reader = streams.getReader();
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) {
+          return;
+        }
+        if (value) {
+          void readText(value).then((text) => {
+            const token = drainToken(text);
+            if (token) {
+              this.handlers.onDrain?.(token);
+            }
+          });
         }
       }
     } catch {
