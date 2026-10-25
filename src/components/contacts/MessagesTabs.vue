@@ -30,19 +30,21 @@ const contacts = useContacts();
   <div role="tablist" aria-label="Messages or contacts" class="grid grid-cols-2 gap-1 rounded-xl border border-radio-line bg-radio-page p-1">
     <RouterLink
       to="/messages"
+      replace
       role="tab"
       :aria-selected="tab === 'chats'"
       class="flex items-center justify-center rounded-[9px] font-semibold no-underline"
-      :class="[compact ? 'h-10 text-sm' : 'h-9 text-[13px]', tab === 'chats' ? 'bg-radio-raised text-radio-accent shadow-sm' : 'text-radio-text/80']"
+      :class="[compact ? 'h-11 text-sm' : 'h-9 text-[13px]', tab === 'chats' ? 'bg-radio-raised text-radio-accent shadow-sm' : 'text-radio-text/80']"
     >
       Chats
     </RouterLink>
     <RouterLink
       to="/messages/contacts"
+      replace
       role="tab"
       :aria-selected="tab === 'contacts'"
       class="flex items-center justify-center rounded-[9px] font-semibold no-underline"
-      :class="[compact ? 'h-10 text-sm' : 'h-9 text-[13px]', tab === 'contacts' ? 'bg-radio-raised text-radio-accent shadow-sm' : 'text-radio-text/80']"
+      :class="[compact ? 'h-11 text-sm' : 'h-9 text-[13px]', tab === 'contacts' ? 'bg-radio-raised text-radio-accent shadow-sm' : 'text-radio-text/80']"
     >
       Contacts<template v-if="contacts.contacts.length"> · {{ contacts.contacts.length }}</template>
     </RouterLink>

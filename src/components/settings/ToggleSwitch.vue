@@ -29,7 +29,7 @@ const on = defineModel<boolean>({ required: true });
     role="switch"
     :aria-checked="on"
     :aria-label="label"
-    class="relative h-[30px] w-[52px] shrink-0 rounded-full border"
+    class="relative h-[30px] w-[52px] shrink-0 rounded-full border before:absolute before:-inset-x-1 before:-inset-y-[8px] before:content-['']"
     :class="on ? 'border-radio-amber bg-radio-amber-soft' : 'border-radio-line bg-radio-raised'"
     @click="on = !on"
   >

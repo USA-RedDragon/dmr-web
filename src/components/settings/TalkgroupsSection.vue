@@ -37,6 +37,8 @@ const tab = ref<Slot>(store.settings.selected.slot);
 const draft = reactive<Record<Slot, string>>({ 1: '', 2: '' });
 const drag = ref<{ slot: Slot; from: number; to: number } | null>(null);
 let press: ReturnType<typeof setTimeout> | null = null;
+let pressAt = { x: 0, y: 0 };
+const PRESS_SLOP = 8;
 
 function add(slot: Slot): void {
   const id = Number(draft[slot]);
@@ -73,6 +75,7 @@ function onPress(e: PointerEvent, slot: Slot, i: number): void {
   }
   const target = e.currentTarget as HTMLElement;
   const id = e.pointerId;
+  pressAt = { x: e.clientX, y: e.clientY };
   press = setTimeout(() => {
     press = null;
     target.setPointerCapture(id);
@@ -82,7 +85,7 @@ function onPress(e: PointerEvent, slot: Slot, i: number): void {
 }
 
 function onMove(e: PointerEvent): void {
-  if (press) {
+  if (press && Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > PRESS_SLOP) {
     clearTimeout(press);
     press = null;
   }
@@ -159,13 +162,14 @@ function now(slot: Slot): string {
         @pointermove="onMove"
         @pointerup="onUp"
         @pointercancel="onUp"
+        @touchmove="drag && $event.preventDefault()"
         @contextmenu.prevent
       >
         <button
-          v-if="desktop"
           type="button"
           :aria-label="`Drag to reorder TG ${t.id}`"
-          class="flex h-9 w-5 cursor-grab items-center justify-center text-radio-muted"
+          class="flex shrink-0 cursor-grab items-center justify-center text-radio-muted"
+          :class="desktop ? 'h-9 w-5' : '-ml-2 h-11 w-8'"
           style="touch-action: none"
           @pointerdown.stop="startDrag($event, slot, i)"
         >
@@ -177,12 +181,12 @@ function now(slot: Slot): string {
           type="button"
           :aria-pressed="t.static"
           :aria-label="t.static ? `TG ${t.id} is static, tap to make it dynamic` : `Make TG ${t.id} static`"
-          class="shrink-0 rounded-[5px] border px-1.5 py-0.5 text-[10px] font-semibold"
-          :class="t.static ? 'border-radio-green text-radio-green' : 'border-radio-line text-radio-muted/70'"
+          class="flex min-h-11 shrink-0 items-center"
+
           @pointerdown.stop
           @click="t.static = !t.static"
         >
-          STATIC
+          <span class="rounded-[5px] border px-1.5 py-0.5 text-[10px] font-semibold" :class="t.static ? 'border-radio-green text-radio-green' : 'border-radio-line text-radio-muted/70'">STATIC</span>
         </button>
         <button type="button" :aria-label="`Remove TG ${t.id}`" class="flex size-11 shrink-0 items-center justify-center text-radio-muted" @pointerdown.stop @click="remove(slot, i)">
           <X class="size-4" />
@@ -203,7 +207,7 @@ function now(slot: Slot): string {
     {{
       desktop
         ? 'STATIC talkgroups are linked on the hub for this hotspot. The rest link when you key up on them.'
-        : 'The knob steps through this list in order. Long-press a row to reorder it.'
+        : 'The knob steps through this list in order. Drag a row by its handle, or long-press it, to reorder.'
     }}
   </p>
   <p v-if="account.staticsError" role="alert" class="m-0 text-xs text-radio-red">Could not update the static talkgroups on the hub: {{ account.staticsError }}</p>
