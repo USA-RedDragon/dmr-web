@@ -199,7 +199,7 @@ function call(): void {
       </button>
     </main>
     <AppNav v-if="!selected && !contactId" bar />
-    <div v-else-if="contactId" class="fixed inset-0 z-30 flex flex-col bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
+    <div v-else-if="contactId" class="fixed inset-x-0 top-[var(--app-top,0px)] h-[var(--app-h,100dvh)] z-30 flex flex-col bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
       <ContactDetail
         :id="contactId"
         compact
@@ -210,7 +210,7 @@ function call(): void {
         @alert="checkPeer('callAlert', { group: false, id: contactId }, 2)"
       />
     </div>
-    <div v-else class="fixed inset-0 z-30 flex flex-col bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
+    <div v-else class="fixed inset-x-0 top-[var(--app-top,0px)] h-[var(--app-h,100dvh)] z-30 flex flex-col bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
       <ThreadView compact :thread-key="selected!" @back="goBack(router, '/messages')" @check="onCheck" @call="call" />
     </div>
   </template>

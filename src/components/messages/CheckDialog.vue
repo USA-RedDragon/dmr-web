@@ -82,7 +82,7 @@ const detail = computed(() => {
       <DialogOverlay class="fixed inset-0 z-50 bg-black/70" />
       <DialogContent
         v-if="c"
-        class="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-4 rounded-t-[22px] border-t border-radio-line bg-radio-surface max-h-[calc(100dvh-env(safe-area-inset-top))] overflow-y-auto p-5 pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-radio-text sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[22px] sm:border sm:p-6"
+        class="fixed inset-x-0 bottom-[var(--app-bottom,0px)] z-50 flex flex-col gap-4 rounded-t-[22px] border-t border-radio-line bg-radio-surface max-h-[calc(var(--app-h,100dvh)-env(safe-area-inset-top))] overflow-y-auto p-5 pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-radio-text sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[22px] sm:border sm:p-6"
       >
         <div class="flex items-center justify-between">
           <DialogTitle class="text-lg font-semibold">{{ title }}</DialogTitle>

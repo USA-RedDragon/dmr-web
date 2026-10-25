@@ -49,7 +49,7 @@ const icon = 'mt-px size-[18px] shrink-0 text-radio-amber';
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-50 bg-black/70" />
       <DialogContent
-        class="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-4 rounded-t-[22px] border-t border-radio-line bg-radio-raised max-h-[calc(100dvh-env(safe-area-inset-top))] overflow-y-auto px-4 pt-6 pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-radio-text lg:inset-auto lg:top-1/2 lg:left-1/2 lg:w-[520px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:gap-[18px] lg:rounded-[20px] lg:border lg:p-7"
+        class="fixed inset-x-0 bottom-[var(--app-bottom,0px)] z-50 flex flex-col gap-4 rounded-t-[22px] border-t border-radio-line bg-radio-raised max-h-[calc(var(--app-h,100dvh)-env(safe-area-inset-top))] overflow-y-auto px-4 pt-6 pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-radio-text lg:inset-auto lg:top-1/2 lg:left-1/2 lg:w-[520px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:gap-[18px] lg:rounded-[20px] lg:border lg:p-7"
         @escape-key-down.prevent
         @interact-outside.prevent
       >

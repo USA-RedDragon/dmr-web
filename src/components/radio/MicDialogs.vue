@@ -58,7 +58,7 @@ const site = location.host;
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-50 bg-black/70" />
       <DialogContent
-        class="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-4 rounded-t-3xl border-t border-radio-chassis-line bg-radio-raised max-h-[calc(100dvh-env(safe-area-inset-top))] overflow-y-auto px-4 pt-[22px] pb-[calc(1.75rem+env(safe-area-inset-bottom))] sm:inset-auto sm:p-6 sm:left-1/2 sm:top-1/2 sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:border"
+        class="fixed inset-x-0 bottom-[var(--app-bottom,0px)] z-50 flex flex-col gap-4 rounded-t-3xl border-t border-radio-chassis-line bg-radio-raised max-h-[calc(var(--app-h,100dvh)-env(safe-area-inset-top))] overflow-y-auto px-4 pt-[22px] pb-[calc(1.75rem+env(safe-area-inset-bottom))] sm:inset-auto sm:p-6 sm:left-1/2 sm:top-1/2 sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:border"
       >
         <span class="flex size-12 items-center justify-center rounded-full bg-radio-amber-soft text-radio-accent"><Mic class="size-6" /></span>
         <span aria-hidden="true" class="h-1 w-10 self-center rounded-full bg-radio-chassis-line sm:hidden" />
@@ -78,7 +78,7 @@ const site = location.host;
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-50 bg-black/70" />
       <DialogContent
-        class="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-4 rounded-t-3xl border-t border-radio-chassis-line bg-radio-raised max-h-[calc(100dvh-env(safe-area-inset-top))] overflow-y-auto px-4 pt-[22px] pb-[calc(1.75rem+env(safe-area-inset-bottom))] sm:inset-auto sm:p-6 sm:left-1/2 sm:top-1/2 sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:border"
+        class="fixed inset-x-0 bottom-[var(--app-bottom,0px)] z-50 flex flex-col gap-4 rounded-t-3xl border-t border-radio-chassis-line bg-radio-raised max-h-[calc(var(--app-h,100dvh)-env(safe-area-inset-top))] overflow-y-auto px-4 pt-[22px] pb-[calc(1.75rem+env(safe-area-inset-bottom))] sm:inset-auto sm:p-6 sm:left-1/2 sm:top-1/2 sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:border"
       >
         <span aria-hidden="true" class="h-1 w-10 self-center rounded-full bg-radio-chassis-line sm:hidden" />
         <div class="flex items-center gap-3">

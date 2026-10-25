@@ -29,6 +29,7 @@ import RealRadioNotice from '@/components/RealRadioNotice.vue';
 import UpdateNotice from '@/components/UpdateNotice.vue';
 import { Toaster } from '@/components/ui/toast';
 import { useColorMode } from '@/composables/useColorMode';
+import { useKeyboardViewport } from '@/composables/useKeyboardViewport';
 import { syncHubMessages } from '@/lib/hubMessages';
 import { useAccount } from '@/store/account';
 import { useContacts } from '@/store/contacts';
@@ -39,6 +40,7 @@ import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
 const { isDark } = useColorMode();
+useKeyboardViewport();
 const store = useSettings();
 const radio = useRadio();
 const account = useAccount();
@@ -61,7 +63,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex h-dvh flex-col overflow-hidden bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-radio-text">
+  <div class="fixed inset-x-0 top-[var(--app-top,0px)] h-[var(--app-h,100dvh)] flex flex-col overflow-hidden bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-radio-text">
     <AppHeader />
     <CallLayer v-if="store.loaded" />
     <RouterView v-if="store.loaded && account.loaded" />

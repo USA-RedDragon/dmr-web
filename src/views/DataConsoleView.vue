@@ -167,7 +167,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
       </section>
     </main>
   </div>
-  <main v-else class="fixed inset-0 z-30 flex flex-col gap-3 overflow-y-auto overscroll-contain bg-radio-page pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-[calc(1rem+env(safe-area-inset-bottom))]">
+  <main v-else class="fixed inset-x-0 top-[var(--app-top,0px)] h-[var(--app-h,100dvh)] z-30 flex flex-col gap-3 overflow-y-auto overscroll-contain bg-radio-page pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-[calc(1rem+env(safe-area-inset-bottom))]">
     <div class="flex h-14 shrink-0 items-center gap-1">
       <button type="button" aria-label="Back to diagnostics" class="-ml-2.5 flex size-11 items-center justify-center text-radio-accent" @click="goBack(router, '/settings/diagnostics')"><ChevronLeft class="size-[22px]" /></button>
       <h1 class="m-0 grow text-lg font-bold">Data console</h1>
