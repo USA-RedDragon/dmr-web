@@ -33,6 +33,7 @@ const MAX_BUFFERED_SECONDS = 2;
 class PlaybackProcessor extends AudioWorkletProcessor {
   private readonly queues = new Map<number, { up: Upsampler; samples: number[]; read: number }>();
   private volume = 0.6;
+  private scratch = new Float32Array(0);
 
   constructor() {
     super();
@@ -59,7 +60,13 @@ class PlaybackProcessor extends AudioWorkletProcessor {
     if (q.samples.length > sampleRate * MAX_BUFFERED_SECONDS) {
       q.samples = [];
     }
-    q.up.convert(msg.samples, q.samples);
+    if (this.scratch.length < q.up.maxOutput(msg.samples.length)) {
+      this.scratch = new Float32Array(q.up.maxOutput(msg.samples.length));
+    }
+    const n = q.up.convert(msg.samples, this.scratch);
+    for (let i = 0; i < n; i++) {
+      q.samples.push(this.scratch[i]!);
+    }
   }
 
   process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {

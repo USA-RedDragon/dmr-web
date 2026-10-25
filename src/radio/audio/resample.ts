@@ -20,50 +20,163 @@
 export const VOICE_RATE = 8000;
 export const FRAME_SAMPLES = 160;
 
-export class Biquad {
-  private b0: number;
-  private b1: number;
-  private b2: number;
-  private a1: number;
-  private a2: number;
-  private x1 = 0;
-  private x2 = 0;
-  private y1 = 0;
-  private y2 = 0;
-
-  constructor(rate: number, cutoff: number, q = Math.SQRT1_2) {
-    const w = (2 * Math.PI * Math.min(cutoff, rate * 0.45)) / rate;
-    const alpha = Math.sin(w) / (2 * q);
-    const cos = Math.cos(w);
-    const a0 = 1 + alpha;
-    this.b0 = (1 - cos) / 2 / a0;
-    this.b1 = (1 - cos) / a0;
-    this.b2 = (1 - cos) / 2 / a0;
-    this.a1 = (-2 * cos) / a0;
-    this.a2 = (1 - alpha) / a0;
-  }
-
-  process(x: number): number {
-    const y = this.b0 * x + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
-    this.x2 = this.x1;
-    this.x1 = x;
-    this.y2 = this.y1;
-    this.y1 = y;
-    return y;
-  }
-}
+const PASSBAND_HZ = 3400;
+const STOPBAND_HZ = 4200;
+const ATTENUATION_DB = 80;
+const MAX_TABLE = 1 << 18;
+const INTERPOLATED_PHASES = 256;
 
 export function toInt16(x: number): number {
   const s = Math.round(x * 32767);
   return s > 32767 ? 32767 : s < -32768 ? -32768 : s;
 }
 
-export class Downsampler {
+function besselI0(x: number): number {
+  let sum = 1;
+  let term = 1;
+  const q = (x * x) / 4;
+  for (let k = 1; k < 64; k++) {
+    term *= q / (k * k);
+    sum += term;
+    if (term < sum * 1e-17) {
+      break;
+    }
+  }
+  return sum;
+}
+
+function gcd(a: number, b: number): number {
+  while (b) {
+    [a, b] = [b, a % b];
+  }
+  return a;
+}
+
+function ratio(inRate: number, outRate: number): [number, number] {
+  const scale = Number.isInteger(inRate) && Number.isInteger(outRate) ? 1 : 1000;
+  const i = Math.round(inRate * scale);
+  const o = Math.round(outRate * scale);
+  const g = gcd(i, o);
+  return [i / g, o / g];
+}
+
+/**
+ * Streaming polyphase resampler with a Kaiser-windowed sinc kernel. The
+ * kernel cuts off between PASSBAND_HZ and STOPBAND_HZ, so it serves as the
+ * anti-imaging filter when upsampling from VOICE_RATE and as the
+ * anti-aliasing filter when downsampling to it. Rates with a small rational
+ * ratio get one exact phase per output position; other rates interpolate
+ * linearly between INTERPOLATED_PHASES precomputed phases.
+ */
+export class Resampler {
+  /** Number of taps in each phase. */
+  readonly taps: number;
   private readonly step: number;
-  private readonly lowpass: Biquad;
-  private readonly secondPass: Biquad;
+  private readonly den: number;
+  private readonly phases: number;
+  /** Whether every output position has its own precomputed phase. */
+  readonly exact: boolean;
+  private readonly table: Float32Array;
+  private readonly hist: Float64Array;
   private pos = 0;
-  private prev = 0;
+  private acc = 0;
+
+  constructor(inRate: number, outRate: number) {
+    [this.step, this.den] = ratio(inRate, outRate);
+    const beta = 0.1102 * (ATTENUATION_DB - 8.7);
+    const width = (2 * Math.PI * (STOPBAND_HZ - PASSBAND_HZ)) / inRate;
+    const taps = 2 * Math.ceil((ATTENUATION_DB - 8) / (2.285 * width) / 2 + 0.5);
+    this.taps = taps;
+    this.exact = this.den * taps <= MAX_TABLE;
+    this.phases = this.exact ? this.den : INTERPOLATED_PHASES;
+    const rows = this.exact ? this.phases : this.phases + 1;
+    this.table = new Float32Array(rows * taps);
+    this.hist = new Float64Array(2 * taps);
+
+    const c = (PASSBAND_HZ + STOPBAND_HZ) / inRate;
+    const half = taps / 2;
+    const i0Beta = besselI0(beta);
+    for (let p = 0; p < rows; p++) {
+      const mu = p / this.phases;
+      let sum = 0;
+      for (let i = 0; i < taps; i++) {
+        const t = mu + half - 1 - i;
+        const r = t / half;
+        const w = r * r < 1 ? besselI0(beta * Math.sqrt(1 - r * r)) / i0Beta : 0;
+        const x = Math.PI * c * t;
+        const h = c * (x === 0 ? 1 : Math.sin(x) / x) * w;
+        this.table[p * taps + i] = h;
+        sum += h;
+      }
+      for (let i = 0; i < taps; i++) {
+        this.table[p * taps + i] = this.table[p * taps + i]! / sum;
+      }
+    }
+  }
+
+  /** Upper bound on the output count of one process() call with n inputs. */
+  maxOutput(n: number): number {
+    return Math.ceil((n * this.den) / this.step) + 1;
+  }
+
+  /**
+   * Resamples input[start, end) scaled by gain, writes the result to out
+   * starting at outStart, and returns the number of samples written. out
+   * must have room for maxOutput(end - start) samples.
+   */
+  process(input: ArrayLike<number>, start: number, end: number, gain: number, out: Float32Array, outStart = 0): number {
+    const taps = this.taps;
+    const hist = this.hist;
+    const table = this.table;
+    const den = this.den;
+    let n = outStart;
+    for (let k = start; k < end; k++) {
+      const x = input[k]! * gain;
+      hist[this.pos] = x;
+      hist[this.pos + taps] = x;
+      this.pos = this.pos + 1 === taps ? 0 : this.pos + 1;
+      const base = this.pos;
+      while (this.acc < den) {
+        if (this.exact) {
+          const row = this.acc * taps;
+          let s = 0;
+          for (let i = 0; i < taps; i++) {
+            s += hist[base + i]! * table[row + i]!;
+          }
+          out[n++] = s;
+        } else {
+          const f = (this.acc * this.phases) / den;
+          const p = Math.floor(f);
+          const row = p * taps;
+          let s0 = 0;
+          let s1 = 0;
+          for (let i = 0; i < taps; i++) {
+            const h = hist[base + i]!;
+            s0 += h * table[row + i]!;
+            s1 += h * table[row + taps + i]!;
+          }
+          out[n++] = s0 + (f - p) * (s1 - s0);
+        }
+        this.acc += this.step;
+      }
+      this.acc -= den;
+    }
+    return n - outStart;
+  }
+
+  reset(): void {
+    this.hist.fill(0);
+    this.pos = 0;
+    this.acc = 0;
+  }
+}
+
+const CAPTURE_CHUNK = 256;
+
+/** Converts microphone audio at the context rate into 8 kHz int16 frames. */
+export class Downsampler {
+  private readonly resampler: Resampler;
+  private readonly scratch: Float32Array;
   private frame = new Int16Array(FRAME_SAMPLES);
   private filled = 0;
 
@@ -71,55 +184,54 @@ export class Downsampler {
     inputRate: number,
     private readonly onFrame: (frame: Int16Array) => void,
   ) {
-    this.step = inputRate / VOICE_RATE;
-    this.lowpass = new Biquad(inputRate, 3400);
-    this.secondPass = new Biquad(inputRate, 3400);
+    this.resampler = new Resampler(inputRate, VOICE_RATE);
+    this.scratch = new Float32Array(this.resampler.maxOutput(CAPTURE_CHUNK));
   }
 
   push(input: Float32Array, gain = 1): void {
-    for (let i = 0; i < input.length; i++) {
-      const cur = this.secondPass.process(this.lowpass.process(input[i]! * gain));
-      while (this.pos <= 1) {
-        const v = this.prev + (cur - this.prev) * this.pos;
-        this.frame[this.filled++] = toInt16(v);
+    for (let start = 0; start < input.length; start += CAPTURE_CHUNK) {
+      const end = Math.min(input.length, start + CAPTURE_CHUNK);
+      const n = this.resampler.process(input, start, end, gain, this.scratch);
+      for (let i = 0; i < n; i++) {
+        this.frame[this.filled++] = toInt16(this.scratch[i]!);
         if (this.filled === FRAME_SAMPLES) {
           this.onFrame(this.frame);
           this.frame = new Int16Array(FRAME_SAMPLES);
           this.filled = 0;
         }
-        this.pos += this.step;
       }
-      this.pos -= 1;
-      this.prev = cur;
     }
   }
 
   reset(): void {
-    this.pos = 0;
-    this.prev = 0;
+    this.resampler.reset();
     this.filled = 0;
     this.frame = new Int16Array(FRAME_SAMPLES);
   }
 }
 
+/** Converts 8 kHz int16 audio into float samples at the output rate. */
 export class Upsampler {
-  private readonly step: number;
-  private pos = 0;
-  private prev = 0;
+  private readonly resampler: Resampler;
 
   constructor(outputRate: number) {
-    this.step = VOICE_RATE / outputRate;
+    this.resampler = new Resampler(VOICE_RATE, outputRate);
   }
 
-  convert(samples: Int16Array, out: number[]): void {
-    for (let i = 0; i < samples.length; i++) {
-      const cur = samples[i]! / 32768;
-      while (this.pos <= 1) {
-        out.push(this.prev + (cur - this.prev) * this.pos);
-        this.pos += this.step;
-      }
-      this.pos -= 1;
-      this.prev = cur;
-    }
+  /** Upper bound on the output count of one convert() call with n samples. */
+  maxOutput(n: number): number {
+    return this.resampler.maxOutput(n);
+  }
+
+  /**
+   * Writes the converted samples to out starting at outStart and returns
+   * how many it wrote. out must have room for maxOutput(samples.length).
+   */
+  convert(samples: Int16Array, out: Float32Array, outStart = 0): number {
+    return this.resampler.process(samples, 0, samples.length, 1 / 32768, out, outStart);
+  }
+
+  reset(): void {
+    this.resampler.reset();
   }
 }
