@@ -288,16 +288,18 @@ function pttUp(): void {
 }
 
 const presets = computed(() => list.value.slice(0, 2));
-const knobSize = computed(() => (props.compact ? 84 : 96));
+const knobSize = computed(() => (props.compact ? 'clamp(60px, 10dvh, 84px)' : 'clamp(72px, 11dvh, 96px)'));
+const volumeSize = computed(() => (props.compact ? 'clamp(48px, 8dvh, 68px)' : 'clamp(56px, 8dvh, 72px)'));
 </script>
 
 <template>
   <section
     aria-label="Radio"
-    class="flex flex-col rounded-[28px] border border-radio-chassis-line bg-radio-chassis shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_48px_rgba(0,0,0,0.25)]"
-    :class="compact ? 'gap-4 rounded-3xl p-4' : 'gap-6 p-7'"
+    class="@container flex select-none flex-col rounded-[28px] border border-radio-chassis-line bg-radio-chassis shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_48px_rgba(0,0,0,0.25)] [-webkit-touch-callout:none]"
+    :class="compact ? 'gap-[clamp(8px,1.8dvh,16px)] rounded-3xl px-4 py-[clamp(10px,2dvh,16px)] wide:flex-row wide:gap-5' : 'gap-[clamp(12px,2.6dvh,24px)] px-7 py-[clamp(16px,3dvh,28px)]'"
   >
-    <div class="flex items-center justify-between">
+    <div :class="compact ? 'contents wide:flex wide:min-h-0 wide:basis-0 wide:grow-[1.25] wide:flex-col wide:gap-[clamp(8px,1.8dvh,16px)]' : 'contents'">
+    <div class="flex shrink-0 items-center justify-between" :class="compact ? 'short:hidden' : ''">
       <div class="flex items-center gap-4 text-xs font-semibold tracking-[0.12em] text-radio-muted">
         <span class="flex items-center gap-2">
           <span class="size-2.5 rounded-full" :class="activeCall && powered ? 'bg-radio-green shadow-[0_0_10px_var(--radio-green)]' : 'bg-led-off'" />RX
@@ -312,29 +314,53 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
       <span v-if="!compact" class="text-xs font-semibold tracking-[0.18em] text-radio-muted">DMR TIER II</span>
     </div>
 
-    <LcdDisplay v-bind="lcd" :compact="compact" />
+    <LcdDisplay v-bind="lcd" :compact="compact" class="shrink-0" />
 
-    <div class="flex items-center justify-between gap-4" :class="powered ? '' : 'opacity-55'">
+    <div v-if="$slots.middle" class="order-1 min-h-0 grow basis-0 overflow-hidden [container-type:size]">
+      <slot name="middle" />
+    </div>
+    </div>
+
+    <div :class="compact ? 'contents wide:flex wide:min-h-0 wide:basis-0 wide:grow wide:flex-col wide:justify-center wide:gap-[clamp(8px,1.8dvh,16px)]' : 'contents'">
+    <div class="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center" :class="[compact ? 'gap-2' : 'gap-4', powered ? '' : 'opacity-55']">
       <RadioKnob
         :position="knobPos"
         :count="Math.max(1, list.length)"
-        :label="radio.tx.active ? (compact ? 'LOCKED' : 'TALKGROUP, LOCKED') : powered ? `TALKGROUP TS${slot}` : 'TALKGROUP'"
+        :label="radio.tx.active ? (compact ? 'LOCKED' : 'TALKGROUP, LOCKED') : powered && !compact ? `TALKGROUP TS${slot}` : 'TALKGROUP'"
         :spoken="`Talkgroup knob for TS${slot}`"
         :size="knobSize"
         :disabled="radio.tx.active || list.length < 2"
         ticks
+        class="justify-self-start"
         @step="stepTalkgroup"
       />
-      <div class="flex flex-col items-center gap-2">
-        <div role="group" aria-label="Timeslot" class="flex gap-1 rounded-xl border border-radio-line bg-radio-page p-1" :class="compact ? 'flex-col' : ''">
+      <div class="flex items-center gap-2" :class="compact ? 'flex-col @[25rem]:flex-row' : ''">
+        <div v-if="!compact" class="flex flex-col items-center gap-2">
+          <div role="group" aria-label="Timeslot" class="flex gap-1 rounded-xl border border-radio-line bg-radio-page p-1">
+            <button
+              v-for="n in [1, 2] as Slot[]"
+              :key="n"
+              type="button"
+              :aria-pressed="powered && slot === n"
+              :disabled="radio.tx.active"
+              class="h-11 w-[72px] rounded-[9px] text-sm font-semibold"
+              :class="powered && slot === n ? 'bg-radio-raised text-radio-accent' : 'text-radio-muted'"
+              @click="pickSlot(n)"
+            >
+              TS{{ n }}
+            </button>
+          </div>
+          <span class="text-[11px] font-semibold tracking-[0.14em] text-radio-muted">SLOT</span>
+        </div>
+        <div v-else role="group" aria-label="Timeslot" class="flex gap-1 rounded-xl border border-radio-line bg-radio-page p-1">
           <button
             v-for="n in [1, 2] as Slot[]"
             :key="n"
             type="button"
             :aria-pressed="powered && slot === n"
             :disabled="radio.tx.active"
-            class="h-11 rounded-[9px] text-sm font-semibold"
-            :class="[compact ? 'w-16' : 'w-[72px]', powered && slot === n ? 'bg-radio-raised text-radio-accent' : 'text-radio-muted']"
+            class="h-11 w-14 rounded-[9px] text-sm font-semibold short:h-10 @[21rem]:w-16"
+            :class="powered && slot === n ? 'bg-radio-raised text-radio-accent' : 'text-radio-muted'"
             @click="pickSlot(n)"
           >
             TS{{ n }}
@@ -344,22 +370,20 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
           v-if="compact"
           type="button"
           aria-label="Enter a talkgroup or radio ID"
-          class="h-11 w-[74px] rounded-[10px] border border-radio-line bg-radio-knob text-lg"
+          class="h-11 w-full rounded-[10px] border border-radio-line bg-radio-knob text-lg short:h-10 @[25rem]:w-16"
           :disabled="radio.tx.active"
           @click="openKeypad"
         >
           #
         </button>
-        <span v-else class="text-[11px] font-semibold tracking-[0.14em] text-radio-muted">SLOT</span>
-      </div>
-      <div v-if="!compact" class="flex flex-col items-center gap-2">
+        <div v-else class="flex flex-col items-center gap-2">
         <div class="flex gap-2">
           <button
             v-for="(p, i) in presets"
             :key="p.id"
             type="button"
             :disabled="radio.tx.active"
-            class="h-11 rounded-[10px] border border-radio-line bg-radio-knob px-4 text-sm font-medium"
+            class="h-11 whitespace-nowrap rounded-[10px] border border-radio-line bg-radio-knob px-3 text-sm font-medium xl:px-4"
             :class="!s.selected.manual[slot] && s.selected.index[slot] === i ? 'text-radio-accent' : ''"
             @click="preset(i)"
           >
@@ -376,24 +400,24 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
           </button>
         </div>
         <span class="text-[11px] font-semibold tracking-[0.14em] text-radio-muted">PRESETS</span>
+        </div>
       </div>
       <RadioKnob
         :position="volumePos"
         :count="11"
         :label="powered ? `VOLUME ${volumePos}` : 'VOLUME'"
         spoken="Volume knob"
-        :size="compact ? 68 : 72"
+        :size="volumeSize"
+        class="justify-self-end"
         @step="stepVolume"
       />
     </div>
 
-    <slot name="middle" />
-
     <button
       type="button"
-      class="flex select-none flex-col items-center justify-center gap-1.5 rounded-[20px] border font-bold tracking-[0.2em] transition-colors"
+      class="flex shrink-0 select-none flex-col items-center justify-center gap-1.5 rounded-[20px] border font-bold tracking-[0.2em] transition-colors"
       :class="[
-        compact ? 'mt-auto h-[150px] text-xl' : 'h-[108px] text-[22px]',
+        compact ? 'order-2 mt-auto h-[clamp(80px,17dvh,150px)] text-[min(20px,5.4cqw)] short:h-[clamp(72px,15dvh,120px)] wide:mt-0 wide:h-auto wide:max-h-[220px] wide:min-h-[84px] wide:grow' : 'h-[clamp(80px,12dvh,108px)] text-[22px]',
         radio.tx.active
           ? 'border-radio-red bg-[color-mix(in_oklab,var(--radio-red)_22%,var(--radio-chassis))] text-radio-red'
           : powered && !talkback
@@ -406,6 +430,7 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
       @pointerup="pttUp"
       @pointercancel="pttUp"
       @lostpointercapture="pttUp"
+      @touchstart.prevent
       @contextmenu.prevent
     >
       <span>{{
@@ -441,8 +466,11 @@ const knobSize = computed(() => (props.compact ? 84 : 96));
         }}
       </span>
     </button>
-    <slot name="after" />
-    <div v-if="!compact" aria-hidden="true" class="grille min-h-6 grow rounded-[14px] border border-radio-line" />
+    <div v-if="$slots.after" class="order-3 shrink-0">
+      <slot name="after" />
+    </div>
+    </div>
+    <div v-if="!compact" aria-hidden="true" class="grille min-h-0 grow rounded-[14px] border border-radio-line" />
 
     <TalkgroupKeypad v-model:open="keypad" :ts="slot" :preset="keypadPreset" @set="setManual" />
   </section>

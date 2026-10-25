@@ -93,7 +93,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
 </script>
 
 <template>
-  <div v-if="desktop" class="flex min-h-0 grow flex-col" style="height: calc(100dvh - 64px)">
+  <div v-if="desktop" class="flex min-h-0 grow flex-col">
     <nav aria-label="Breadcrumb" class="flex items-center gap-2.5 px-8 pt-5 text-sm">
       <RouterLink to="/settings/diagnostics" class="flex min-h-8 items-center no-underline">Diagnostics</RouterLink>
       <span class="text-radio-muted" aria-hidden="true">/</span>
@@ -160,7 +160,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
       </section>
     </main>
   </div>
-  <main v-else class="fixed inset-0 z-30 flex flex-col gap-3 bg-radio-page px-4 pb-4">
+  <main v-else class="fixed inset-0 z-30 flex flex-col gap-3 bg-radio-page px-4 pt-[env(safe-area-inset-top)] pb-[calc(1rem+env(safe-area-inset-bottom))]">
     <div class="flex h-14 shrink-0 items-center gap-1">
       <RouterLink to="/settings/diagnostics" aria-label="Back to diagnostics" class="-ml-2.5 flex size-11 items-center justify-center text-radio-accent"><ChevronLeft class="size-[22px]" /></RouterLink>
       <h1 class="m-0 grow text-lg font-bold">Data console</h1>

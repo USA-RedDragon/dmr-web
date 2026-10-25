@@ -121,30 +121,30 @@ function onLogin(): void {
 </script>
 
 <template>
-  <main v-if="showFailure" class="flex grow flex-col" :class="desktop ? 'p-8 pt-16' : 'gap-3 px-4 pt-3 pb-4'">
+  <main v-if="showFailure" class="flex min-h-0 grow flex-col overflow-y-auto" :class="desktop ? 'p-8 pt-16' : 'gap-3 px-4 pt-3 pb-4'">
     <LinkNotice mode="failed" :compact="!desktop" />
   </main>
-  <main v-else-if="choosing && desktop" class="flex grow items-start justify-center px-8 py-12">
+  <main v-else-if="choosing && desktop" class="flex min-h-0 grow items-start justify-center overflow-y-auto px-8 py-12">
     <HotspotPicker />
   </main>
-  <main v-else-if="choosing" class="flex grow flex-col px-4 pb-4">
+  <main v-else-if="choosing" class="flex min-h-0 grow flex-col overflow-y-auto px-4 pb-4">
     <HotspotPicker compact />
   </main>
-  <main v-else-if="desktop" class="flex grow gap-8 p-8">
-    <RadioPanel class="w-[780px] shrink-0" @login="onLogin" />
-    <aside class="flex min-w-0 grow flex-col gap-4">
+  <main v-else-if="desktop" class="flex min-h-0 grow gap-8 overflow-y-auto p-[clamp(16px,3dvh,32px)] px-8">
+    <RadioPanel class="w-[clamp(640px,calc(100%-340px),780px)] shrink-0" @login="onLogin" />
+    <aside class="flex min-h-0 min-w-0 grow flex-col gap-4 overflow-y-auto">
       <SetupCard v-if="showSetup" />
       <OnAir v-if="(showSetup || idle) && !radio.heard.length" :host="store.settings.hub.host" />
-      <section v-else-if="!showSetup || radio.heard.length" class="grow rounded-[20px] border border-radio-line bg-radio-surface p-[22px]">
+      <section v-else-if="!showSetup || radio.heard.length" class="min-h-0 grow overflow-y-auto rounded-[20px] border border-radio-line bg-radio-surface p-[22px]">
         <LastHeard :entries="radio.heard" :limit="12" />
       </section>
     </aside>
   </main>
-  <main v-else class="flex grow flex-col gap-3 px-4 pb-4">
+  <main v-else class="@container/radio flex min-h-0 grow flex-col overflow-y-auto px-4 pb-[clamp(8px,1.5dvh,16px)]">
     <RadioPanel compact class="grow" @login="onLogin">
       <template #middle>
-        <SetupCard v-if="showSetup" compact />
-        <div v-else class="rounded-[14px] border border-radio-line bg-radio-surface px-3.5 py-1">
+        <SetupCard v-if="showSetup" compact class="[@container(max-height:9.5rem)]:hidden" />
+        <div v-else class="flex max-h-full flex-col overflow-hidden rounded-[14px] [@container(max-height:5.5rem)]:hidden border border-radio-line bg-radio-surface px-3.5 py-1">
           <LastHeard :entries="radio.heard" :limit="3" compact />
         </div>
       </template>

@@ -43,7 +43,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="flex grow justify-center px-4 pt-12 sm:px-8">
+  <main class="flex min-h-0 grow justify-center overflow-y-auto px-4 pt-12 sm:px-8">
     <section class="flex w-full max-w-[480px] flex-col gap-4 self-start rounded-[20px] border border-radio-line bg-radio-surface p-6">
       <template v-if="failure">
         <h1 class="m-0 text-xl font-bold">Login didn't finish</h1>

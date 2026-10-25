@@ -65,7 +65,7 @@ function undo(): void {
     :class="
       desktop
         ? 'right-8 bottom-8 gap-3.5 rounded-[14px] bg-radio-raised py-3 pr-3 pl-4 text-sm'
-        : 'inset-x-4 bottom-[86px] gap-2.5 rounded-[14px] bg-radio-knob py-2.5 pr-2.5 pl-3.5 text-sm'
+        : 'inset-x-4 bottom-[calc(86px+env(safe-area-inset-bottom))] gap-2.5 rounded-[14px] bg-radio-knob py-2.5 pr-2.5 pl-3.5 text-sm'
     "
   >
     <Star class="size-[18px] shrink-0" :class="contacts.undo.added ? 'fill-radio-amber text-radio-amber' : 'text-radio-muted'" aria-hidden="true" />

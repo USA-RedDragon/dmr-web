@@ -63,7 +63,7 @@ const inputClass = 'h-11 w-full rounded-[10px] border bg-radio-page px-3 text-[1
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-50 bg-black/70" />
       <DialogContent
-        class="fixed top-[150px] left-1/2 z-50 flex w-[480px] -translate-x-1/2 flex-col gap-[18px] rounded-[20px] border border-radio-line bg-radio-raised p-[26px] text-radio-text shadow-2xl"
+        class="fixed top-[min(150px,10dvh)] left-1/2 z-50 flex max-h-[calc(100dvh-min(150px,10dvh)-16px)] w-[480px] overflow-y-auto -translate-x-1/2 flex-col gap-[18px] rounded-[20px] border border-radio-line bg-radio-raised p-[26px] text-radio-text shadow-2xl"
         aria-describedby="manual-help"
       >
         <form class="flex flex-col gap-[18px]" @submit.prevent="submit">

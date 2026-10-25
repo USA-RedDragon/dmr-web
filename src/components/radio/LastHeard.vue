@@ -47,16 +47,17 @@ function when(e: HeardEntry): string {
 </script>
 
 <template>
-  <section aria-label="Last heard" class="flex flex-col">
-    <div class="flex items-center justify-between" :class="compact ? 'h-9' : 'pb-2'">
+  <section aria-label="Last heard" class="flex max-h-full min-h-0 flex-col">
+    <div class="flex shrink-0 items-center justify-between" :class="compact ? 'h-9' : 'pb-2'">
       <h2 class="m-0 font-semibold" :class="compact ? 'text-[13px]' : 'text-base'">Last heard</h2>
       <span class="text-xs text-radio-muted">This session</span>
     </div>
     <p v-if="shown.length === 0" class="py-3 text-sm text-radio-muted">Nothing heard yet.</p>
+    <div v-else class="flex min-h-0 flex-col" :class="compact ? 'flex-wrap overflow-hidden' : ''">
     <div
       v-for="(e, i) in shown"
       :key="`${e.at}-${e.source}`"
-      class="flex items-center gap-1 border-radio-line"
+      class="flex w-full items-center gap-1 border-radio-line"
       :class="[compact ? 'gap-0.5 py-0.5' : 'py-1.5', i > 0 || compact ? 'border-t' : '']"
     >
       <StarButton v-if="!e.self" :id="e.source" :callsign="callsign(e)" :heard="{ at: e.at, target: e.target, group: e.group }" class="-ml-2.5" />
@@ -70,6 +71,7 @@ function when(e: HeardEntry): string {
         </span>
       </div>
       <VocoderBadge :vocoder="e.vocoder" />
+    </div>
     </div>
   </section>
 </template>

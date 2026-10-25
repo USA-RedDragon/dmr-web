@@ -43,10 +43,8 @@ const segments = computed(() => (props.compact ? 18 : 24));
 
 <template>
   <div
-    class="flex flex-col gap-3 rounded-[14px] border-2 border-lcd-line bg-lcd-bg font-mono text-lcd-text shadow-[inset_0_2px_12px_rgba(0,0,0,0.45)]"
-    :class="compact ? 'gap-2 px-4 py-3.5' : 'px-6 py-5'"
-    role="status"
-    aria-live="polite"
+    class="flex flex-col rounded-[14px] border-2 border-lcd-line bg-lcd-bg font-mono text-lcd-text shadow-[inset_0_2px_12px_rgba(0,0,0,0.45)]"
+    :class="compact ? 'gap-[clamp(4px,1dvh,8px)] px-4 py-[clamp(8px,1.6dvh,14px)]' : 'gap-[clamp(8px,1.4dvh,12px)] px-6 py-[clamp(12px,2.2dvh,20px)]'"
   >
     <div class="grid grid-cols-2 gap-2" :class="compact ? 'text-[11px]' : 'text-sm'">
       <div
@@ -58,49 +56,55 @@ const segments = computed(() => (props.compact ? 18 : 24));
         TS{{ s.slot }}&nbsp;&nbsp;{{ s.label }}
       </div>
     </div>
-    <div v-if="status || badge || timer" class="flex items-center justify-between text-lcd-dim" :class="compact ? 'text-[13px]' : 'text-[15px]'">
+    <div class="flex items-center justify-between text-lcd-dim" :class="compact ? 'h-5 text-[13px]' : 'h-6 text-[15px]'">
       <span class="flex items-center gap-2">
         {{ status }}
-        <span v-if="privateTag" class="rounded-md border border-lcd-text px-1.5 font-bold text-lcd-text sm:px-2" :class="compact ? 'text-[11px]' : 'text-[13px]'">PRIVATE</span>
+        <span v-if="privateTag" class="rounded-md border border-lcd-text px-1.5 leading-tight font-bold text-lcd-text sm:px-2" :class="compact ? 'text-[11px]' : 'text-[13px]'">PRIVATE</span>
       </span>
       <span class="flex items-center gap-2.5">
-        <span v-if="badge" class="rounded-md bg-lcd-chip px-2.5 py-0.5 text-[13px] font-bold text-lcd-chip-text">{{ badge }}</span>
+        <span v-if="badge" class="rounded-md bg-lcd-chip px-2.5 py-0.5 leading-tight font-bold text-lcd-chip-text" :class="compact ? 'text-xs' : 'text-[13px]'">{{ badge }}</span>
         <span v-if="timer">{{ timer }}</span>
       </span>
     </div>
-    <div class="truncate font-bold leading-none tracking-[0.04em]" :class="compact ? 'text-[38px]' : 'text-[54px]'">{{ headline }}</div>
-    <div class="flex justify-between gap-3" :class="compact ? 'text-[13px] text-lcd-dim' : 'text-lg'">
-      <span class="truncate">{{ sub }}</span>
-      <span class="shrink-0 text-lcd-dim">{{ subRight }}</span>
+    <div role="status" aria-live="polite" class="flex flex-col" :class="compact ? 'gap-[clamp(4px,1dvh,8px)]' : 'gap-[clamp(8px,1.4dvh,12px)]'">
+      <div class="truncate font-bold leading-none tracking-[0.04em]" :class="compact ? 'text-[clamp(28px,5dvh,38px)]' : 'text-[clamp(40px,6.5dvh,54px)]'">{{ headline }}</div>
+      <div class="flex justify-between gap-3" :class="compact ? 'text-[13px] text-lcd-dim' : 'text-lg'">
+        <span class="truncate">{{ sub }}</span>
+        <span class="shrink-0 text-lcd-dim">{{ subRight }}</span>
+      </div>
     </div>
-    <template v-if="talkback && !meter">
-      <div v-if="!compact" class="h-px bg-lcd-line" />
-      <div class="flex flex-col text-lcd-dim" :class="compact ? 'gap-1.5 text-xs' : 'gap-2 text-[15px]'">
-        <div class="flex justify-between">
-          <span>TALKBACK<template v-if="!compact">&nbsp;&nbsp;PTT replies to {{ talkback.who }}</template></span><span>{{ talkback.seconds }} s</span>
+    <div v-if="!compact" class="h-px bg-lcd-line" />
+    <div class="flex flex-col justify-center text-lcd-dim" :class="compact ? 'h-[calc(2lh+6px)] gap-1.5 text-xs' : 'h-[calc(2lh+8px)] gap-2 text-[15px]'">
+      <template v-if="meter && timeout">
+        <div class="flex items-center gap-3">
+          <span class="w-[8ch] shrink-0">MIC</span>
+          <div class="grid h-2.5 grow gap-[3px]" :style="{ gridTemplateColumns: `repeat(${segments}, minmax(0, 1fr))` }" aria-hidden="true">
+            <span v-for="i in segments" :key="i" :class="i <= Math.round(meter.lit * segments) ? 'bg-lcd-text' : 'bg-lcd-line'" />
+          </div>
+          <span class="w-[9ch] shrink-0 text-right">{{ meter.dbfs }} dBFS</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-[8ch] shrink-0">TIME-OUT</span>
+          <div class="h-1.5 grow rounded-full bg-lcd-line" aria-hidden="true">
+            <div class="h-1.5 rounded-full bg-lcd-text" :style="{ width: `${Math.round(timeout.fraction * 100)}%` }" />
+          </div>
+          <span class="w-[9ch] shrink-0 text-right">{{ timeout.left }}</span>
+        </div>
+      </template>
+      <template v-else-if="talkback">
+        <div class="flex justify-between gap-3">
+          <span class="truncate">TALKBACK&nbsp;&nbsp;PTT replies to {{ talkback.who }}</span><span class="shrink-0">{{ talkback.seconds }} s</span>
         </div>
         <div class="rounded-sm bg-lcd-line" :class="compact ? 'h-[5px]' : 'h-1.5'" aria-hidden="true">
           <div class="h-full rounded-sm bg-lcd-text transition-[width] duration-1000 ease-linear" :style="{ width: `${Math.round(talkback.used * 100)}%` }" />
         </div>
+      </template>
+      <div v-else-if="compact" class="flex flex-col gap-1.5">
+        <span v-for="d in details.slice(0, 2)" :key="d" class="truncate">{{ d }}</span>
       </div>
-    </template>
-    <template v-else-if="meter && timeout">
-      <div class="h-px bg-lcd-line" />
-      <div class="flex flex-col text-lcd-dim" :class="compact ? 'gap-1.5 text-xs' : 'gap-2 text-sm'">
-        <div class="flex justify-between"><span>MIC</span><span>{{ meter.dbfs }} dBFS</span></div>
-        <div class="grid gap-[3px]" :class="compact ? 'h-2.5' : 'h-3.5'" :style="{ gridTemplateColumns: `repeat(${segments}, minmax(0, 1fr))` }" aria-hidden="true">
-          <span v-for="i in segments" :key="i" :class="i <= Math.round(meter.lit * segments) ? 'bg-lcd-text' : 'bg-lcd-line'" />
-        </div>
-        <div class="mt-1 flex justify-between"><span>TIME-OUT</span><span>{{ timeout.left }} left</span></div>
-        <div class="h-1.5 rounded-full bg-lcd-line"><div class="h-1.5 rounded-full bg-lcd-text" :style="{ width: `${Math.round(timeout.fraction * 100)}%` }" /></div>
-      </div>
-    </template>
-    <template v-else-if="details.length && !compact">
-      <div class="h-px bg-lcd-line" />
-      <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-[15px] text-lcd-dim">
+      <div v-else class="grid grid-cols-2 gap-x-6 gap-y-2">
         <span v-for="d in details" :key="d" class="truncate">{{ d }}</span>
       </div>
-    </template>
-    <div v-else-if="details.length && headline !== 'NO LINK'" class="truncate text-[13px] text-lcd-dim">{{ details[0] }}</div>
+    </div>
   </div>
 </template>

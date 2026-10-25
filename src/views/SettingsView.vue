@@ -57,7 +57,7 @@ watch(
 </script>
 
 <template>
-  <main class="flex grow flex-col gap-4 px-4 pb-6 lg:flex-row lg:gap-8 lg:p-8">
+  <main class="flex min-h-0 grow flex-col gap-4 overflow-y-auto overscroll-contain px-4 pb-6 lg:flex-row lg:gap-8 lg:p-8">
     <div class="flex items-center justify-between lg:hidden">
       <h1 class="m-0 text-[22px] font-bold">Settings</h1>
       <RouterLink to="/" class="no-underline flex min-h-11 items-center text-sm text-radio-accent">Back to radio</RouterLink>

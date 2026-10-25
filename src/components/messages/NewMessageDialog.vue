@@ -134,7 +134,7 @@ function onKey(e: KeyboardEvent): void {
       <DialogOverlay class="fixed inset-0 z-50 bg-black/70" />
       <DialogContent
         class="fixed z-50 flex flex-col bg-radio-surface text-radio-text"
-        :class="compact ? 'inset-0' : 'top-1/2 left-1/2 w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[22px] border border-radio-line p-6'"
+        :class="compact ? 'inset-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]' : 'top-1/2 left-1/2 w-[560px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[22px] border border-radio-line p-6'"
       >
         <div v-if="compact" class="flex h-14 shrink-0 items-center justify-between px-4">
           <button type="button" class="min-h-11 text-[15px] text-radio-accent" @click="emit('update:open', false)">Cancel</button>

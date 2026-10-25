@@ -38,7 +38,7 @@ function reload(): void {
   <div
     v-if="needRefresh && !later"
     role="status"
-    class="fixed bottom-4 left-4 right-4 z-40 flex flex-col gap-3 rounded-2xl border border-radio-line bg-radio-raised p-4 shadow-xl sm:right-auto sm:w-[380px]"
+    class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-40 flex flex-col gap-3 rounded-2xl border border-radio-line bg-radio-raised p-4 shadow-xl sm:right-auto sm:w-[380px]"
   >
     <div class="flex flex-col gap-1">
       <span class="text-sm font-semibold">A new version of dmr-web is ready</span>

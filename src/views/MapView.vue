@@ -145,7 +145,7 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
 </script>
 
 <template>
-  <main v-if="desktop" class="flex min-h-0 grow" style="height: calc(100dvh - 64px)">
+  <main v-if="desktop" class="flex min-h-0 grow">
     <aside aria-label="Positions" class="flex w-[340px] shrink-0 flex-col border-r border-radio-line">
       <div class="flex items-center justify-between px-4 pt-4 pb-2">
         <h1 class="m-0 text-lg font-bold">Positions</h1>

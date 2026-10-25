@@ -28,7 +28,7 @@ const props = withDefaults(
     count: number;
     label: string;
     spoken: string;
-    size?: number;
+    size?: number | string;
     disabled?: boolean;
     ticks?: boolean;
   }>(),
@@ -43,6 +43,8 @@ const SWEEP = 270;
 
 const wheelAcc = ref(0);
 const dragY = ref<number | null>(null);
+
+const dim = computed(() => (typeof props.size === 'number' ? `${props.size}px` : props.size));
 
 const angle = computed(() => {
   if (props.count <= 1) {
@@ -112,7 +114,7 @@ function onKey(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-2">
+  <div class="flex shrink-0 flex-col items-center gap-2">
     <button
       type="button"
       role="slider"
@@ -122,7 +124,7 @@ function onKey(e: KeyboardEvent): void {
       :aria-valuenow="position"
       :disabled="disabled"
       class="knob relative rounded-full border border-radio-chassis-line bg-radio-knob shadow-[inset_0_2px_0_rgba(255,255,255,0.08),0_6px_14px_rgba(0,0,0,0.35)] transition-[transform,border-color,box-shadow] duration-100 ease-out hover:border-radio-amber focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-radio-amber disabled:cursor-not-allowed disabled:opacity-55"
-      :style="{ width: `${size}px`, height: `${size}px`, transform: `rotate(${angle}deg)`, touchAction: 'none', cursor: disabled ? 'not-allowed' : 'ns-resize' }"
+      :style="{ width: dim, height: dim, transform: `rotate(${angle}deg)`, touchAction: 'none', cursor: disabled ? 'not-allowed' : 'ns-resize' }"
       @wheel="onWheel"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
@@ -133,9 +135,9 @@ function onKey(e: KeyboardEvent): void {
       <span
         class="absolute left-1/2 rounded-sm"
         :class="ticks ? 'bg-radio-amber' : 'bg-radio-muted'"
-        :style="{ width: '4px', height: `${Math.round(size * 0.22)}px`, top: `${Math.round(size * 0.09)}px`, marginLeft: '-2px' }"
+        :style="{ width: '4px', height: '22%', top: '9%', marginLeft: '-2px' }"
       />
     </button>
-    <span class="text-[11px] font-semibold tracking-[0.14em] text-radio-muted">{{ label }}</span>
+    <span class="whitespace-nowrap text-[11px] font-semibold tracking-[0.14em] text-radio-muted">{{ label }}</span>
   </div>
 </template>

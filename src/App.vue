@@ -61,7 +61,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex min-h-dvh flex-col bg-radio-page text-radio-text">
+  <div class="flex h-dvh flex-col overflow-hidden bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-radio-text">
     <AppHeader />
     <CallLayer v-if="store.loaded" />
     <RouterView v-if="store.loaded && account.loaded" />

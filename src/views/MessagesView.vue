@@ -158,7 +158,7 @@ function call(): void {
 </script>
 
 <template>
-  <main v-if="desktop" class="grid min-h-0 grow grid-cols-[340px_minmax(0,1fr)]" style="height: calc(100dvh - 64px)">
+  <main v-if="desktop" class="grid min-h-0 grow grid-cols-[340px_minmax(0,1fr)]">
     <ContactList v-if="tab === 'contacts'" class="border-r border-radio-line" :selected="contactId" @open="openContact" @add="adding = true">
       <template #tabs><MessagesTabs tab="contacts" /></template>
     </ContactList>
@@ -198,7 +198,7 @@ function call(): void {
       </button>
     </main>
     <AppNav v-if="!selected && !contactId" bar />
-    <div v-else-if="contactId" class="fixed inset-0 z-30 flex flex-col bg-radio-page">
+    <div v-else-if="contactId" class="fixed inset-0 z-30 flex flex-col bg-radio-page pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <ContactDetail
         :id="contactId"
         compact
@@ -209,7 +209,7 @@ function call(): void {
         @alert="checkPeer('callAlert', { group: false, id: contactId }, 2)"
       />
     </div>
-    <div v-else class="fixed inset-0 z-30 flex flex-col bg-radio-page">
+    <div v-else class="fixed inset-0 z-30 flex flex-col bg-radio-page pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <ThreadView compact :thread-key="selected!" @back="router.push('/messages')" @check="onCheck" @call="call" />
     </div>
   </template>
