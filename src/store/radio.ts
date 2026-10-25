@@ -121,6 +121,7 @@ export const useRadio = defineStore('radio', () => {
   const micPermission = ref<'unknown' | 'granted' | 'denied'>('unknown');
   const micPrompt = ref(false);
   const keyed = ref(false);
+  let presses = 0;
   const ambe = reactive<AmbeState>({ status: 'none', name: '', sha256: '', version: 0, error: '' });
   const upSince = ref(0);
   const client = shallowRef<RadioClient | null>(null);
@@ -480,6 +481,7 @@ export const useRadio = defineStore('radio', () => {
       case 'ptt':
         if (!msg.ok) {
           tx.error = msg.error ?? 'could not transmit';
+          keyed.value = false;
           addLog(`PTT refused: ${tx.error}`);
         }
         break;
@@ -637,27 +639,34 @@ export const useRadio = defineStore('radio', () => {
     const slot = tb ? (tb.slot as Slot) : settingsStore.settings.selected.slot;
     const target = tb ? tb.id : settingsStore.target(slot);
     const group = tb ? false : !settingsStore.isPrivate(slot);
-    if (!client.value || !connected.value || !target) {
+    if (!client.value || !connected.value || !target || keyed.value || tx.active) {
       return;
     }
     keyed.value = true;
+    const press = ++presses;
+    const held = () => keyed.value && press === presses;
     if (micPermission.value !== 'granted') {
       await checkMicPermission();
+    }
+    if (!held()) {
+      return;
     }
     if (micPermission.value === 'unknown') {
       keyed.value = false;
       micPrompt.value = true;
       return;
     }
-    if (micPermission.value === 'denied' || !keyed.value) {
+    if (micPermission.value === 'denied') {
       keyed.value = false;
       return;
     }
     try {
-      await client.value.ptt(true, slot, group, target, () => keyed.value);
+      await client.value.ptt(true, slot, group, target, held);
       micPermission.value = 'granted';
     } catch (err) {
-      keyed.value = false;
+      if (press === presses) {
+        keyed.value = false;
+      }
       micPermission.value = err instanceof DOMException && err.name === 'NotAllowedError' ? 'denied' : micPermission.value;
       tx.error = err instanceof Error ? err.message : String(err);
     }

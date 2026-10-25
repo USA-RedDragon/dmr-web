@@ -34,6 +34,7 @@ export class RadioClient {
   private capture: AudioWorkletNode | null = null;
   private playback: AudioWorkletNode | null = null;
   private mic: MediaStream | null = null;
+  private opening: Promise<void> | null = null;
   private micOptions: MicOptions = { echoCancellation: true, noiseSuppression: true, autoGainControl: false };
   private gainDb = 0;
   private volume = 0.6;
@@ -73,7 +74,15 @@ export class RadioClient {
     return ctx;
   }
 
-  async microphone(): Promise<void> {
+  /** Opens the microphone once. Calls made while it opens share that attempt. */
+  microphone(): Promise<void> {
+    this.opening ??= this.openMicrophone().finally(() => {
+      this.opening = null;
+    });
+    return this.opening;
+  }
+
+  private async openMicrophone(): Promise<void> {
     const ctx = await this.audio();
     if (this.mic && this.capture) {
       return;

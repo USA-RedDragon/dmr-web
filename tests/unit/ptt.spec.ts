@@ -76,6 +76,21 @@ describe('RadioClient.ptt', () => {
   });
 });
 
+describe('RadioClient.microphone', () => {
+  it('shares one open between overlapping calls', async () => {
+    const mic = deferred();
+    const open = vi.spyOn(RadioClient.prototype as unknown as { openMicrophone: () => Promise<void> }, 'openMicrophone').mockReturnValue(mic.promise);
+    const client = new RadioClient(() => {});
+    const a = client.microphone();
+    const b = client.microphone();
+    mic.resolve();
+    await Promise.all([a, b]);
+    expect(open).toHaveBeenCalledTimes(1);
+    await client.microphone();
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('radio store PTT', () => {
   function connected(): { radio: ReturnType<typeof useRadio>; worker: () => FakeWorker; emit: (m: FromWorker) => void } {
     const settings = useSettings();
@@ -111,6 +126,27 @@ describe('radio store PTT', () => {
     expect(radio.tx.active).toBe(true);
     emit({ type: 'event', event: { kind: 'transmitEnd', slot: 2, reason: 'time-out' } } as unknown as FromWorker);
     expect(radio.tx.active).toBe(false);
+    expect(radio.keyed).toBe(false);
+  });
+
+  it('keys once when a second press lands while the microphone opens', async () => {
+    const mic = deferred();
+    vi.spyOn(RadioClient.prototype, 'microphone').mockReturnValue(mic.promise);
+    const { radio, worker } = connected();
+    const first = radio.pttDown();
+    radio.pttUp();
+    const second = radio.pttDown();
+    mic.resolve();
+    await Promise.all([first, second]);
+    expect(pttPosts(worker())).toEqual([false, true]);
+  });
+
+  it('clears the keyed state when the radio refuses to key up', async () => {
+    vi.spyOn(RadioClient.prototype, 'microphone').mockResolvedValue();
+    const { radio, emit } = connected();
+    await radio.pttDown();
+    expect(radio.keyed).toBe(true);
+    emit({ type: 'ptt', ok: false, error: 'no AMBE module' } as FromWorker);
     expect(radio.keyed).toBe(false);
   });
 });
