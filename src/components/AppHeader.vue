@@ -74,7 +74,7 @@ function toggleSettings(): void {
 </script>
 
 <template>
-  <header class="flex h-14 shrink-0 items-center justify-between gap-3 border-radio-line px-4 sm:h-16 sm:border-b sm:px-8">
+  <header class="sticky top-0 z-10 flex h-14 shrink-0 items-center bg-radio-page justify-between gap-3 border-radio-line px-4 sm:h-16 sm:border-b sm:px-8">
     <div class="flex min-w-0 items-center gap-2.5 lg:gap-6">
       <RouterLink to="/" class="no-underline flex shrink-0 items-center gap-2.5 text-radio-text sm:gap-3">
         <RadioLogo class="size-5 text-radio-accent sm:size-[22px]" />

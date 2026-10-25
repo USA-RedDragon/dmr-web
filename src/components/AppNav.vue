@@ -41,7 +41,7 @@ const items = computed(() => [
 </script>
 
 <template>
-  <nav v-if="bar" aria-label="Main" class="-mb-[env(safe-area-inset-bottom)] box-content grid h-16 shrink-0 grid-cols-3 border-t border-radio-line bg-radio-surface pb-[env(safe-area-inset-bottom)]">
+  <nav v-if="bar" aria-label="Main" class="sticky bottom-0 -mb-[env(safe-area-inset-bottom)] box-content grid h-16 shrink-0 grid-cols-3 border-t border-radio-line bg-radio-surface pb-[env(safe-area-inset-bottom)]">
     <RouterLink
       v-for="i in items"
       :key="i.to"
