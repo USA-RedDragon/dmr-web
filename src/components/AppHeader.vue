@@ -24,6 +24,7 @@ import { Settings } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { goBack } from '@/lib/nav';
 import { useAccount } from '@/store/account';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
@@ -69,7 +70,11 @@ const short = computed(() => {
 });
 
 function toggleSettings(): void {
-  void router.push(inSettings.value ? '/' : '/settings');
+  if (inSettings.value) {
+    goBack(router, '/');
+  } else {
+    void router.push('/settings');
+  }
 }
 </script>
 

@@ -22,7 +22,7 @@
 <script setup lang="ts">
 import { ChevronLeft } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch, type Component } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import AudioSection from '@/components/settings/AudioSection.vue';
 import BackupSection from '@/components/settings/BackupSection.vue';
@@ -31,6 +31,7 @@ import DiagnosticsSection from '@/components/settings/DiagnosticsSection.vue';
 import DisplaySection from '@/components/settings/DisplaySection.vue';
 import TalkgroupsSection from '@/components/settings/TalkgroupsSection.vue';
 import VocoderSection from '@/components/settings/VocoderSection.vue';
+import { goBack } from '@/lib/nav';
 
 const sections: { id: string; label: string; component: Component }[] = [
   { id: 'connection', label: 'Connection', component: ConnectionSection },
@@ -43,6 +44,7 @@ const sections: { id: string; label: string; component: Component }[] = [
 ];
 
 const route = useRoute();
+const router = useRouter();
 const current = computed(() => sections.find((s) => s.id === route.params.section) ?? sections[0]!);
 const nav = ref<HTMLElement | null>(null);
 
@@ -60,19 +62,21 @@ watch(
   <main class="flex min-h-0 grow flex-col gap-4 overflow-y-auto overscroll-contain px-4 pb-6 lg:flex-row lg:gap-8 lg:p-8">
     <div class="flex items-center justify-between lg:hidden">
       <h1 class="m-0 text-[22px] font-bold">Settings</h1>
-      <RouterLink to="/" class="no-underline flex min-h-11 items-center text-sm text-radio-accent">Back to radio</RouterLink>
+      <button type="button" class="flex min-h-11 items-center px-1 text-sm text-radio-accent" @click="goBack(router, '/')">Done</button>
     </div>
     <nav ref="nav" aria-label="Settings sections" class="flex shrink-0 gap-2 overflow-x-auto lg:w-[220px] lg:flex-col lg:gap-1 lg:overflow-visible">
-      <RouterLink
-        to="/"
-        class="no-underline mb-3 hidden h-11 items-center gap-2 rounded-[10px] border border-radio-line px-3.5 text-sm text-radio-text lg:flex"
+      <button
+        type="button"
+        class="mb-3 hidden h-11 items-center gap-2 rounded-[10px] border border-radio-line px-3.5 text-sm text-radio-text lg:flex"
+        @click="goBack(router, '/')"
       >
-        <ChevronLeft class="size-4" />Back to radio
-      </RouterLink>
+        <ChevronLeft class="size-4" />Back
+      </button>
       <RouterLink
         v-for="s in sections"
         :key="s.id"
         :to="`/settings/${s.id}`"
+        replace
         :aria-current="current.id === s.id ? 'page' : undefined"
         class="no-underline flex h-10 shrink-0 items-center rounded-full border px-3.5 text-[13px] lg:h-11 lg:rounded-[10px] lg:border-0 lg:text-sm"
         :class="

@@ -35,6 +35,7 @@ import NewMessageDialog from '@/components/messages/NewMessageDialog.vue';
 import ThreadList from '@/components/messages/ThreadList.vue';
 import ThreadView from '@/components/messages/ThreadView.vue';
 import { toast } from '@/components/ui/toast';
+import { goBack } from '@/lib/nav';
 import { useNames } from '@/lib/names';
 import { keyOf, peerOf, type Peer } from '@/lib/threads';
 import type { CheckKind } from '@/radio/protocol';
@@ -202,7 +203,7 @@ function call(): void {
       <ContactDetail
         :id="contactId"
         compact
-        @back="router.push('/messages/contacts')"
+        @back="goBack(router, '/messages/contacts')"
         @message="messageContact(contactId)"
         @call="callContact(contactId)"
         @check="checkPeer('radioCheck', { group: false, id: contactId }, 2)"
@@ -210,7 +211,7 @@ function call(): void {
       />
     </div>
     <div v-else class="fixed inset-0 z-30 flex flex-col bg-radio-page pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
-      <ThreadView compact :thread-key="selected!" @back="router.push('/messages')" @check="onCheck" @call="call" />
+      <ThreadView compact :thread-key="selected!" @back="goBack(router, '/messages')" @check="onCheck" @call="call" />
     </div>
   </template>
   <NewMessageDialog v-model:open="composing" :compact="!desktop" @sent="open" />

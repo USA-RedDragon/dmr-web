@@ -23,14 +23,17 @@
 import { useMediaQuery } from '@vueuse/core';
 import { ChevronLeft } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { inputClass } from '@/components/settings/fields';
 import { octetCount, parseHex } from '@/lib/hex';
+import { goBack } from '@/lib/nav';
 import type { DataRate, DataSap } from '@/radio/protocol';
 import { useRadio, type TrafficRow } from '@/store/radio';
 import { useSettings } from '@/store/settings';
 
 const desktop = useMediaQuery('(min-width: 1024px)');
+const router = useRouter();
 const radio = useRadio();
 const settings = useSettings();
 
@@ -166,7 +169,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
   </div>
   <main v-else class="fixed inset-0 z-30 flex flex-col gap-3 overflow-y-auto overscroll-contain bg-radio-page pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-[calc(1rem+env(safe-area-inset-bottom))]">
     <div class="flex h-14 shrink-0 items-center gap-1">
-      <RouterLink to="/settings/diagnostics" aria-label="Back to diagnostics" class="-ml-2.5 flex size-11 items-center justify-center text-radio-accent"><ChevronLeft class="size-[22px]" /></RouterLink>
+      <button type="button" aria-label="Back to diagnostics" class="-ml-2.5 flex size-11 items-center justify-center text-radio-accent" @click="goBack(router, '/settings/diagnostics')"><ChevronLeft class="size-[22px]" /></button>
       <h1 class="m-0 grow text-lg font-bold">Data console</h1>
       <span class="flex min-w-0 items-center gap-1.5 text-xs text-radio-text/80">
         <span class="size-2 shrink-0 rounded-full" :class="radio.connected ? 'bg-radio-green' : 'bg-led-off'" />
