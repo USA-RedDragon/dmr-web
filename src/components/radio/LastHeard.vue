@@ -20,8 +20,9 @@
 -->
 
 <script setup lang="ts">
-import { formatDistanceToNowStrict } from 'date-fns';
-import { computed } from 'vue';
+import { useIntervalFn } from '@vueuse/core';
+import { formatDistanceStrict } from 'date-fns';
+import { computed, ref } from 'vue';
 
 import StarButton from '@/components/contacts/StarButton.vue';
 import { useNames } from '@/lib/names';
@@ -35,6 +36,10 @@ const props = withDefaults(defineProps<{ entries: HeardEntry[]; limit?: number; 
 });
 
 const names = useNames();
+const now = ref(Date.now());
+useIntervalFn(() => {
+  now.value = Date.now();
+}, 10_000);
 const shown = computed(() => props.entries.slice(0, props.limit));
 
 function callsign(e: HeardEntry): string {
@@ -42,7 +47,7 @@ function callsign(e: HeardEntry): string {
 }
 
 function when(e: HeardEntry): string {
-  return formatDistanceToNowStrict(e.at, { addSuffix: true });
+  return formatDistanceStrict(e.at, Math.max(e.at, now.value), { addSuffix: true });
 }
 </script>
 
