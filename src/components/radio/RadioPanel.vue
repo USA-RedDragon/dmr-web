@@ -316,7 +316,8 @@ const volumeSize = computed(() => (props.compact ? 'clamp(48px, 8dvh, 68px)' : '
 
     <LcdDisplay v-bind="lcd" :compact="compact" class="shrink-0" />
 
-    <div v-if="$slots.middle" class="order-1 min-h-0 grow basis-0 overflow-hidden [container-type:size]">
+    <div v-if="$slots.middle" class="order-1 flex min-h-0 grow basis-0 flex-col flex-wrap content-start overflow-hidden [container-type:size]">
+      <span aria-hidden="true" class="h-0 w-full" />
       <slot name="middle" />
     </div>
     </div>
@@ -328,6 +329,7 @@ const volumeSize = computed(() => (props.compact ? 'clamp(48px, 8dvh, 68px)' : '
         :count="Math.max(1, list.length)"
         :label="radio.tx.active ? (compact ? 'LOCKED' : 'TALKGROUP, LOCKED') : powered && !compact ? `TALKGROUP TS${slot}` : 'TALKGROUP'"
         :spoken="`Talkgroup knob for TS${slot}`"
+        :sizer="compact ? 'TALKGROUP' : 'TALKGROUP, LOCKED'"
         :size="knobSize"
         :disabled="radio.tx.active || list.length < 2"
         ticks
@@ -407,6 +409,7 @@ const volumeSize = computed(() => (props.compact ? 'clamp(48px, 8dvh, 68px)' : '
         :count="11"
         :label="powered ? `VOLUME ${volumePos}` : 'VOLUME'"
         spoken="Volume knob"
+        sizer="VOLUME 10"
         :size="volumeSize"
         class="justify-self-end"
         @step="stepVolume"
@@ -417,7 +420,7 @@ const volumeSize = computed(() => (props.compact ? 'clamp(48px, 8dvh, 68px)' : '
       type="button"
       class="flex shrink-0 select-none flex-col items-center justify-center gap-1.5 rounded-[20px] border font-bold tracking-[0.2em] transition-colors"
       :class="[
-        compact ? 'order-2 mt-auto h-[clamp(80px,17dvh,150px)] text-[min(20px,5.4cqw)] short:h-[clamp(72px,15dvh,120px)] wide:mt-0 wide:h-auto wide:max-h-[220px] wide:min-h-[84px] wide:grow' : 'h-[clamp(80px,12dvh,108px)] text-[22px]',
+        compact ? `order-2 mt-auto text-[min(20px,5.4cqw)] ${store.configured ? 'h-[clamp(80px,17dvh,150px)] short:h-[clamp(72px,15dvh,120px)]' : 'h-[clamp(72px,11dvh,110px)]'} wide:mt-0 wide:h-auto wide:max-h-[220px] wide:min-h-[84px] wide:grow` : 'h-[clamp(80px,12dvh,108px)] text-[22px]',
         radio.tx.active
           ? 'border-radio-red bg-[color-mix(in_oklab,var(--radio-red)_22%,var(--radio-chassis))] text-radio-red'
           : powered && !talkback

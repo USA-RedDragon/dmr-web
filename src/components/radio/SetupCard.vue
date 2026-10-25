@@ -71,7 +71,6 @@ const inputClass =
   <section v-if="compact" class="flex flex-col gap-2.5 rounded-[14px] border border-radio-line bg-radio-surface p-3.5">
     <h1 class="m-0 text-lg font-bold">Your phone is a DMR radio</h1>
     <p class="m-0 text-[13px] leading-normal text-radio-text/80">Talk on talkgroups, text any DMR radio and see who's on the air. Nothing to install.</p>
-    <p v-if="failure || account.error" role="alert" class="m-0 text-xs text-radio-red">{{ failure || account.error }}</p>
     <OnAir :host="store.settings.hub.host" compact />
   </section>
   <section v-else class="flex flex-col gap-4 rounded-[20px] border border-radio-line bg-radio-surface p-6">

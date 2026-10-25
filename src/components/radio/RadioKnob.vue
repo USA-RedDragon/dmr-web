@@ -31,6 +31,8 @@ const props = withDefaults(
     size?: number | string;
     disabled?: boolean;
     ticks?: boolean;
+    /** The widest label this knob shows, so a label change does not shift the layout. */
+    sizer?: string;
   }>(),
   { size: 96, disabled: false, ticks: false },
 );
@@ -138,6 +140,9 @@ function onKey(e: KeyboardEvent): void {
         :style="{ width: '4px', height: '22%', top: '9%', marginLeft: '-2px' }"
       />
     </button>
-    <span class="whitespace-nowrap text-[11px] font-semibold tracking-[0.14em] text-radio-muted">{{ label }}</span>
+    <span class="grid whitespace-nowrap text-center text-[11px] font-semibold tracking-[0.14em] text-radio-muted">
+      <span class="col-start-1 row-start-1">{{ label }}</span>
+      <span v-if="sizer" aria-hidden="true" class="invisible col-start-1 row-start-1">{{ sizer }}</span>
+    </span>
   </div>
 </template>

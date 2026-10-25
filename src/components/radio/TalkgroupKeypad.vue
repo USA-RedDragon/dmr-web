@@ -96,7 +96,7 @@ const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-50 bg-black/70" />
       <DialogContent
-        class="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-3 rounded-t-[22px] border-t border-radio-chassis-line max-h-dvh overflow-y-auto bg-radio-raised p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[340px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[22px] sm:border sm:p-5"
+        class="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-3 rounded-t-[22px] border-t border-radio-chassis-line max-h-[calc(100dvh-env(safe-area-inset-top))] overflow-y-auto bg-radio-raised p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[340px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[22px] sm:border sm:p-5"
         @keydown="onKey"
       >
         <div class="flex items-center justify-between">

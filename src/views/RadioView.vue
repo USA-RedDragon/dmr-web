@@ -143,15 +143,16 @@ function onLogin(): void {
   <main v-else class="@container/radio flex min-h-0 grow flex-col overflow-y-auto px-4 pb-[clamp(8px,1.5dvh,16px)]">
     <RadioPanel compact class="grow" @login="onLogin">
       <template #middle>
-        <SetupCard v-if="showSetup" compact class="[@container(max-height:9.5rem)]:hidden" />
-        <div v-else class="flex max-h-full flex-col overflow-hidden rounded-[14px] [@container(max-height:5.5rem)]:hidden border border-radio-line bg-radio-surface px-3.5 py-1">
+        <SetupCard v-if="showSetup" compact class="w-full" />
+        <div v-else class="flex max-h-full w-full flex-col overflow-hidden rounded-[14px] [@container(max-height:5.5rem)]:hidden border border-radio-line bg-radio-surface px-3.5 py-1">
           <LastHeard :entries="radio.heard" :limit="3" compact />
         </div>
       </template>
       <template v-if="showSetup" #after>
-        <div class="-mt-1.5 flex justify-between text-[13px]">
-          <a :href="`${hubLink}/register`" target="_blank" rel="noopener" class="flex min-h-9 items-center">Sign up</a>
-          <RouterLink to="/settings/connection" class="flex min-h-9 items-center">Hub: {{ store.settings.hub.host }}</RouterLink>
+        <p v-if="account.error" role="alert" class="m-0 pb-1 text-xs text-radio-red">{{ account.error }}</p>
+        <div class="-my-1.5 flex justify-between text-[13px]">
+          <a :href="`${hubLink}/register`" target="_blank" rel="noopener" class="flex min-h-11 items-center">Sign up</a>
+          <RouterLink to="/settings/connection" class="flex min-h-11 min-w-0 items-center"><span class="truncate">Hub: {{ store.settings.hub.host }}</span></RouterLink>
         </div>
       </template>
     </RadioPanel>

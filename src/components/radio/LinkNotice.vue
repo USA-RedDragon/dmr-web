@@ -130,7 +130,7 @@ void props;
     <div
       role="status"
       class="flex flex-col gap-2.5 border border-[#5a4318] bg-radio-raised shadow-[0_10px_24px_rgba(0,0,0,0.5)]"
-      :class="compact ? 'absolute inset-x-3 top-3 rounded-2xl p-3.5' : 'w-[440px] gap-3.5 rounded-[20px] p-6'"
+      :class="compact ? 'absolute inset-x-3 top-[calc(0.75rem+env(safe-area-inset-top))] rounded-2xl p-3.5' : 'w-[440px] gap-3.5 rounded-[20px] p-6'"
     >
       <div class="flex items-center gap-2.5 lg:gap-3.5">
         <span class="flex shrink-0 items-center justify-center rounded-full bg-radio-amber-soft text-radio-accent" :class="compact ? 'size-8' : 'size-11'">
