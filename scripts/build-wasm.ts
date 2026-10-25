@@ -18,7 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,4 +39,8 @@ const execJS = candidates.find((p) => existsSync(p));
 if (!execJS) {
   throw new Error(`wasm_exec.js not found under ${goroot}`);
 }
-copyFileSync(execJS, join(root, 'src', 'radio', 'wasm_exec.js'));
+// The Go root may be read-only, and copyFileSync keeps the mode, so a second
+// build could not overwrite the copy.
+const execDst = join(root, 'src', 'radio', 'wasm_exec.js');
+rmSync(execDst, { force: true });
+copyFileSync(execJS, execDst);
