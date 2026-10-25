@@ -63,7 +63,7 @@ function message(): void {
     v-if="alert"
     role="alertdialog"
     :aria-label="`Call alert from ${names.name({ group: false, id: alert.source })}`"
-    class="fixed z-50 flex flex-col gap-3 border bg-radio-surface text-radio-text shadow-2xl"
+    class="pointer-events-auto fixed z-[60] flex flex-col gap-3 border bg-radio-surface text-radio-text shadow-2xl"
     :class="desktop ? 'top-20 right-8 w-[360px] rounded-[18px] border-radio-amber p-4' : 'inset-x-0 bottom-0 items-center rounded-t-[22px] border-x-0 border-b-0 border-radio-amber px-4 pt-5 pb-[calc(1.75rem+env(safe-area-inset-bottom))]'"
   >
     <div v-if="desktop" class="flex items-center gap-3">

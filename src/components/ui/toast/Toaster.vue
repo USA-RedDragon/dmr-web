@@ -55,7 +55,7 @@ const iconClasses: Record<Toast['variant'], string> = {
 <template>
   <Teleport to="body">
     <div
-      class="pointer-events-none fixed bottom-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:max-w-[420px]"
+      class="pointer-events-none fixed top-0 right-0 z-[100] flex max-h-dvh w-full flex-col gap-2 p-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:max-w-[420px] lg:top-auto lg:bottom-0 lg:flex-col-reverse lg:pt-4 lg:pb-[calc(1rem+env(safe-area-inset-bottom))]"
     >
       <TransitionGroup
         enter-active-class="transition-all duration-300 ease-out"
@@ -81,7 +81,7 @@ const iconClasses: Record<Toast['variant'], string> = {
             :class="cn('mt-0.5 size-5 shrink-0', iconClasses[t.variant])"
           />
 
-          <div class="flex-1 space-y-1">
+          <div class="flex-1 space-y-1 pr-8">
             <p class="text-sm font-semibold leading-none tracking-tight">
               {{ t.title }}
             </p>
@@ -91,7 +91,9 @@ const iconClasses: Record<Toast['variant'], string> = {
           </div>
 
           <button
-            class="absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-70 focus:opacity-100 focus:outline-none"
+            type="button"
+            aria-label="Dismiss"
+            class="absolute top-0 right-0 flex size-11 items-center justify-center rounded-md opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none lg:opacity-0 lg:group-hover:opacity-70"
             @click="dismiss(t.id)"
           >
             <X class="size-4" />

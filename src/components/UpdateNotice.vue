@@ -38,7 +38,7 @@ function reload(): void {
   <div
     v-if="needRefresh && !later"
     role="status"
-    class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-40 flex flex-col gap-3 rounded-2xl border border-radio-line bg-radio-raised p-4 shadow-xl sm:right-auto sm:w-[380px]"
+    class="fixed top-[calc(0.5rem+env(safe-area-inset-top))] left-4 right-4 z-40 flex lg:top-auto lg:bottom-[calc(1rem+env(safe-area-inset-bottom))] flex-col gap-3 rounded-2xl border border-radio-line bg-radio-raised p-4 shadow-xl sm:right-auto sm:w-[380px]"
   >
     <div class="flex flex-col gap-1">
       <span class="text-sm font-semibold">A new version of dmr-web is ready</span>
@@ -47,8 +47,8 @@ function reload(): void {
       </span>
     </div>
     <div class="flex gap-2">
-      <button type="button" class="h-10 rounded-[10px] bg-radio-amber px-4 text-sm font-bold text-radio-amber-ink" @click="reload">Reload</button>
-      <button type="button" class="h-10 rounded-[10px] border border-radio-line px-4 text-sm" @click="later = true">Later</button>
+      <button type="button" class="h-11 rounded-[10px] bg-radio-amber px-4 text-sm font-bold text-radio-amber-ink" @click="reload">Reload</button>
+      <button type="button" class="h-11 rounded-[10px] border border-radio-line px-4 text-sm" @click="later = true">Later</button>
     </div>
   </div>
 </template>

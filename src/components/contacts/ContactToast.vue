@@ -70,6 +70,6 @@ function undo(): void {
   >
     <Star class="size-[18px] shrink-0" :class="contacts.undo.added ? 'fill-radio-amber text-radio-amber' : 'text-radio-muted'" aria-hidden="true" />
     <span class="grow"><b>{{ who }}</b> {{ contacts.undo.added ? 'added to' : 'removed from' }} contacts</span>
-    <button type="button" class="shrink-0 rounded-lg border border-radio-line px-3 text-[13px]" :class="desktop ? 'h-9' : 'h-10'" @click="undo">Undo</button>
+    <button type="button" class="shrink-0 rounded-lg border border-radio-line px-3 text-[13px]" :class="desktop ? 'h-9' : 'h-11'" @click="undo">Undo</button>
   </div>
 </template>
