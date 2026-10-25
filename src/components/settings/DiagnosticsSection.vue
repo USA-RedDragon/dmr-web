@@ -22,10 +22,11 @@
 <script setup lang="ts">
 import { format } from 'date-fns';
 import { useMediaQuery } from '@vueuse/core';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed } from 'vue';
 
 import { toast } from '@/components/ui/toast';
 import { useNow } from '@/composables/useNow';
+import { installPrompt } from '@/lib/install';
 import { since } from '@/lib/when';
 import { useRadio } from '@/store/radio';
 import { useSettings } from '@/store/settings';
@@ -33,22 +34,12 @@ import { useSettings } from '@/store/settings';
 import { primaryButton, secondaryButton } from './fields';
 import SettingsCard from './SettingsCard.vue';
 
-type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
-
 const radio = useRadio();
 const store = useSettings();
 const now = useNow();
-const install = ref<InstallPrompt | null>(null);
+const install = installPrompt;
 const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const standalone = window.matchMedia('(display-mode: standalone)').matches;
-
-function onPrompt(e: Event): void {
-  e.preventDefault();
-  install.value = e as InstallPrompt;
-}
-
-onMounted(() => window.addEventListener('beforeinstallprompt', onPrompt));
-onUnmounted(() => window.removeEventListener('beforeinstallprompt', onPrompt));
 
 async function doInstall(): Promise<void> {
   if (install.value) {

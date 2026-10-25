@@ -105,6 +105,7 @@ async function choose(e: Event): Promise<void> {
   preview.value = null;
   importPass.value = '';
   const f = (e.target as HTMLInputElement).files?.[0];
+  (e.target as HTMLInputElement).value = '';
   if (!f) {
     return;
   }

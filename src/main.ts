@@ -25,7 +25,10 @@ import '@fontsource-variable/jetbrains-mono';
 import './assets/main.css';
 
 import App from './App.vue';
+import { captureInstallPrompt } from './lib/install';
 import router from './router';
+
+captureInstallPrompt();
 
 const app = createApp(App);
 app.use(createPinia());
