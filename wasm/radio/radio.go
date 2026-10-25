@@ -43,6 +43,8 @@ const (
 	slots       = 2
 	maxTarget   = 1<<24 - 1
 	txLead      = 120 * time.Millisecond
+	txHeaders   = 3
+	burstPeriod = 60 * time.Millisecond
 	maxLostFill = 5
 	softwareID  = "dmr-web"
 	colorCode   = enums.ColorCode(1)
@@ -497,6 +499,9 @@ func (r *Radio) closeTX() {
 
 // StartTransmit starts a transmission on slot 1 or 2 to the talkgroup or
 // radio target. Voice frames go in with Frame, and StopTransmit ends it.
+// The call starts with three Voice LC Headers, 60 ms apart, so that one
+// lost packet does not lose the header; the last one goes out when a call
+// with one header would send it, so the voice keeps its timing.
 func (r *Radio) StartTransmit(now time.Duration, slot int, group bool, target uint32) error {
 	switch {
 	case !r.up:
@@ -528,12 +533,13 @@ func (r *Radio) StartTransmit(now time.Duration, slot int, group bool, target ui
 		Source:    layer2.SyncSourceMS,
 		Silence:   r.tx.codec.Silence(),
 		Access:    enums.AccessImpolite,
+		Headers:   txHeaders,
 	})
 	if err != nil {
 		return fmt.Errorf("radio: transmitter: %w", err)
 	}
 	call := voice.Call{Group: group, Target: target, Source: r.cfg.RadioID, FID: r.tx.codec.FID()}
-	if err := t.Start(now+txLead, call, nil); err != nil {
+	if err := t.Start(now+txLead-(txHeaders-1)*burstPeriod, call, nil); err != nil {
 		return fmt.Errorf("radio: start: %w", err)
 	}
 	r.tx.t, r.tx.slot, r.tx.call = t, es, call

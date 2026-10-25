@@ -106,6 +106,7 @@ type hub struct {
 	s      *sink
 	now    time.Duration
 	data   []dmrd.Data
+	at     []time.Duration
 	codecs []*fakeCodec
 }
 
@@ -177,6 +178,7 @@ func (h *hub) master(o dmrdsession.Output) {
 			d, err := dmrd.DecodeData(o.Packet)
 			require.NoError(h.t, err)
 			h.data = append(h.data, d)
+			h.at = append(h.at, h.now)
 		}
 	default:
 	}
@@ -280,6 +282,44 @@ func TestTransmitCall(t *testing.T) {
 	}
 	require.True(t, started)
 	require.True(t, ended)
+}
+
+// TestTransmitHeaders checks that a call starts with three valid Voice LC
+// Headers of its stream, 60 ms apart, so that one lost datagram does not
+// lose the header, and that its first voice burst goes out when it did
+// with one header.
+func TestTransmitHeaders(t *testing.T) {
+	t.Parallel()
+	for _, group := range []bool{true, false} {
+		h := newHub(t, false)
+		h.login()
+		start := h.now
+		require.NoError(t, h.r.StartTransmit(h.now, 2, group, 9990))
+		pcm := make([]int16, 160)
+		for range 12 {
+			require.NoError(t, h.r.Frame(pcm))
+			h.advance(20 * time.Millisecond)
+		}
+		h.r.StopTransmit()
+		h.advance(time.Second)
+
+		require.Greater(t, len(h.data), 4)
+		for i := range 3 {
+			d := &h.data[i]
+			require.Equal(t, dmrd.FrameDataSync, d.Frame, "packet %d", i)
+			require.Equal(t, uint8(enums.DataTypeVoiceLCHeader), d.Value, "packet %d", i)
+			require.Equal(t, h.data[0].Stream, d.Stream, "packet %d", i)
+			require.Equal(t, uint8(i), d.Seq, "packet %d", i)
+			require.Equal(t, group, !d.Private, "packet %d", i)
+			_, ok := d.Burst.MMDVMHostPayload(enums.DataTypeVoiceLCHeader)
+			require.True(t, ok, "packet %d has no valid LC", i)
+			require.Equal(t, start+time.Duration(i)*60*time.Millisecond, h.at[i], "packet %d", i)
+		}
+		a := &h.data[3]
+		require.Equal(t, dmrd.FrameVoiceSync, a.Frame)
+		require.Equal(t, h.data[0].Stream, a.Stream)
+		require.Equal(t, start+180*time.Millisecond, h.at[3], "burst A")
+	}
 }
 
 func TestReceiveCall(t *testing.T) {
