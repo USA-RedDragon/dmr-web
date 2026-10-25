@@ -50,6 +50,8 @@ const emit = defineEmits<{ select: [id: number | null]; ready: [] }>();
 
 const el = ref<HTMLDivElement | null>(null);
 const map = shallowRef<MapLibre | null>(null);
+const canvasBox = shallowRef<HTMLElement | null>(null);
+let bottomInset = 0;
 const failure = ref('');
 const points = ref<{ id: number; x: number; y: number }[]>([]);
 const herePoint = ref<{ x: number; y: number } | null>(null);
@@ -112,7 +114,13 @@ function zoomBy(d: number): void {
   }
 }
 
-defineExpose({ fit, center, zoomBy });
+/** Keeps centering and fitting clear of a sheet that covers the bottom of the map. */
+function inset(bottom: number): void {
+  bottomInset = bottom;
+  map.value?.setPadding({ top: 0, left: 0, right: 0, bottom });
+}
+
+defineExpose({ fit, center, zoomBy, inset });
 
 onMounted(async () => {
   try {
@@ -149,7 +157,9 @@ onMounted(async () => {
     m.on('move', project);
     m.on('resize', project);
     m.on('click', () => emit('select', null));
+    m.setPadding({ top: 0, left: 0, right: 0, bottom: bottomInset });
     map.value = m;
+    canvasBox.value = m.getCanvasContainer();
     m.once('load', () => {
       el.value?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
       if (b) {
@@ -182,6 +192,7 @@ watch(() => [props.positions, props.here], project, { deep: true });
 <template>
   <div class="relative min-h-0 overflow-hidden bg-radio-page">
     <div ref="el" style="position: absolute; inset: 0" />
+    <Teleport :to="canvasBox ?? 'body'" :disabled="!canvasBox">
     <div class="pointer-events-none absolute inset-0">
       <span
         v-if="herePoint"
@@ -204,8 +215,8 @@ watch(() => [props.positions, props.here], project, { deep: true });
         v-for="p in points"
         :key="p.id"
         type="button"
-        class="pointer-events-auto absolute flex -translate-y-1/2 items-center gap-1.5"
-        :class="p.id === selected ? '-translate-x-1/2' : '-translate-x-2'"
+        class="pointer-events-auto absolute flex min-h-11 -translate-y-1/2 items-center gap-1.5"
+        :class="p.id === selected ? 'min-w-11 -translate-x-1/2 justify-center' : '-translate-x-2'"
         :style="{ left: `${p.x}px`, top: `${p.y}px` }"
         :aria-label="`${label(p.id)} on the map`"
         :aria-pressed="p.id === selected"
@@ -222,6 +233,7 @@ watch(() => [props.positions, props.here], project, { deep: true });
       </button>
       <slot name="popup" :point="points.find((p) => p.id === selected) ?? null" />
     </div>
+    </Teleport>
     <slot name="controls" />
     <p v-if="failure" role="alert" class="absolute inset-x-4 top-4 m-0 rounded-xl border border-radio-red/50 bg-radio-surface p-3 text-sm text-radio-red">
       The map could not load: {{ failure }}

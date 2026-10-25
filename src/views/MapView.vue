@@ -20,7 +20,7 @@
 -->
 
 <script setup lang="ts">
-import { useIntervalFn, useMediaQuery } from '@vueuse/core';
+import { useIntervalFn, useMediaQuery, useResizeObserver } from '@vueuse/core';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { LocateFixed, Maximize, Minus, Plus } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -49,6 +49,8 @@ const names = useNames();
 const router = useRouter();
 const route = useRoute();
 const base = ref<InstanceType<typeof BaseMap> | null>(null);
+const sheet = ref<HTMLElement | null>(null);
+useResizeObserver(sheet, () => base.value?.inset(sheet.value?.offsetHeight ?? 0));
 const station = Number(route.query.station) || null;
 const selected = ref<number | null>(positions.positions.find((p) => p.id === station)?.id ?? positions.positions[0]?.id ?? null);
 const now = ref(Date.now());
@@ -251,7 +253,7 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
         :symbol="mySymbol"
         :dark="isDark"
         :label="label"
-        @select="selected = $event"
+        @select="pick($event)"
         @ready="ready"
       >
         <template #controls>
@@ -260,9 +262,10 @@ const ctl = 'flex size-11 items-center justify-center rounded-[10px] border bord
             <button type="button" aria-label="My location" :class="ctl" @click="showMe"><LocateFixed class="size-[18px]" /></button>
           </div>
           <section
+            ref="sheet"
             :role="sel ? 'dialog' : undefined"
             :aria-label="sel ? `${label(sel.id)} position` : 'Location sharing'"
-            class="absolute inset-x-0 bottom-0 flex flex-col gap-2.5 rounded-t-[20px] border-t border-radio-line bg-radio-raised px-4 pt-3 pb-4"
+            class="absolute inset-x-0 bottom-0 flex max-h-[55%] flex-col gap-2.5 overflow-y-auto overscroll-contain rounded-t-[20px] border-t border-radio-line bg-radio-raised px-4 pt-3 pb-4"
           >
             <span aria-hidden="true" class="h-1 w-10 self-center rounded-sm bg-radio-line" />
             <template v-if="sel">
