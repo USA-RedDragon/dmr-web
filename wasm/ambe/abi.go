@@ -27,6 +27,7 @@ import (
 	"errors"
 
 	"github.com/USA-RedDragon/dmrgo/v2/fec"
+	"github.com/USA-RedDragon/dmrgo/v2/vocoder"
 	"github.com/USA-RedDragon/dmrgo/v2/voice"
 )
 
@@ -105,4 +106,24 @@ func FrameQualityOf(r fec.Result) voice.FrameQuality {
 		ErrorsCorrected: uint8(min(max(r.ErrorsCorrected, 0), 255)),
 		Bad:             r.Uncorrectable,
 	}
+}
+
+// ReportV1 returns the report on a frame that a module of ABI version 1
+// decoded with quality q: FrameErased for a bad frame, else FrameGood. The
+// ABI does not tell what the module put in the samples, so Output is
+// OutputRepeat for a bad frame and OutputVoice for a good one. The FEC
+// result does not split the corrected bits by section, so CountsKnown is
+// false.
+func ReportV1(q voice.FrameQuality) vocoder.FrameReport {
+	if q.Bad {
+		return vocoder.FrameReport{Frame: vocoder.FrameErased, Output: vocoder.OutputRepeat}
+	}
+	return vocoder.FrameReport{}
+}
+
+// LostReportV1 returns the report on a frame that a module of ABI version 1
+// filled in for a lost one: FrameLost and, as for a bad frame,
+// OutputRepeat.
+func LostReportV1() vocoder.FrameReport {
+	return vocoder.FrameReport{Frame: vocoder.FrameLost, Output: vocoder.OutputRepeat}
 }

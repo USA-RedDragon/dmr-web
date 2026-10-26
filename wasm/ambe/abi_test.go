@@ -24,6 +24,7 @@ import (
 
 	"github.com/USA-RedDragon/dmr-web/wasm/ambe"
 	"github.com/USA-RedDragon/dmrgo/v2/fec"
+	"github.com/USA-RedDragon/dmrgo/v2/vocoder"
 	"github.com/USA-RedDragon/dmrgo/v2/voice"
 	"github.com/stretchr/testify/require"
 )
@@ -55,6 +56,13 @@ func TestFrameQualityOf(t *testing.T) {
 	require.Equal(t, voice.FrameQuality{ErrorsCorrected: 4}, ambe.FrameQualityOf(fec.Result{ErrorsCorrected: 4}))
 	require.Equal(t, voice.FrameQuality{ErrorsCorrected: 255}, ambe.FrameQualityOf(fec.Result{ErrorsCorrected: 900}))
 	require.Equal(t, voice.FrameQuality{Bad: true, ErrorsCorrected: 1}, ambe.FrameQualityOf(fec.Result{ErrorsCorrected: 1, Uncorrectable: true}))
+}
+
+func TestReportV1(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, vocoder.FrameReport{}, ambe.ReportV1(voice.FrameQuality{ErrorsCorrected: 5}))
+	require.Equal(t, vocoder.FrameReport{Frame: vocoder.FrameErased, Output: vocoder.OutputRepeat}, ambe.ReportV1(voice.FrameQuality{Bad: true}))
+	require.Equal(t, vocoder.FrameReport{Frame: vocoder.FrameLost, Output: vocoder.OutputRepeat}, ambe.LostReportV1())
 }
 
 func TestExports(t *testing.T) {

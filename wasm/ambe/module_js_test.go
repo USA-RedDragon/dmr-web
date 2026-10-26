@@ -117,8 +117,10 @@ func TestVectorsDecodeClean(t *testing.T) {
 	for i := range frames {
 		slot, err := vocoder.EncodeAMBE72(v.frames[i])
 		require.NoError(t, err)
-		pcm, err = c.Decode(pcm, slot)
+		var rep vocoder.FrameReport
+		pcm, rep, err = c.Decode(pcm, slot)
 		require.NoError(t, err)
+		require.Equal(t, vocoder.FrameReport{}, rep)
 	}
 	require.Equal(t, v.clean, pcm)
 }
@@ -155,8 +157,10 @@ func TestVectorsLossyThroughFEC(t *testing.T) {
 		if !ok {
 			t.Fatalf("frame %d: no slot gives quality %+v", i, q)
 		}
-		pcm, err = c.Decode(pcm, slot)
+		var rep vocoder.FrameReport
+		pcm, rep, err = c.Decode(pcm, slot)
 		require.NoError(t, err)
+		require.Equal(t, ambe.ReportV1(q), rep)
 	}
 	require.Equal(t, v.lossyPCM, pcm)
 }
@@ -212,6 +216,13 @@ func TestLostFrameBytes(t *testing.T) {
 		return pcm
 	}
 	want := decode(vocoder.AMBEFrame{})
+	c, err := m.New()
+	require.NoError(t, err)
+	lost, rep, err := c.DecodeLost(nil)
+	require.NoError(t, err)
+	require.NoError(t, c.Close())
+	require.Equal(t, ambe.LostReportV1(), rep)
+	require.Equal(t, want, lost)
 	require.Equal(t, want, decode(vocoder.AMBEFrame{0xA5, 0xA5, 0xA5, 0xA5, 0xA5, 0xA5, 0xA5}))
 	require.Equal(t, want, decode(vocoder.AMBEFrame{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}))
 }

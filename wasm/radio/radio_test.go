@@ -20,6 +20,7 @@
 package radio_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -39,9 +40,16 @@ const (
 	step      = 10 * time.Millisecond
 )
 
+const (
+	erasedMark  = 0xEE
+	invalidMark = 0xDD
+)
+
 type fakeCodec struct {
-	fid    enums.FID
-	closed bool
+	fid     enums.FID
+	closed  bool
+	lostErr error
+	lost    int
 }
 
 func (c *fakeCodec) Close() error      { c.closed = true; return nil }
@@ -56,11 +64,29 @@ func (c *fakeCodec) Encode(pcm []int16) ([9]byte, error) {
 	return s, nil
 }
 
-func (c *fakeCodec) Decode(dst []int16, slot [9]byte) ([]int16, error) {
+func (c *fakeCodec) Decode(dst []int16, slot [9]byte) ([]int16, vocoder.FrameReport, error) {
 	for range 160 {
 		dst = append(dst, int16(slot[0]))
 	}
-	return dst, nil
+	switch slot[1] {
+	case erasedMark:
+		return dst, vocoder.FrameReport{Frame: vocoder.FrameErased, Output: vocoder.OutputRepeat}, nil
+	case invalidMark:
+		return dst, vocoder.FrameReport{Frame: vocoder.FrameInvalid, Output: vocoder.OutputVoice}, nil
+	default:
+		return dst, vocoder.FrameReport{CountsKnown: true}, nil
+	}
+}
+
+func (c *fakeCodec) DecodeLost(dst []int16) ([]int16, vocoder.FrameReport, error) {
+	if c.lostErr != nil {
+		return dst, vocoder.FrameReport{}, c.lostErr
+	}
+	c.lost++
+	for range 160 {
+		dst = append(dst, -1)
+	}
+	return dst, vocoder.FrameReport{Frame: vocoder.FrameLost, Output: vocoder.OutputSilence}, nil
 }
 
 type sink struct {
@@ -322,19 +348,14 @@ func TestTransmitHeaders(t *testing.T) {
 	}
 }
 
-func TestReceiveCall(t *testing.T) {
-	t.Parallel()
-	h := newHub(t, false)
-	h.login()
-
+func (h *hub) receive(slots [][9]byte, drop func(seq uint8) bool) {
+	h.t.Helper()
 	tx, err := voice.NewTransmitter(&voice.TransmitterConfig{ColorCode: 1, Slot: enums.Slot1, Source: layer2.SyncSourceBS, Queue: 64})
-	require.NoError(t, err)
+	require.NoError(h.t, err)
 	call := voice.Call{Group: true, Target: 8, Source: 3100002, FID: 0xC2}
-	require.NoError(t, tx.Start(0, call, nil))
-	for i := range 18 {
-		var s [9]byte
-		s[0] = byte(i + 1)
-		require.NoError(t, tx.VocoderSlot(s))
+	require.NoError(h.t, tx.Start(0, call, nil))
+	for _, s := range slots {
+		require.NoError(h.t, tx.VocoderSlot(s))
 	}
 	tx.Stop()
 
@@ -347,10 +368,13 @@ func TestReceiveCall(t *testing.T) {
 			}
 			d := dmrd.Data{Seq: seq, Repeater: 1, Slot: enums.Slot1, Stream: 0xABCDEF01, Burst: o.Burst}
 			seq++
-			require.NoError(t, d.SetCall(true, 8, 3100002))
-			require.NoError(t, d.SetHint(o.Hint))
+			if drop != nil && drop(d.Seq) {
+				continue
+			}
+			require.NoError(h.t, d.SetCall(true, 8, 3100002))
+			require.NoError(h.t, d.SetHint(o.Hint))
 			b, err := d.AppendBinary(nil)
-			require.NoError(t, err)
+			require.NoError(h.t, err)
 			h.r.Packet(h.now, b)
 		}
 		h.r.Tick(h.now)
@@ -358,6 +382,21 @@ func TestReceiveCall(t *testing.T) {
 		h.now = start + at
 	}
 	h.advance(5 * time.Second)
+}
+
+func voiceSlots() [][9]byte {
+	s := make([][9]byte, 18)
+	for i := range s {
+		s[i][0] = byte(i + 1)
+	}
+	return s
+}
+
+func TestReceiveCall(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	h.login()
+	h.receive(voiceSlots(), nil)
 
 	c, ok := h.s.first(radio.EventCallStart)
 	require.True(t, ok)
@@ -371,7 +410,78 @@ func TestReceiveCall(t *testing.T) {
 	st := h.r.Stats()
 	require.Equal(t, uint32(18/layer2.VoiceSlotsPerBurst), st.Bursts)
 	require.Zero(t, st.Lost)
+	require.Zero(t, st.Concealed)
+	require.Zero(t, st.FrameErrors)
 	require.True(t, h.s.has(radio.EventStats))
+}
+
+func TestReceiveLostBurst(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	h.login()
+	h.receive(voiceSlots(), func(seq uint8) bool { return seq == 3 })
+
+	st := h.r.Stats()
+	require.Equal(t, uint32(1), st.Lost)
+	require.Equal(t, uint32(layer2.VoiceSlotsPerBurst), st.Concealed)
+	require.Zero(t, st.FrameErrors)
+	require.Equal(t, 18*160, h.s.audio[1], "the lost burst is filled in")
+	require.Len(t, h.codecs, 1)
+	require.Equal(t, layer2.VoiceSlotsPerBurst, h.codecs[0].lost)
+}
+
+func TestReceiveLostBurstError(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	h.login()
+	h.receive(voiceSlots(), nil)
+	require.Len(t, h.codecs, 1)
+	h.codecs[0].lostErr = errors.New("broken")
+	h.receive(voiceSlots(), func(seq uint8) bool { return seq == 3 })
+
+	st := h.r.Stats()
+	require.Equal(t, uint32(1), st.Lost)
+	require.Zero(t, st.Concealed)
+	require.Equal(t, uint32(1), st.FrameErrors, "one error for the lost frames of a burst")
+	require.Equal(t, (18+15)*160, h.s.audio[1])
+}
+
+func TestReceiveConcealedByReport(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	h.login()
+	s := voiceSlots()
+	s[4][1] = erasedMark
+	s[5][1] = erasedMark
+	s[7][1] = invalidMark
+	h.receive(s, nil)
+
+	st := h.r.Stats()
+	require.Zero(t, st.Lost)
+	require.Equal(t, uint32(2), st.Concealed, "an invalid frame decoded to voice is not concealed")
+	require.Equal(t, 18*160, h.s.audio[1])
+}
+
+func TestConcealed(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		rep  vocoder.FrameReport
+		want bool
+	}{
+		{vocoder.FrameReport{}, false},
+		{vocoder.FrameReport{Output: vocoder.OutputTone}, false},
+		{vocoder.FrameReport{Output: vocoder.OutputSilence}, false},
+		{vocoder.FrameReport{Output: vocoder.OutputRepeat}, true},
+		{vocoder.FrameReport{Frame: vocoder.FrameLost}, true},
+		{vocoder.FrameReport{Frame: vocoder.FrameLost, Output: vocoder.OutputSilence}, true},
+		{vocoder.FrameReport{Frame: vocoder.FrameErased, Output: vocoder.OutputSilence}, true},
+		{vocoder.FrameReport{Frame: vocoder.FrameErased, Output: vocoder.OutputVoice}, false},
+		{vocoder.FrameReport{Frame: vocoder.FrameInvalid, Output: vocoder.OutputRepeat}, true},
+		{vocoder.FrameReport{Frame: vocoder.FrameInvalid, Output: vocoder.OutputVoice}, false},
+	}
+	for _, tt := range tests {
+		require.Equal(t, tt.want, radio.Concealed(tt.rep), "%+v", tt.rep)
+	}
 }
 
 func TestRoundTrip(t *testing.T) {

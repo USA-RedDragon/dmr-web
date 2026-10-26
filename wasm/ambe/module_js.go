@@ -283,21 +283,27 @@ func (c *Codec) Encode(pcm []int16) ([9]byte, error) {
 	return s, nil
 }
 
-// Decode removes the FEC of one 72-bit slot, maps its result to a quality,
-// and appends the 160 decoded samples to dst.
-func (c *Codec) Decode(dst []int16, slot [9]byte) ([]int16, error) {
+// Decode removes the FEC of one 72-bit slot, decodes the frame with the
+// quality of the FEC result, and appends the 160 decoded samples to dst. It
+// returns the report of ReportV1.
+func (c *Codec) Decode(dst []int16, slot [9]byte) ([]int16, vocoder.FrameReport, error) {
 	f, r := vocoder.DecodeAMBE72(slot)
-	return c.DecodeFrame(dst, f, FrameQualityOf(r))
+	q := FrameQualityOf(r)
+	out, err := c.DecodeFrame(dst, f, q)
+	if err != nil {
+		return dst, vocoder.FrameReport{}, err
+	}
+	return out, ReportV1(q), nil
 }
 
-// DecodeQuality decodes one 72-bit slot with the quality that the voice
-// receiver measured, so that the module conceals bad frames.
-func (c *Codec) DecodeQuality(dst []int16, slot [9]byte, q voice.FrameQuality) ([]int16, error) {
-	var f vocoder.AMBEFrame
-	if !q.Bad {
-		f, _ = vocoder.DecodeAMBE72(slot)
+// DecodeLost has the module conceal a frame that never arrived, as a bad
+// frame, and appends the 160 samples to dst. It returns LostReportV1.
+func (c *Codec) DecodeLost(dst []int16) ([]int16, vocoder.FrameReport, error) {
+	out, err := c.DecodeFrame(dst, vocoder.AMBEFrame{}, voice.FrameQuality{Bad: true})
+	if err != nil {
+		return dst, vocoder.FrameReport{}, err
 	}
-	return c.DecodeFrame(dst, f, q)
+	return out, LostReportV1(), nil
 }
 
 // Close frees the buffers and the handle.

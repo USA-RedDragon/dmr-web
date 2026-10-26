@@ -443,38 +443,53 @@ func (r *Radio) voice(i int, e *voice.Event) {
 		return
 	}
 	pcm := r.pcm[:0]
-	qd, quality := s.codec.(QualityDecoder)
-	if quality && e.Lost > 0 {
+	if e.Lost > 0 {
 		lost := min(int(e.Lost), maxLostFill) * layer2.VoiceSlotsPerBurst
 		for range lost {
-			if out, err := qd.DecodeQuality(pcm, [9]byte{}, voice.FrameQuality{Bad: true}); err == nil {
-				pcm = out
-				r.stats.Concealed++
+			out, rep, err := s.codec.DecodeLost(pcm)
+			if err != nil {
+				r.decodeError(i, err)
+				break
 			}
+			r.frameDone(rep)
+			pcm = out
 		}
 	}
-	frames := e.Burst.VoiceSlots()
-	for k, f := range frames {
-		var out []int16
-		var err error
-		if quality {
-			out, err = qd.DecodeQuality(pcm, f, e.Frames[k])
-		} else {
-			out, err = s.codec.Decode(pcm, f)
-		}
+	for _, f := range e.Burst.VoiceSlots() {
+		out, rep, err := s.codec.Decode(pcm, f)
 		if err != nil {
-			r.stats.FrameErrors++
-			r.sink.Event(&Event{Kind: EventError, Slot: i + 1, Err: fmt.Errorf("radio: decode: %w", err)})
+			r.decodeError(i, err)
 			continue
 		}
-		if quality && (e.Frames[k].Bad || e.Frames[k].ErrorsCorrected > 3) {
-			r.stats.Concealed++
-		}
+		r.frameDone(rep)
 		pcm = out
 	}
 	r.pcm = pcm
 	if len(pcm) > 0 {
 		r.sink.Audio(i+1, pcm)
+	}
+}
+
+func (r *Radio) decodeError(i int, err error) {
+	r.stats.FrameErrors++
+	r.sink.Event(&Event{Kind: EventError, Slot: i + 1, Err: fmt.Errorf("radio: decode: %w", err)})
+}
+
+func (r *Radio) frameDone(rep vocoder.FrameReport) {
+	if Concealed(rep) {
+		r.stats.Concealed++
+	}
+}
+
+// Concealed reports that a codec filled the samples of a frame in for
+// speech that it did not decode: a lost frame, or a repeat or silence in
+// place of a frame that it did not use.
+func Concealed(rep vocoder.FrameReport) bool {
+	switch {
+	case rep.Frame == vocoder.FrameLost, rep.Output == vocoder.OutputRepeat:
+		return true
+	default:
+		return rep.Frame != vocoder.FrameGood && rep.Output == vocoder.OutputSilence
 	}
 }
 

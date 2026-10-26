@@ -41,7 +41,8 @@ type Stats struct {
 	Late uint32
 	// FrameErrors counts vocoder frames that did not decode.
 	FrameErrors uint32
-	// Concealed counts frames that the vocoder filled in for lost ones.
+	// Concealed counts frames that the vocoder filled in, for lost frames
+	// and for frames that it did not use, as Concealed reports.
 	Concealed uint32
 	// Codecs is the number of vocoder codecs open.
 	Codecs int

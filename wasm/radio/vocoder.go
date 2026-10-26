@@ -22,7 +22,6 @@ package radio
 import (
 	"github.com/USA-RedDragon/dmrgo/v2/enums"
 	"github.com/USA-RedDragon/dmrgo/v2/vocoder"
-	"github.com/USA-RedDragon/dmrgo/v2/voice"
 )
 
 // codec2FID is the FID of Codec2 calls, as dmrgo codec2.DefaultFID.
@@ -60,12 +59,6 @@ func (v Vocoder) String() string {
 type Codecs struct {
 	Codec2 func() (vocoder.Codec, error)
 	AMBE   func() (vocoder.Codec, error)
-}
-
-// QualityDecoder is a codec that takes the FEC result of a frame from the
-// voice receiver, so that it conceals bad and lost frames itself.
-type QualityDecoder interface {
-	DecodeQuality(dst []int16, slot [9]byte, q voice.FrameQuality) ([]int16, error)
 }
 
 func rxVocoder(fid enums.FID) Vocoder {
