@@ -105,6 +105,31 @@ describe('Transport', () => {
     expect(fake.sent.join('')).toBe('{"resume":"tok"}\n');
   });
 
+  async function incomingLimit(name: 'incomingMaxBufferedDatagrams' | 'incomingHighWaterMark'): Promise<number> {
+    const datagrams: Record<string, unknown> = {
+      readable: new ReadableStream<Uint8Array>(),
+      writable: new WritableStream<Uint8Array>(),
+      [name]: 1,
+    };
+    (globalThis as { WebTransport?: unknown }).WebTransport = class {
+      ready = Promise.resolve();
+      closed = new Promise(() => undefined);
+      datagrams = datagrams;
+      close() {}
+    };
+    const t = new Transport({ onDatagram: () => undefined, onClosed: () => undefined });
+    await t.connect('https://hub.example:62032/mmdvm');
+    return datagrams[name] as number;
+  }
+
+  it('keeps more incoming datagrams than the browser default', async () => {
+    expect(await incomingLimit('incomingMaxBufferedDatagrams')).toBeGreaterThanOrEqual(512);
+  });
+
+  it('keeps more incoming datagrams where only the old limit exists', async () => {
+    expect(await incomingLimit('incomingHighWaterMark')).toBeGreaterThanOrEqual(512);
+  });
+
   it('reports a refused resume', async () => {
     fakeWebTransport([], '{"resumed":false,"reason":"bad token"}\n');
     const t = new Transport({ onDatagram: () => undefined, onClosed: () => undefined });

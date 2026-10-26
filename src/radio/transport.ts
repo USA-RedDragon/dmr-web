@@ -29,7 +29,25 @@ type DatagramDuplex = {
   readable: ReadableStream<Uint8Array>;
   writable?: WritableStream<Uint8Array>;
   createWritable?: () => WritableStream<Uint8Array>;
+  incomingMaxBufferedDatagrams?: number;
+  incomingHighWaterMark?: number;
 };
+
+/**
+ * INCOMING_DATAGRAMS is how many datagrams a session keeps until the
+ * radio reads them. Browsers keep only a few by default (Chromium one,
+ * Firefox five) and drop the oldest, but a hub replica sends the bursts of
+ * a handover 2 ms apart.
+ */
+const INCOMING_DATAGRAMS = 1024;
+
+function keepIncoming(datagrams: DatagramDuplex): void {
+  if ('incomingMaxBufferedDatagrams' in datagrams) {
+    datagrams.incomingMaxBufferedDatagrams = INCOMING_DATAGRAMS;
+  } else if ('incomingHighWaterMark' in datagrams) {
+    datagrams.incomingHighWaterMark = INCOMING_DATAGRAMS;
+  }
+}
 
 export function datagramWriter(datagrams: DatagramDuplex): DatagramWriter {
   const stream =
@@ -123,6 +141,7 @@ export class Transport {
     this.closing = false;
     const wt = new ctor(url, hashes.length ? { serverCertificateHashes: hashes } : undefined);
     this.wt = wt;
+    keepIncoming(wt.datagrams);
     wt.closed.then(
       () => this.closed('closed by the hub'),
       (err: unknown) => this.closed(err instanceof Error ? err.message : String(err)),
