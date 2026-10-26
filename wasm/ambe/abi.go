@@ -18,9 +18,11 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 // Package ambe runs a user-supplied AMBE+2 WebAssembly module as a dmrgo
-// vocoder.Codec. The module speaks ABI version 1: no imports, exports of
-// exactly memory and eight ambe_ functions, 49-bit frames, and negative
-// return codes for errors.
+// vocoder.Codec. A module has no imports and negative return codes for
+// errors. A module of ABI version 1 exports exactly memory and eight ambe_
+// functions and takes 49-bit frames, so this package applies the FEC. A
+// module of ABI version 2 exports ambe_version, applies the FEC itself to
+// the 72-bit slots, and reports on each frame that it decodes.
 package ambe
 
 import (
@@ -31,31 +33,51 @@ import (
 	"github.com/USA-RedDragon/dmrgo/v2/voice"
 )
 
-// ABIVersion is the module ABI that this package speaks.
-const ABIVersion = 1
+// The module ABI versions that this package speaks.
+const (
+	// ABIVersion1 is a module that exports ambe_abi_version and takes
+	// 49-bit frames.
+	ABIVersion1 = 1
+	// ABIVersion2 is a module that exports ambe_version, takes 72-bit
+	// slots and writes a report on each frame.
+	ABIVersion2 = 2
+)
 
 const (
 	frameSamples = 160
 	pcmBytes     = frameSamples * 2
 	frameBytes   = 7
+	slotBytes    = 9
+	reportBytes  = 8
 	qualityBad   = 1 << 8
 
 	memoryExport = "memory"
 )
 
-// Exports lists the exports that a module must have, and no others.
+const (
+	fnABIVersion = "ambe_abi_version"
+	fnVersion    = "ambe_version"
+	fnAlloc      = "ambe_alloc"
+	fnFree       = "ambe_free"
+	fnInit       = "ambe_init"
+	fnNew        = "ambe_new"
+	fnReset      = "ambe_reset"
+	fnClose      = "ambe_close"
+	fnEncode     = "ambe_encode"
+	fnDecode     = "ambe_decode"
+	fnDecodeLost = "ambe_decode_lost"
+)
+
+// Exports lists the exports that a module of ABI version 1 must have, and
+// no others.
 func Exports() []string {
-	return []string{
-		memoryExport,
-		"ambe_abi_version",
-		"ambe_alloc",
-		"ambe_free",
-		"ambe_init",
-		"ambe_reset",
-		"ambe_close",
-		"ambe_encode",
-		"ambe_decode",
-	}
+	return []string{memoryExport, fnABIVersion, fnAlloc, fnFree, fnInit, fnReset, fnClose, fnEncode, fnDecode}
+}
+
+// ExportsV2 lists the exports that a module of ABI version 2 must have, and
+// no others.
+func ExportsV2() []string {
+	return []string{memoryExport, fnVersion, fnAlloc, fnFree, fnNew, fnEncode, fnDecode, fnDecodeLost, fnReset, fnClose}
 }
 
 // Errors of a module or its codecs.
@@ -88,6 +110,15 @@ var (
 	ErrClosed = errors.New("ambe: the codec is closed")
 	// ErrCall is a module call that threw.
 	ErrCall = errors.New("ambe: the module call failed")
+	// ErrReport is a frame report of ABI version 2 with a field out of its
+	// range.
+	ErrReport = errors.New("ambe: the module wrote an invalid frame report")
+	// ErrBroken is a module of ABI version 2 that broke the ABI once, and
+	// that this package no longer calls.
+	ErrBroken = errors.New("ambe: the module is broken")
+	// ErrFrames is a 49-bit frame call on a codec of ABI version 2, which
+	// takes only 72-bit slots.
+	ErrFrames = errors.New("ambe: the module takes 72-bit slots, not 49-bit frames")
 )
 
 // Quality returns the ABI quality value of a frame quality: bits 0 to 7
@@ -126,4 +157,29 @@ func ReportV1(q voice.FrameQuality) vocoder.FrameReport {
 // OutputRepeat.
 func LostReportV1() vocoder.FrameReport {
 	return vocoder.FrameReport{Frame: vocoder.FrameLost, Output: vocoder.OutputRepeat}
+}
+
+// ReportV2 returns the 8-byte frame report b of a module of ABI version 2,
+// with CountsKnown set. Byte 0 is CorrectedA, 0 to 4; byte 1 is CorrectedB,
+// 0 to 3; byte 2 is Frame and byte 3 is Output, each 0 to 3; byte 4 is
+// HighErrorRate, 0 or 1; bytes 5 to 7 are 0. CorrectedA and CorrectedB are
+// 0 when Frame is FrameLost. It returns ErrReport for any other report.
+func ReportV2(b [reportBytes]byte) (vocoder.FrameReport, error) {
+	r := vocoder.FrameReport{
+		CorrectedA:    b[0],
+		CorrectedB:    b[1],
+		Frame:         vocoder.FrameStatus(b[2]),
+		Output:        vocoder.FrameOutput(b[3]),
+		HighErrorRate: b[4] == 1,
+		CountsKnown:   true,
+	}
+	switch {
+	case b[0] > 4, b[1] > 3, b[2] > 3, b[3] > 3, b[4] > 1:
+		return vocoder.FrameReport{}, ErrReport
+	case b[5] != 0, b[6] != 0, b[7] != 0:
+		return vocoder.FrameReport{}, ErrReport
+	case r.Frame == vocoder.FrameLost && (b[0] != 0 || b[1] != 0):
+		return vocoder.FrameReport{}, ErrReport
+	}
+	return r, nil
 }

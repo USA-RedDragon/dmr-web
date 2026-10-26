@@ -23,6 +23,7 @@ package ambe_test
 
 import (
 	"encoding/binary"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -51,6 +52,9 @@ func load(t *testing.T) (*ambe.Module, *vectors) {
 	require.NoError(t, err)
 	m, err := ambe.Load(wasm)
 	require.NoError(t, err)
+	if m.Version() != ambe.ABIVersion1 {
+		t.Skip("the vectors are for ABI version 1")
+	}
 	read := func(name string) []byte {
 		b, err := os.ReadFile(filepath.Join(dir, name))
 		require.NoError(t, err)
@@ -230,7 +234,7 @@ func TestLostFrameBytes(t *testing.T) {
 func TestSelfTest(t *testing.T) {
 	t.Parallel()
 	m, _ := load(t)
-	require.Equal(t, int32(ambe.ABIVersion), m.Version())
+	require.Equal(t, int32(ambe.ABIVersion1), m.Version())
 	require.NoError(t, m.SelfTest())
 }
 
@@ -247,6 +251,72 @@ func TestErrorCodes(t *testing.T) {
 	require.ErrorIs(t, err, ambe.ErrClosed)
 	_, err = c.EncodeFrame(make([]int16, 10))
 	require.ErrorIs(t, err, ambe.ErrClosed)
+}
+
+func TestRealModule(t *testing.T) {
+	t.Parallel()
+	path := os.Getenv("AMBE_WASM")
+	if path == "" {
+		t.Skip("AMBE_WASM is not set")
+	}
+	wasm, err := os.ReadFile(path)
+	require.NoError(t, err)
+	m, err := ambe.Load(wasm)
+	require.NoError(t, err)
+	require.NoError(t, m.SelfTest())
+	v2 := m.Version() == ambe.ABIVersion2
+	c, err := m.New()
+	require.NoError(t, err)
+	defer func() { require.NoError(t, c.Close()) }()
+
+	in := make([]int16, 160)
+	var out []int16
+	var energy float64
+	for i := range 50 {
+		for k := range in {
+			n := float64(160*i + k)
+			in[k] = int16(8000 * math.Sin(2*math.Pi*n/8))
+		}
+		slot, err := c.Encode(in)
+		require.NoError(t, err)
+		var rep vocoder.FrameReport
+		out, rep, err = c.Decode(out[:0], slot)
+		require.NoError(t, err)
+		require.Len(t, out, 160)
+		require.Equal(t, vocoder.FrameGood, rep.Frame, "frame %d", i)
+		require.Equal(t, v2, rep.CountsKnown)
+		require.Zero(t, rep.CorrectedA)
+		require.Zero(t, rep.CorrectedB)
+		if i >= 25 {
+			for _, s := range out {
+				energy += float64(s) * float64(s)
+			}
+		}
+
+		for _, bits := range [][]int{{3}, {17, 40}, {5, 30, 61}} {
+			bad := slot
+			for _, b := range bits {
+				bad[b/8] ^= 0x80 >> (b % 8)
+			}
+			_, r := vocoder.DecodeAMBE72(bad)
+			d, err := m.New()
+			require.NoError(t, err)
+			_, rep, err := d.Decode(nil, bad)
+			require.NoError(t, err)
+			require.NoError(t, d.Close())
+			if v2 && !r.Uncorrectable {
+				require.Equal(t, r.ErrorsCorrected, int(rep.CorrectedA)+int(rep.CorrectedB), "frame %d bits %v", i, bits)
+			}
+		}
+	}
+	require.Greater(t, energy, 0.0, "the codec decodes the tone to sound")
+
+	_, rep, err := c.DecodeLost(nil)
+	require.NoError(t, err)
+	require.Equal(t, vocoder.FrameLost, rep.Frame)
+	require.Zero(t, rep.CorrectedA)
+	require.Zero(t, rep.CorrectedB)
+	require.NoError(t, m.Broken())
 }
 
 func TestRefusesBadModules(t *testing.T) {

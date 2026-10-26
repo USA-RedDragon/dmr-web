@@ -70,4 +70,43 @@ func TestExports(t *testing.T) {
 	e := ambe.Exports()
 	require.Len(t, e, 9)
 	require.Equal(t, "memory", e[0])
+	require.Contains(t, e, "ambe_abi_version")
+
+	v2 := ambe.ExportsV2()
+	require.Equal(t, []string{
+		"memory", "ambe_version", "ambe_alloc", "ambe_free", "ambe_new",
+		"ambe_encode", "ambe_decode", "ambe_decode_lost", "ambe_reset", "ambe_close",
+	}, v2)
+}
+
+func TestReportV2(t *testing.T) {
+	t.Parallel()
+	r, err := ambe.ReportV2([8]byte{})
+	require.NoError(t, err)
+	require.Equal(t, vocoder.FrameReport{CountsKnown: true}, r)
+
+	r, err = ambe.ReportV2([8]byte{4, 3, 2, 3, 1})
+	require.NoError(t, err)
+	require.Equal(t, vocoder.FrameReport{
+		CorrectedA: 4, CorrectedB: 3, Frame: vocoder.FrameErased, Output: vocoder.OutputSilence,
+		HighErrorRate: true, CountsKnown: true,
+	}, r)
+
+	r, err = ambe.ReportV2([8]byte{0, 0, 1, 2})
+	require.NoError(t, err)
+	require.Equal(t, vocoder.FrameReport{Frame: vocoder.FrameLost, Output: vocoder.OutputRepeat, CountsKnown: true}, r)
+
+	r, err = ambe.ReportV2([8]byte{0, 0, 3, 0})
+	require.NoError(t, err)
+	require.Equal(t, vocoder.FrameInvalid, r.Frame)
+
+	for _, b := range [][8]byte{
+		{5}, {0, 4}, {0, 0, 4}, {0, 0, 0, 4}, {0, 0, 0, 0, 2},
+		{0, 0, 0, 0, 0, 1}, {0, 0, 0, 0, 0, 0, 1}, {0, 0, 0, 0, 0, 0, 0, 0x80},
+		{1, 0, 1}, {0, 1, 1}, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+	} {
+		r, err := ambe.ReportV2(b)
+		require.ErrorIs(t, err, ambe.ErrReport, "% x", b)
+		require.Equal(t, vocoder.FrameReport{}, r)
+	}
 }
