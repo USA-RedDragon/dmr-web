@@ -85,6 +85,8 @@ let wanted = false;
 let located: { here: Here | null; share: boolean } = { here: null, share: false };
 let endpoint: HubEndpoint | null = null;
 let moving = false;
+let pending: Transport | null = null;
+let held: Uint8Array[] = [];
 const retiring = new Set<Transport>();
 const recent = new RecentBursts(DEDUP_MS);
 let locationServer = 0;
@@ -121,6 +123,8 @@ function stopRadio(): void {
     timer = null;
   }
   dmr?.stop(performance.now());
+  pending = null;
+  held = [];
   for (const t of retiring) {
     t.close();
   }
@@ -150,18 +154,50 @@ function lost(reason: string): void {
   }, retryInMs);
 }
 
+/**
+ * datagram takes the datagram data of t. The replica that the radio moves
+ * to sends the bursts that the old one sent since the drain notice as soon
+ * as it takes the login over, in order, so the radio reads the new session
+ * from the start. While the move goes on it holds the DMRD packets of the
+ * old session aside, drops them once the new session resumes, and takes
+ * them only when it does not.
+ */
 function datagram(t: Transport, data: Uint8Array): void {
   if (!dmr) {
     return;
   }
-  const current = transport === t;
-  if (!current && !(retiring.has(t) && isDMRD(data))) {
+  if (t !== pending && t !== transport) {
+    return;
+  }
+  if (t === transport && pending && isDMRD(data)) {
+    held.push(data);
+    return;
+  }
+  take(data);
+}
+
+function take(data: Uint8Array): void {
+  if (!dmr) {
     return;
   }
   if (isDMRD(data) && recent.repeated(data, performance.now())) {
     return;
   }
   schedule(dmr.packet(performance.now(), data));
+}
+
+function release(t: Transport, replay: boolean): void {
+  if (pending !== t) {
+    return;
+  }
+  pending = null;
+  const bursts = held;
+  held = [];
+  if (replay) {
+    for (const data of bursts) {
+      take(data);
+    }
+  }
 }
 
 function openTransport(): Transport {
@@ -197,16 +233,27 @@ async function move(old: Transport, token: string): Promise<void> {
     const next = await moveSession(
       async () => {
         const t = openTransport();
-        await t.connect(ep.url, ep.hashes);
+        pending = t;
+        try {
+          await t.connect(ep.url, ep.hashes);
+        } catch (err) {
+          release(t, transport === old);
+          t.close();
+          throw err;
+        }
         return t;
       },
       (t) => t.resume(token),
-      (t) => t.close(),
+      (t) => {
+        release(t, transport === old);
+        t.close();
+      },
       { tries: MOVE_TRIES, retryMs: MOVE_RETRY_MS, still: () => transport === old && wanted },
     );
     if (!next) {
       return;
     }
+    release(next, false);
     if (transport !== old) {
       next.close();
       return;

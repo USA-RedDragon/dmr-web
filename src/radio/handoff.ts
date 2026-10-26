@@ -22,8 +22,11 @@
  * a stream of the session: a JSON line with drain and a resume token. The
  * radio opens a second session, which reaches another replica, sends the
  * token there, and once that replica took the login over it sends on the
- * new session and closes the old one. The radio never logs in again, and
- * while both sessions are open it drops the second copy of a burst.
+ * new session and closes the old one. The radio never logs in again. The
+ * new replica sends the bursts that the old one sent since the notice as
+ * soon as it takes the login over, so the radio reads the new session from
+ * the start, holds the bursts of the old session aside until the resume
+ * answer, and drops the second copy of a burst.
  */
 
 /** drainToken returns the resume token of a drain notice, or null. */
