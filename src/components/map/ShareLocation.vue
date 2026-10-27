@@ -75,9 +75,9 @@ const sent = computed(() => {
 });
 
 const trackingOff = computed(() => account.loggedIn && account.user?.positionTracking === false);
-const hubSettings = computed(() => {
+const hubPositions = computed(() => {
   try {
-    return new URL('/settings', hubOrigin(account.host)).toString();
+    return new URL('/positions', hubOrigin(account.host)).toString();
   } catch {
     return '';
   }
@@ -114,8 +114,8 @@ const button = 'rounded-[10px] border border-radio-line text-sm text-radio-text'
     </template>
     <p v-if="sent" role="status" class="m-0 text-xs text-radio-muted">{{ sent }}</p>
     <p v-if="trackingOff" class="m-0 text-xs leading-normal text-radio-muted">
-      Position tracking is off for your account on {{ hubName }}, so the hub keeps nothing you share. Turn it on in
-      <a :href="hubSettings" target="_blank" rel="noopener">your DMRHub settings</a>.
+      Position tracking is off for your account on {{ hubName }}, so the hub keeps nothing you share. Turn it on for your radio ID on
+      <a :href="hubPositions" target="_blank" rel="noopener">the Positions page of DMRHub</a>.
     </p>
   </div>
 </template>
