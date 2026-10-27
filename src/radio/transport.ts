@@ -90,7 +90,7 @@ type WebTransportLike = {
 };
 
 /** MAX_CONTROL is the longest control message, in octets. */
-const MAX_CONTROL = 4096;
+const MAX_CONTROL = 1024;
 
 async function readText(readable: ReadableStream<Uint8Array>): Promise<string> {
   const reader = readable.getReader();
