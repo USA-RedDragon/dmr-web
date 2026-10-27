@@ -3,7 +3,7 @@ module github.com/USA-RedDragon/dmr-web/wasm
 go 1.27.3
 
 require (
-	github.com/USA-RedDragon/dmrgo/v2 v2.0.4
+	github.com/USA-RedDragon/dmrgo/v2 v2.0.5
 	github.com/stretchr/testify v1.12.1
 )
 
