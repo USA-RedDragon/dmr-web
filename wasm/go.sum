@@ -1,5 +1,5 @@
-github.com/USA-RedDragon/dmrgo/v2 v2.0.5 h1:ixl2zOlp+wTHoJQLlbyQv8Y3lXdqy43yyHbZ1WuNbqk=
-github.com/USA-RedDragon/dmrgo/v2 v2.0.5/go.mod h1:+vgzs3oSTUL/QsbDtj4KqbZtPO3kijdmHYOfN3ODoG8=
+github.com/USA-RedDragon/dmrgo/v2 v2.0.7 h1:ojfJeoZ9SuaVhFvfRy652Cpci4jw+ijR+Kkz3Y6Cdxo=
+github.com/USA-RedDragon/dmrgo/v2 v2.0.7/go.mod h1:+vgzs3oSTUL/QsbDtj4KqbZtPO3kijdmHYOfN3ODoG8=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/tetratelabs/wazero v1.11.0 h1:+gKemEuKCTevU4d7ZTzlsvgd1uaToIDtlQlmNbwqYhA=
