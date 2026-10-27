@@ -52,7 +52,7 @@ export const FORMATS: { value: TextFormat; label: string }[] = [
   { value: 'ip', label: 'ETSI IP text' },
   { value: 'anytone', label: 'AnyTone text' },
   { value: 'dd', label: 'ETSI defined data' },
-  { value: 'hytera', label: 'AnyTone H-SMS' },
+  { value: 'hytera', label: 'Hytera text (H-SMS)' },
 ];
 
 export function formatLabel(f: string): string {

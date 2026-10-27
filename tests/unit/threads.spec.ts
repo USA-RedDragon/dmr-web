@@ -19,7 +19,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { messagesSocketURL, retryDelay } from '@/lib/hubMessages';
-import { autoFormat, fromHub, type HubMessage, keyOf, matchHub, MAX_MESSAGES, nextStatus, peerOf, trim, type Message } from '@/lib/threads';
+import { autoFormat, formatLabel, fromHub, type HubMessage, keyOf, matchHub, MAX_MESSAGES, nextStatus, peerOf, trim, type Message } from '@/lib/threads';
 
 describe('threads', () => {
   it('keys a peer and reads the key back', () => {
@@ -99,5 +99,11 @@ describe('hub messages', () => {
     expect(retryDelay(0)).toBe(1000);
     expect(retryDelay(3)).toBe(8000);
     expect(retryDelay(20)).toBe(60_000);
+  });
+});
+
+describe('text formats', () => {
+  it('names the Hytera text layout that AnyTone radios send in H-SMS mode', () => {
+    expect(formatLabel('hytera')).toBe('Hytera text (H-SMS)');
   });
 });
