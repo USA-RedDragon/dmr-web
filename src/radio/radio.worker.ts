@@ -65,6 +65,7 @@ const MOVE_TRIES = 100;
 const MOVE_RETRY_MS = 200;
 const MOVE_OVERLAP_MS = 1_000;
 const DEDUP_MS = 2_000;
+const MOVE_DEDUP_MS = 12_000;
 
 const scope = self as unknown as {
   postMessage: (message: FromWorker, transfer?: Transferable[]) => void;
@@ -88,7 +89,7 @@ let moving = false;
 let pending: Transport | null = null;
 let held: Uint8Array[] = [];
 const retiring = new Set<Transport>();
-const recent = new RecentBursts(DEDUP_MS);
+const recent = new RecentBursts(DEDUP_MS, MOVE_DEDUP_MS);
 let locationServer = 0;
 let reportingMs = 0;
 
@@ -229,6 +230,7 @@ async function move(old: Transport, token: string): Promise<void> {
     return;
   }
   moving = true;
+  recent.startMove();
   try {
     const next = await moveSession(
       async () => {
@@ -266,6 +268,7 @@ async function move(old: Transport, token: string): Promise<void> {
     }, MOVE_OVERLAP_MS);
   } finally {
     moving = false;
+    recent.endMove(performance.now());
   }
 }
 

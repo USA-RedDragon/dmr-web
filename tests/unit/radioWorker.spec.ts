@@ -150,6 +150,7 @@ describe('radio worker', () => {
     scope.onmessage = null;
     delete scope.dmrweb;
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('takes the handover of the new session before the resume answer, and drops the old session', async () => {
@@ -169,6 +170,32 @@ describe('radio worker', () => {
     old.send(4);
     await settle();
     expect(taken).toEqual([1, 2, 3, 5]);
+  });
+
+  it('drops the copies of a handover after a move that retried', async () => {
+    let clock = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    const old = FakeSession.all[0]!;
+    old.send(1);
+    await settle();
+    old.drain('tok');
+    await settle();
+    old.send(2);
+    await settle();
+    FakeSession.all[1]!.resumed(false);
+    await settle();
+    expect(taken).toEqual([1, 2]);
+    clock = 3_000;
+    await new Promise((r) => setTimeout(r, 250));
+    await settle();
+    const next = FakeSession.all[2]!;
+    next.send(1);
+    next.send(2);
+    next.send(3);
+    await settle();
+    next.resumed(true);
+    await settle();
+    expect(taken).toEqual([1, 2, 3]);
   });
 
   it('takes the held bursts of the old session in order when the resume fails', async () => {

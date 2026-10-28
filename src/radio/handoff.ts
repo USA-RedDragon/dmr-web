@@ -73,17 +73,39 @@ export function isDMRD(data: Uint8Array): boolean {
 /**
  * RecentBursts remembers the DMRD packets that came in the last windowMs,
  * by slot, stream and sequence number, so that a copy from the other
- * session is dropped.
+ * session is dropped. The new replica hands over what the old one sent
+ * since the drain notice, and sends it up to a second after it took the
+ * login over, so while the radio moves it remembers them for moveMs, and
+ * for windowMs after the move ends. Both stay below the 15.36 s in which
+ * the sequence number of a call comes round again.
  */
 export class RecentBursts {
   private readonly seen = new Map<string, number>();
+  private moving = false;
 
-  constructor(private readonly windowMs: number) {}
+  constructor(
+    private readonly windowMs: number,
+    private readonly moveMs = windowMs,
+  ) {}
+
+  /** startMove keeps the packets for moveMs until endMove. */
+  startMove(): void {
+    this.moving = true;
+  }
+
+  /** endMove keeps the packets that came until now for windowMs from now. */
+  endMove(now: number): void {
+    this.moving = false;
+    for (const key of this.seen.keys()) {
+      this.seen.set(key, now);
+    }
+  }
 
   /** repeated reports whether a DMRD packet came before, and notes it. */
   repeated(data: Uint8Array, now: number): boolean {
+    const window = this.moving ? this.moveMs : this.windowMs;
     for (const [key, at] of this.seen) {
-      if (now - at <= this.windowMs) {
+      if (now - at <= window) {
         break;
       }
       this.seen.delete(key);
@@ -92,7 +114,7 @@ export class RecentBursts {
     const stream = ((data[16]! << 24) | (data[17]! << 16) | (data[18]! << 8) | data[19]!) >>> 0;
     const key = `${slot}:${stream}:${data[4]!}`;
     const at = this.seen.get(key);
-    if (at !== undefined && now - at <= this.windowMs) {
+    if (at !== undefined && now - at <= window) {
       return true;
     }
     this.seen.delete(key);

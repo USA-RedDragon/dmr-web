@@ -76,6 +76,19 @@ describe('RecentBursts', () => {
     expect(r.repeated(dmrd(9, 1), 2500)).toBe(false);
   });
 
+  it('keeps the bursts of a move until the window after it ends', () => {
+    const r = new RecentBursts(2000, 12000);
+    r.startMove();
+    expect(r.repeated(dmrd(1, 1), 0)).toBe(false);
+    expect(r.repeated(dmrd(2, 1), 9000)).toBe(false);
+    expect(r.repeated(dmrd(2, 1), 11000)).toBe(true);
+    expect(r.repeated(dmrd(3, 1), 13000)).toBe(false);
+    r.endMove(13000);
+    expect(r.repeated(dmrd(2, 1), 14500)).toBe(true);
+    expect(r.repeated(dmrd(1, 1), 14500)).toBe(false);
+    expect(r.repeated(dmrd(3, 1), 15500)).toBe(false);
+  });
+
   it('knows a DMRD packet', () => {
     expect(isDMRD(dmrd(1, 1))).toBe(true);
     expect(isDMRD(new TextEncoder().encode('MSTPONG0000'))).toBe(false);
