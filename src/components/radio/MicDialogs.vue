@@ -62,7 +62,7 @@ const site = location.host;
       >
         <span class="flex size-12 items-center justify-center rounded-full bg-radio-amber-soft text-radio-accent"><Mic class="size-6" /></span>
         <span aria-hidden="true" class="h-1 w-10 self-center rounded-full bg-radio-chassis-line sm:hidden" />
-        <DialogTitle class="m-0 text-xl font-bold">dmr-web needs your microphone to transmit</DialogTitle>
+        <DialogTitle class="m-0 text-xl font-bold">DMRHub Radio needs your microphone to transmit</DialogTitle>
         <DialogDescription class="m-0 text-sm leading-relaxed text-radio-text/80">
           It only listens while you hold PTT. Your browser will ask next. Receiving works without it.
         </DialogDescription>

@@ -5,6 +5,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
+import { APP_NAME } from './src/lib/appName.ts'
+
 export default defineConfig({
   plugins: [
     tailwindcss(),
@@ -14,8 +16,8 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/*.png', 'radio.wasm'],
       manifest: {
-        name: 'dmr-web',
-        short_name: 'dmr-web',
+        name: APP_NAME,
+        short_name: APP_NAME,
         description: 'A DMR radio in your browser',
         theme_color: '#0e0f11',
         background_color: '#0e0f11',

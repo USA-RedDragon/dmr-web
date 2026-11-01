@@ -110,7 +110,7 @@ if (account.loggedIn && !account.hotspotsLoaded) {
     <div class="flex items-start justify-between gap-3">
       <p class="m-0 text-xs text-radio-muted">
         <template v-if="endpoint">{{ endpoint }}, from the hub.</template>
-        <template v-else>Any DMRHub. The hub tells dmr-web its WebTransport port and certificate.</template>
+        <template v-else>Any DMRHub. The hub tells DMRHub Radio its WebTransport port and certificate.</template>
       </p>
       <button
         v-if="account.loggedIn"

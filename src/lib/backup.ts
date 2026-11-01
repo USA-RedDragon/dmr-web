@@ -17,6 +17,7 @@
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
+import { APP_NAME } from '@/lib/appName';
 import type { Contact } from '@/store/contacts';
 import { mergeSettings, type Settings } from '@/store/settings';
 
@@ -144,14 +145,14 @@ export function readBackup(text: string): BackupFile {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error('This is not a dmr-web settings file');
+    throw new Error(`This is not a ${APP_NAME} settings file`);
   }
   const f = parsed as Partial<BackupFile>;
   if (f.format !== BACKUP_FORMAT) {
-    throw new Error('This is not a dmr-web settings file');
+    throw new Error(`This is not a ${APP_NAME} settings file`);
   }
   if (f.version !== BACKUP_VERSION) {
-    throw new Error('This settings file is from another version of dmr-web');
+    throw new Error(`This settings file is from another version of ${APP_NAME}`);
   }
   return f as BackupFile;
 }

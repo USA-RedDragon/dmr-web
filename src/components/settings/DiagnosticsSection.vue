@@ -68,7 +68,7 @@ const up = computed(() => (radio.connected && radio.upSince ? since(radio.upSinc
 
 async function copy(): Promise<void> {
   const lines = [
-    `dmr-web diagnostics ${new Date().toISOString()}`,
+    `DMRHub Radio diagnostics ${new Date().toISOString()}`,
     `link: ${radio.link} ${radio.linkDetail}`,
     `endpoint: ${url.value}`,
     `hotspot: ${store.settings.hotspot.id}`,
@@ -146,7 +146,7 @@ async function copy(): Promise<void> {
   <SettingsCard v-if="!standalone && (install || safari)">
     <div class="flex items-center justify-between gap-4">
       <div class="flex flex-col gap-1">
-        <span class="text-[15px] font-semibold">{{ desktop ? 'Install dmr-web' : 'Add to Home Screen' }}</span>
+        <span class="text-[15px] font-semibold">{{ desktop ? 'Install DMRHub Radio' : 'Add to Home Screen' }}</span>
         <span class="text-xs text-radio-muted">
           {{
             install

@@ -23,6 +23,7 @@
 import { ref } from 'vue';
 import { useRegisterSW } from 'virtual:pwa-register/vue';
 
+import { APP_NAME } from '@/lib/appName';
 import { useRadio } from '@/store/radio';
 
 const radio = useRadio();
@@ -41,7 +42,7 @@ function reload(): void {
     class="fixed top-[calc(0.5rem+env(safe-area-inset-top))] left-4 right-4 z-40 flex lg:top-auto lg:bottom-[calc(1rem+env(safe-area-inset-bottom))] flex-col gap-3 rounded-2xl border border-radio-line bg-radio-raised p-4 shadow-xl sm:right-auto sm:w-[380px]"
   >
     <div class="flex flex-col gap-1">
-      <span class="text-sm font-semibold">A new version of dmr-web is ready</span>
+      <span class="text-sm font-semibold">A new version of {{ APP_NAME }} is ready</span>
       <span v-if="radio.tx.active || radio.calls[1].active || radio.calls[2].active" class="text-xs text-radio-muted">
         Reload after this call ends.
       </span>

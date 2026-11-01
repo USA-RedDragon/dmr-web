@@ -86,7 +86,7 @@ async function doExport(): Promise<void> {
     const file = new File([text], exportName, { type: 'application/json' });
     const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
     if (!desktop.value && nav.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'dmr-web settings' }).catch(() => undefined);
+      await navigator.share({ files: [file], title: 'DMRHub Radio settings' }).catch(() => undefined);
     } else {
       const url = URL.createObjectURL(file);
       const a = document.createElement('a');
@@ -188,7 +188,7 @@ function apply(): void {
 
   <div class="grid items-start gap-5 lg:grid-cols-2">
     <template v-if="desktop || tab === 'export'">
-      <SettingsCard v-if="desktop" title="Export settings" description="Save your settings to a file, then import it in dmr-web on another browser or device.">
+      <SettingsCard v-if="desktop" title="Export settings" description="Save your settings to a file, then import it in DMRHub Radio on another browser or device.">
         <span class="text-xs text-radio-muted">Included</span>
         <div class="flex flex-col">
           <label v-for="p in partLabels" :key="p.value" class="flex min-h-[42px] items-center gap-3 text-[15px]">

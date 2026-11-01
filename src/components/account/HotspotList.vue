@@ -22,7 +22,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { BROWSER_RADIO, useAccount } from '@/store/account';
+import { isBrowserRadio, useAccount } from '@/store/account';
 
 const props = withDefaults(defineProps<{ compact?: boolean; extra?: number; badge?: boolean; savedText?: string }>(), {
   compact: false,
@@ -42,7 +42,7 @@ const rows = computed(() => {
   return ids.map((id) => {
     const h = account.hotspots.find((x) => x.id === id);
     const saved = account.saved[String(id)];
-    const kind = saved?.name || (h ? (h.description === BROWSER_RADIO ? 'Browser radio' : h.description || h.location || 'Hotspot') : 'Entered by hand');
+    const kind = saved?.name || (h ? (isBrowserRadio(h.description) ? 'Browser radio' : h.description || h.location || 'Hotspot') : 'Entered by hand');
     return { id, kind, ready: !!saved?.password };
   });
 });

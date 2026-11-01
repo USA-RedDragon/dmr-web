@@ -24,6 +24,7 @@ import { Settings } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { APP_NAME } from '@/lib/appName';
 import { goBack } from '@/lib/nav';
 import { useAccount } from '@/store/account';
 import { useRadio } from '@/store/radio';
@@ -83,7 +84,7 @@ function toggleSettings(): void {
     <div class="flex min-w-0 items-center gap-2.5 lg:gap-6 rail:flex-col">
       <RouterLink to="/" class="no-underline flex shrink-0 items-center gap-2.5 text-radio-text sm:gap-3">
         <RadioLogo class="size-5 text-radio-accent sm:size-[22px]" />
-        <span class="text-base font-bold tracking-[0.02em] sm:text-[17px] rail:sr-only">dmr-web</span>
+        <span class="text-base font-bold tracking-[0.02em] sm:text-[17px] rail:sr-only">{{ APP_NAME }}</span>
       </RouterLink>
       <span class="flex min-w-0 items-center gap-1.5 text-xs lg:hidden" :class="radio.link === 'failed' ? 'text-radio-red' : 'text-radio-text/80'">
         <span class="size-2 shrink-0 rounded-full" :class="pill.dot" />

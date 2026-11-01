@@ -47,8 +47,8 @@ describe('backup', () => {
   }, 30_000);
 
   it('refuses other files', () => {
-    expect(() => readBackup('nope')).toThrow('not a dmr-web settings file');
-    expect(() => readBackup('{"format":"other"}')).toThrow('not a dmr-web settings file');
+    expect(() => readBackup('nope')).toThrow('not a DMRHub Radio settings file');
+    expect(() => readBackup('{"format":"other"}')).toThrow('not a DMRHub Radio settings file');
     expect(() => readBackup('{"format":"dmr-web-settings","version":2}')).toThrow('another version');
   });
 

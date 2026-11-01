@@ -140,7 +140,7 @@ const inputClass = 'rounded-[10px] border border-radio-line bg-radio-page px-3 t
           </div>
           <div class="flex gap-2.5 rounded-xl border border-radio-line bg-radio-surface px-3.5 py-3 text-[13px] leading-normal text-radio-text/80">
             <Lock class="mt-0.5 size-[18px] shrink-0 text-radio-accent" />
-            <span>DMRHub creates a password for the hotspot and shows it only once. dmr-web saves it on this device so you don't have to type it.</span>
+            <span>DMRHub creates a password for the hotspot and shows it only once. DMRHub Radio saves it on this device so you don't have to type it.</span>
           </div>
           <p v-if="failure" role="alert" class="m-0 text-sm text-radio-red">{{ failure }}</p>
           <div class="flex justify-end gap-2.5">

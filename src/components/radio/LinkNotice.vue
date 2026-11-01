@@ -86,12 +86,12 @@ void props;
     </div>
     <div class="flex flex-col gap-1.5">
       <h1 class="m-0 font-bold leading-tight" :class="compact ? 'text-xl' : 'text-[22px]'">
-        {{ unsupported ? "This browser can't run dmr-web" : "This browser or network can't reach the hub" }}
+        {{ unsupported ? "This browser can't run DMRHub Radio" : "This browser or network can't reach the hub" }}
       </h1>
       <p class="m-0 text-sm leading-relaxed text-radio-text/80">
-        <template v-if="unsupported">dmr-web needs WebTransport, which this browser does not have.</template>
+        <template v-if="unsupported">DMRHub Radio needs WebTransport, which this browser does not have.</template>
         <template v-else>
-          dmr-web connects over WebTransport<template v-if="port">, which runs on UDP port {{ port }}</template>. The connection to {{ host }} failed before the hub
+          DMRHub Radio connects over WebTransport<template v-if="port">, which runs on UDP port {{ port }}</template>. The connection to {{ host }} failed before the hub
           answered.
         </template>
       </p>

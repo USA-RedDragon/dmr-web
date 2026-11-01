@@ -21,6 +21,7 @@ import { defineStore } from 'pinia';
 import { useDebounceFn } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 
+import { APP_NAME } from '@/lib/appName';
 import { mergeStatics } from '@/lib/hotspots';
 import { kvDelete, kvGet, kvSet } from '@/lib/kv';
 import {
@@ -80,8 +81,15 @@ const ACCOUNT_KEY = 'account';
 const SAVED_KEY = 'hotspot-passwords';
 const PENDING_KEY = 'oauth-pending';
 
-/** BROWSER_RADIO is the description dmr-web sends in its hotspot login. */
-export const BROWSER_RADIO = 'dmr-web radio';
+/** BROWSER_RADIO is the description the app sends in its hotspot login. */
+export const BROWSER_RADIO = APP_NAME;
+
+const OLD_BROWSER_RADIOS = ['dmr-web radio'];
+
+/** isBrowserRadio reports whether a hotspot description is one that this app sends or sent before. */
+export function isBrowserRadio(description: string): boolean {
+  return description === BROWSER_RADIO || OLD_BROWSER_RADIOS.includes(description);
+}
 
 /** LoginEndedError means the hub no longer accepts this app's tokens. */
 export class LoginEndedError extends Error {}

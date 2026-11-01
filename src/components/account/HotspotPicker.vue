@@ -136,7 +136,7 @@ const inputClass = 'h-11 w-full rounded-[10px] border border-radio-line bg-radio
       <span v-if="!compact" class="flex items-center gap-1.5 text-[13px] text-radio-green"><span class="size-2 rounded-full bg-radio-green" />Logged in to {{ hubName }}</span>
       <h1 class="m-0 font-bold" :class="compact ? 'text-2xl' : 'text-[26px]'">Welcome, {{ account.user?.callsign }}</h1>
       <p class="m-0 text-sm text-radio-text/80">
-        {{ compact ? 'Choose a hotspot for this phone.' : 'Choose a hotspot for this browser. dmr-web joins the hub as that hotspot.' }}
+        {{ compact ? 'Choose a hotspot for this phone.' : 'Choose a hotspot for this browser. DMRHub Radio joins the hub as that hotspot.' }}
       </p>
     </div>
 

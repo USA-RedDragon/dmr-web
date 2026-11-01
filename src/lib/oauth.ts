@@ -152,7 +152,7 @@ export function callbackCode(p: Pending, query: URLSearchParams): string {
   }
   const err = query.get('error');
   if (err === 'access_denied') {
-    throw new OAuthError(err, 'You did not allow dmr-web to use your account.');
+    throw new OAuthError(err, 'You did not allow DMRHub Radio to use your account.');
   }
   if (err) {
     throw new OAuthError(err, `The hub refused the login (${err}).`);
