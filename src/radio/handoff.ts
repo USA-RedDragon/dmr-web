@@ -21,12 +21,14 @@
  * A hub replica that stops tells the radio to move with a drain notice on
  * a stream of the session: a JSON line with drain and a resume token. The
  * radio opens a second session, which reaches another replica, sends the
- * token there, and once that replica took the login over it sends on the
- * new session and closes the old one. The radio never logs in again. The
- * new replica sends the bursts that the old one sent since the notice as
- * soon as it takes the login over, so the radio reads the new session from
- * the start, holds the bursts of the old session aside until the resume
- * answer, and drops the second copy of a burst.
+ * token and its anchors there, and once that replica took the login over
+ * it sends on the new session and closes the old one. The radio never logs
+ * in again. The new replica sends the bursts that the old one sent after
+ * the anchors as soon as it takes the login over, so the radio reads the
+ * new session from the start, holds the bursts of the old session aside
+ * until the resume answer, and drops the second copy of a burst. A replica
+ * whose path to the radio moved asks it for its anchors on a stream that
+ * it opens, and sends again what came after them.
  */
 
 /** drainToken returns the resume token of a drain notice, or null. */
@@ -47,9 +49,41 @@ export function drainToken(text: string): string | null {
   return null;
 }
 
-/** resumeRequest is the line that asks a replica to take the login over. */
-export function resumeRequest(token: string): string {
-  return `${JSON.stringify({ resume: token })}\n`;
+/**
+ * resumeRequest is the line that asks a replica to take the login over,
+ * with the anchors of the radio when it keeps them.
+ */
+export function resumeRequest(token: string, anchors?: Anchor[]): string {
+  return `${JSON.stringify(anchors ? { resume: token, anchor: anchors } : { resume: token })}\n`;
+}
+
+/**
+ * ANCHOR_VERSION is the version of the anchor messages that the radio
+ * speaks. The radio opens its sessions with it in the anchor query
+ * parameter, so that a replica asks it the anchor question.
+ */
+export const ANCHOR_VERSION = '1';
+
+/** withAnchors returns url with the anchor query parameter. */
+export function withAnchors(url: string): string {
+  const u = new URL(url);
+  u.searchParams.set('anchor', ANCHOR_VERSION);
+  return u.toString();
+}
+
+/** askedForAnchors reports whether a question of a replica asks for the anchors. */
+export function askedForAnchors(text: string): boolean {
+  const line = text.split('\n')[0] ?? '';
+  try {
+    return (JSON.parse(line) as { ask?: unknown }).ask === 'anchor';
+  } catch {
+    return false;
+  }
+}
+
+/** anchorAnswer is the line that answers an anchor question. */
+export function anchorAnswer(anchors: Anchor[]): string {
+  return `${JSON.stringify({ anchor: anchors })}\n`;
 }
 
 /** resumed reports whether the answer of a replica took the login over. */
@@ -120,6 +154,70 @@ export class RecentBursts {
     this.seen.delete(key);
     this.seen.set(key, now);
     return false;
+  }
+}
+
+/**
+ * Anchor is the last DMRD burst of a slot that the radio took with no
+ * burst of its stream missing before it. A replica that takes the radio
+ * over, or whose path to it moved, sends it every burst after its anchors.
+ */
+export type Anchor = { slot: number; stream: number; seq: number };
+
+/**
+ * ANCHOR_GAP is how many bursts of a stream after a missing one the radio
+ * takes before it gives the missing one up, so that a burst that never
+ * comes holds the anchor back by at most that many.
+ */
+const ANCHOR_GAP = 64;
+
+type SlotAnchor = { stream: number; last: number | null; seq: number; ahead: Set<number> };
+
+/** Anchors keeps the anchor of each slot from the DMRD packets that the radio takes. */
+export class Anchors {
+  private readonly slots: [SlotAnchor | null, SlotAnchor | null] = [null, null];
+
+  /** take notes a DMRD packet that the radio took. */
+  take(data: Uint8Array): void {
+    const i = (data[15]! & 0x80) !== 0 ? 1 : 0;
+    const stream = ((data[16]! << 24) | (data[17]! << 16) | (data[18]! << 8) | data[19]!) >>> 0;
+    const seq = data[4]!;
+    const s = this.slots[i];
+    if (!s || (stream !== s.stream && stream !== s.last)) {
+      this.slots[i] = { stream, last: s ? s.stream : null, seq, ahead: new Set() };
+      return;
+    }
+    if (stream !== s.stream) {
+      return;
+    }
+    const d = (seq - s.seq) & 0xff;
+    if (d === 0 || d > 128) {
+      return;
+    }
+    s.ahead.add(seq);
+    if (d > ANCHOR_GAP) {
+      const to = (seq - ANCHOR_GAP) & 0xff;
+      for (const x of s.ahead) {
+        if (((x - s.seq) & 0xff) <= ((to - s.seq) & 0xff)) {
+          s.ahead.delete(x);
+        }
+      }
+      s.seq = to;
+    }
+    while (s.ahead.delete((s.seq + 1) & 0xff)) {
+      s.seq = (s.seq + 1) & 0xff;
+    }
+  }
+
+  /** list returns the anchors of the slots on which the radio took a burst. */
+  list(): Anchor[] {
+    const out: Anchor[] = [];
+    this.slots.forEach((s, i) => {
+      if (s) {
+        out.push({ slot: i + 1, stream: s.stream, seq: s.seq });
+      }
+    });
+    return out;
   }
 }
 

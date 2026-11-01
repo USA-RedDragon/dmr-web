@@ -21,7 +21,7 @@ import './wasm_exec.js';
 
 import type { FromWorker, Here, LinkState, RadioConfig, RadioEvent, ToWorker } from './protocol';
 import { discover, HubRefusedError, type HubEndpoint } from './discover';
-import { isDMRD, moveSession, RecentBursts } from './handoff';
+import { Anchors, isDMRD, moveSession, RecentBursts } from './handoff';
 import { Transport } from './transport';
 
 type Result = { ok: boolean; error?: string; version?: number; transmit?: string };
@@ -90,6 +90,7 @@ let pending: Transport | null = null;
 let held: Uint8Array[] = [];
 const retiring = new Set<Transport>();
 const recent = new RecentBursts(DEDUP_MS, MOVE_DEDUP_MS);
+const anchors = new Anchors();
 let locationServer = 0;
 let reportingMs = 0;
 
@@ -157,9 +158,9 @@ function lost(reason: string): void {
 
 /**
  * datagram takes the datagram data of t. The replica that the radio moves
- * to sends the bursts that the old one sent since the drain notice as soon
- * as it takes the login over, in order, so the radio reads the new session
- * from the start. While the move goes on it holds the DMRD packets of the
+ * to sends the bursts that the old one sent after the anchors of the radio
+ * as soon as it takes the login over, in order, so the radio reads the new
+ * session from the start. While the move goes on it holds the DMRD packets of the
  * old session aside, drops them once the new session resumes, and takes
  * them only when it does not.
  */
@@ -181,8 +182,11 @@ function take(data: Uint8Array): void {
   if (!dmr) {
     return;
   }
-  if (isDMRD(data) && recent.repeated(data, performance.now())) {
-    return;
+  if (isDMRD(data)) {
+    anchors.take(data);
+    if (recent.repeated(data, performance.now())) {
+      return;
+    }
   }
   schedule(dmr.packet(performance.now(), data));
 }
@@ -214,6 +218,7 @@ function openTransport(): Transport {
         void move(t, token);
       }
     },
+    anchors: () => anchors.list(),
   });
   return t;
 }

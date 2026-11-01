@@ -57,11 +57,28 @@ function streamOf(text: string): ReadableStream<Uint8Array> {
   });
 }
 
-type Fake = { sent: string[] };
+type Question = { readable: ReadableStream<Uint8Array>; writable: WritableStream<Uint8Array> };
+type Fake = { sent: string[]; url: string; ask: (q: string) => string[] };
 
 function fakeWebTransport(notices: string[], answer: string): Fake {
-  const fake: Fake = { sent: [] };
+  let questions!: ReadableStreamDefaultController<Question>;
+  const fake: Fake = {
+    sent: [],
+    url: '',
+    ask: (q) => {
+      const got: string[] = [];
+      questions.enqueue({
+        readable: streamOf(q),
+        writable: new WritableStream<Uint8Array>({ write: (chunk) => void got.push(new TextDecoder().decode(chunk)) }),
+      });
+      return got;
+    },
+  };
   (globalThis as { WebTransport?: unknown }).WebTransport = class {
+    constructor(url: string) {
+      fake.url = url;
+    }
+    incomingBidirectionalStreams = new ReadableStream<Question>({ start: (c) => void (questions = c) });
     ready = Promise.resolve();
     closed = new Promise(() => undefined);
     datagrams = { readable: new ReadableStream<Uint8Array>(), writable: new WritableStream<Uint8Array>() };
@@ -135,5 +152,39 @@ describe('Transport', () => {
     const t = new Transport({ onDatagram: () => undefined, onClosed: () => undefined });
     await t.connect('https://hub.example:62032/mmdvm');
     expect(await t.resume('tok')).toBe(false);
+  });
+
+  it('opens the session as is and answers no question without anchors', async () => {
+    const fake = fakeWebTransport([], '{"resumed":true}\n');
+    const t = new Transport({ onDatagram: () => undefined, onClosed: () => undefined });
+    await t.connect('https://hub.example:62032/mmdvm');
+    expect(fake.url).toBe('https://hub.example:62032/mmdvm');
+    const answer = fake.ask('{"ask":"anchor"}\n');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(answer).toEqual([]);
+  });
+
+  it('opens the session with the anchor version and sends the anchors to resume', async () => {
+    const fake = fakeWebTransport([], '{"resumed":true}\n');
+    const t = new Transport({
+      onDatagram: () => undefined,
+      onClosed: () => undefined,
+      anchors: () => [{ slot: 1, stream: 8201, seq: 2 }],
+    });
+    await t.connect('https://hub.example:62032/mmdvm');
+    expect(fake.url).toBe('https://hub.example:62032/mmdvm?anchor=1');
+    expect(await t.resume('tok')).toBe(true);
+    expect(fake.sent.join('')).toBe('{"resume":"tok","anchor":[{"slot":1,"stream":8201,"seq":2}]}\n');
+  });
+
+  it('answers the anchor question with the anchors', async () => {
+    const fake = fakeWebTransport([], '');
+    let seq = 2;
+    const t = new Transport({ onDatagram: () => undefined, onClosed: () => undefined, anchors: () => [{ slot: 2, stream: 9, seq }] });
+    await t.connect('https://hub.example:62032/mmdvm');
+    seq = 5;
+    const answer = fake.ask('{"ask":"anchor"}\n');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(answer.join('')).toBe('{"anchor":[{"slot":2,"stream":9,"seq":5}]}\n');
   });
 });

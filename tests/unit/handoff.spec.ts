@@ -18,7 +18,18 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 import { describe, expect, it } from 'vitest';
 
-import { drainToken, isDMRD, moveSession, RecentBursts, resumed, resumeRequest } from '@/radio/handoff';
+import {
+  anchorAnswer,
+  Anchors,
+  askedForAnchors,
+  drainToken,
+  isDMRD,
+  moveSession,
+  RecentBursts,
+  resumed,
+  resumeRequest,
+  withAnchors,
+} from '@/radio/handoff';
 
 function dmrd(seq: number, stream: number, slot2 = false): Uint8Array {
   const p = new Uint8Array(55);
@@ -51,6 +62,13 @@ describe('drainToken', () => {
 describe('resume messages', () => {
   it('asks with the token on one line', () => {
     expect(resumeRequest('t0k')).toBe('{"resume":"t0k"}\n');
+  });
+
+  it('carries the anchors when the radio keeps them', () => {
+    expect(resumeRequest('t0k', [])).toBe('{"resume":"t0k","anchor":[]}\n');
+    expect(resumeRequest('t0k', [{ slot: 2, stream: 9, seq: 4 }])).toBe(
+      '{"resume":"t0k","anchor":[{"slot":2,"stream":9,"seq":4}]}\n',
+    );
   });
 
   it('reads the answer', () => {
@@ -127,5 +145,80 @@ describe('moveSession', () => {
       ),
     ).toBeNull();
     expect(opened).toBe(0);
+  });
+});
+
+describe('anchor messages', () => {
+  it('opens a session with the anchor version', () => {
+    expect(withAnchors('https://hub.example:62032/mmdvm')).toBe('https://hub.example:62032/mmdvm?anchor=1');
+    expect(withAnchors('https://hub.example:62032/mmdvm?x=y')).toBe('https://hub.example:62032/mmdvm?x=y&anchor=1');
+  });
+
+  it('knows the anchor question', () => {
+    expect(askedForAnchors('{"ask":"anchor"}\n')).toBe(true);
+    expect(askedForAnchors('{"ask":"other"}\n')).toBe(false);
+    expect(askedForAnchors('garbage')).toBe(false);
+  });
+
+  it('answers with the anchors on one line', () => {
+    expect(anchorAnswer([])).toBe('{"anchor":[]}\n');
+    expect(anchorAnswer([{ slot: 1, stream: 7, seq: 3 }])).toBe('{"anchor":[{"slot":1,"stream":7,"seq":3}]}\n');
+  });
+});
+
+describe('Anchors', () => {
+  function took(seqs: number[], stream = 81, slot2 = false, a = new Anchors()): Anchors {
+    for (const seq of seqs) {
+      a.take(dmrd(seq, stream, slot2));
+    }
+    return a;
+  }
+
+  it('has no anchor before a burst', () => {
+    expect(new Anchors().list()).toEqual([]);
+  });
+
+  it('moves on with the bursts of a stream in order', () => {
+    expect(took([4, 5, 6]).list()).toEqual([{ slot: 1, stream: 81, seq: 6 }]);
+  });
+
+  it('stays before a missing burst until it comes', () => {
+    const a = took([1, 2, 5, 6]);
+    expect(a.list()).toEqual([{ slot: 1, stream: 81, seq: 2 }]);
+    took([3, 4], 81, false, a);
+    expect(a.list()).toEqual([{ slot: 1, stream: 81, seq: 6 }]);
+  });
+
+  it('ignores copies and older bursts', () => {
+    expect(took([10, 11, 11, 9, 3]).list()).toEqual([{ slot: 1, stream: 81, seq: 11 }]);
+  });
+
+  it('gives a missing burst up 64 bursts later', () => {
+    const seqs = [0];
+    for (let s = 2; s <= 65; s++) {
+      seqs.push(s);
+    }
+    expect(took(seqs.slice(0, -1)).list()).toEqual([{ slot: 1, stream: 81, seq: 0 }]);
+    expect(took(seqs).list()).toEqual([{ slot: 1, stream: 81, seq: 65 }]);
+  });
+
+  it('counts the sequence number round from 255 to 0', () => {
+    expect(took([254, 255, 0, 1]).list()).toEqual([{ slot: 1, stream: 81, seq: 1 }]);
+  });
+
+  it('starts again at a new stream and ignores the one before', () => {
+    const a = took([1, 2, 3]);
+    took([40, 41], 82, false, a);
+    took([4], 81, false, a);
+    expect(a.list()).toEqual([{ slot: 1, stream: 82, seq: 41 }]);
+  });
+
+  it('keeps an anchor for each slot', () => {
+    const a = took([1, 2], 81, false);
+    took([7], 90, true, a);
+    expect(a.list()).toEqual([
+      { slot: 1, stream: 81, seq: 2 },
+      { slot: 2, stream: 90, seq: 7 },
+    ]);
   });
 });

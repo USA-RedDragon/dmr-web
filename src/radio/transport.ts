@@ -18,7 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 import type { CertificateHash } from './discover';
-import { drainToken, resumeRequest, resumed } from './handoff';
+import { anchorAnswer, askedForAnchors, drainToken, resumeRequest, resumed, withAnchors, type Anchor } from './handoff';
 
 export type DatagramWriter = {
   write: (data: Uint8Array) => Promise<void>;
@@ -73,6 +73,12 @@ export type TransportHandlers = {
   onClosed: (reason: string) => void;
   /** onDrain gets the resume token of a hub replica that stops. */
   onDrain?: (token: string) => void;
+  /**
+   * anchors returns the anchors of the radio. With it, the session tells
+   * the hub that it answers the anchor question, and the resume request
+   * carries them.
+   */
+  anchors?: () => Anchor[];
 };
 
 type BidirectionalStream = {
@@ -86,6 +92,7 @@ type WebTransportLike = {
   datagrams: DatagramDuplex;
   close: (info?: { closeCode?: number; reason?: string }) => void;
   incomingUnidirectionalStreams?: ReadableStream<ReadableStream<Uint8Array>>;
+  incomingBidirectionalStreams?: ReadableStream<BidirectionalStream>;
   createBidirectionalStream?: () => Promise<BidirectionalStream>;
 };
 
@@ -139,7 +146,8 @@ export class Transport {
       throw new Error('This browser does not support WebTransport');
     }
     this.closing = false;
-    const wt = new ctor(url, hashes.length ? { serverCertificateHashes: hashes } : undefined);
+    const target = this.handlers.anchors ? withAnchors(url) : url;
+    const wt = new ctor(target, hashes.length ? { serverCertificateHashes: hashes } : undefined);
     this.wt = wt;
     keepIncoming(wt.datagrams);
     wt.closed.then(
@@ -151,6 +159,9 @@ export class Transport {
     void this.read(wt.datagrams.readable);
     if (wt.incomingUnidirectionalStreams) {
       void this.control(wt.incomingUnidirectionalStreams);
+    }
+    if (wt.incomingBidirectionalStreams && this.handlers.anchors) {
+      void this.questions(wt.incomingBidirectionalStreams);
     }
   }
 
@@ -166,7 +177,7 @@ export class Transport {
     const stream = await wt.createBidirectionalStream();
     const writer = stream.writable.getWriter();
     try {
-      await writer.write(new TextEncoder().encode(resumeRequest(token)));
+      await writer.write(new TextEncoder().encode(resumeRequest(token, this.handlers.anchors?.())));
       await writer.close();
     } finally {
       writer.releaseLock();
@@ -229,6 +240,41 @@ export class Transport {
       return;
     } finally {
       reader.releaseLock();
+    }
+  }
+
+  private async questions(streams: ReadableStream<BidirectionalStream>): Promise<void> {
+    const reader = streams.getReader();
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) {
+          return;
+        }
+        if (value) {
+          void this.answer(value);
+        }
+      }
+    } catch {
+      return;
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+  private async answer(stream: BidirectionalStream): Promise<void> {
+    const writer = stream.writable.getWriter();
+    try {
+      const text = await readText(stream.readable);
+      const anchors = this.handlers.anchors;
+      if (anchors && askedForAnchors(text)) {
+        await writer.write(new TextEncoder().encode(anchorAnswer(anchors())));
+      }
+      await writer.close();
+    } catch {
+      return;
+    } finally {
+      writer.releaseLock();
     }
   }
 

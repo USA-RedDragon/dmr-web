@@ -59,8 +59,13 @@ class FakeSession {
   incomingUnidirectionalStreams = new ReadableStream<ReadableStream<Uint8Array>>({
     start: (c) => void (this.notices = c),
   });
+  private questions!: ReadableStreamDefaultController<{ readable: ReadableStream<Uint8Array>; writable: WritableStream<Uint8Array> }>;
+  incomingBidirectionalStreams = new ReadableStream<{ readable: ReadableStream<Uint8Array>; writable: WritableStream<Uint8Array> }>({
+    start: (c) => void (this.questions = c),
+  });
+  requests: string[] = [];
 
-  constructor() {
+  constructor(readonly url: string) {
     FakeSession.all.push(this);
   }
 
@@ -74,8 +79,17 @@ class FakeSession {
           };
         },
       }),
-      writable: new WritableStream<Uint8Array>(),
+      writable: new WritableStream<Uint8Array>({ write: (chunk) => void this.requests.push(new TextDecoder().decode(chunk)) }),
     };
+  }
+
+  ask(question: string): string[] {
+    const answer: string[] = [];
+    this.questions.enqueue({
+      readable: streamOf(question),
+      writable: new WritableStream<Uint8Array>({ write: (chunk) => void answer.push(new TextDecoder().decode(chunk)) }),
+    });
+    return answer;
   }
 
   close() {}
@@ -214,5 +228,41 @@ describe('radio worker', () => {
     old.send(4);
     await settle();
     expect(taken).toEqual([1, 2, 3, 4]);
+  });
+
+  it('opens its sessions as one that answers the anchor question', () => {
+    expect(new URL(FakeSession.all[0]!.url).searchParams.get('anchor')).toBe('1');
+  });
+
+  it('sends the anchor of the bursts that it took in the resume request, not of those it held', async () => {
+    const old = FakeSession.all[0]!;
+    old.send(1);
+    old.send(2);
+    old.send(4);
+    await settle();
+    old.drain('tok');
+    await settle();
+    old.send(3);
+    old.send(5);
+    await settle();
+    const next = FakeSession.all[1]!;
+    expect(JSON.parse(next.requests.join(''))).toEqual({ resume: 'tok', anchor: [{ slot: 1, stream: 7, seq: 2 }] });
+  });
+
+  it('answers the anchor question with the anchor of the bursts that it took', async () => {
+    const s = FakeSession.all[0]!;
+    for (const seq of [1, 2, 3, 5]) {
+      s.send(seq);
+    }
+    await settle();
+    const answer = s.ask('{"ask":"anchor"}\n');
+    await settle();
+    expect(JSON.parse(answer.join(''))).toEqual({ anchor: [{ slot: 1, stream: 7, seq: 3 }] });
+  });
+
+  it('answers a question that it does not know with nothing', async () => {
+    const answer = FakeSession.all[0]!.ask('{"ask":"weather"}\n');
+    await settle();
+    expect(answer).toEqual([]);
   });
 });
