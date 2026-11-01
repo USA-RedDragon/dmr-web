@@ -47,6 +47,7 @@ const (
 	burstPeriod = 60 * time.Millisecond
 	maxLostFill = 5
 	softwareID  = "dmr-web"
+	description = "DMRHub Radio"
 	colorCode   = enums.ColorCode(1)
 )
 
@@ -207,7 +208,7 @@ func rptcFor(cfg *Config) ([]byte, error) {
 	if err := c.SetPackageID([]byte(softwareID)); err != nil {
 		return nil, fmt.Errorf("radio: package ID: %w", err)
 	}
-	if err := c.SetDescription([]byte("dmr-web radio")); err != nil {
+	if err := c.SetDescription([]byte(description)); err != nil {
 		return nil, fmt.Errorf("radio: description: %w", err)
 	}
 	return c[:], nil

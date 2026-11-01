@@ -21,6 +21,7 @@ package radio_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -134,6 +135,7 @@ type hub struct {
 	data   []dmrd.Data
 	at     []time.Duration
 	codecs []*fakeCodec
+	config []byte
 }
 
 func newHub(t *testing.T, ambe bool, opts ...func(*radio.Config)) *hub {
@@ -196,6 +198,7 @@ func (h *hub) master(o dmrdsession.Output) {
 			h.master(x)
 		}
 	case dmrdsession.OutputConfig:
+		h.config = append([]byte(nil), o.Packet...)
 		for _, x := range h.m.Accept(h.now, nil) {
 			h.master(x)
 		}
@@ -230,6 +233,15 @@ func TestLogin(t *testing.T) {
 	h := newHub(t, false)
 	h.login()
 	require.Equal(t, uint32(hotspotID), h.m.ID())
+}
+
+func TestLoginDescription(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false)
+	h.login()
+	c, err := dmrd.MMDVMConfigOf(h.config)
+	require.NoError(t, err)
+	require.Equal(t, "DMRHub Radio", strings.TrimRight(string(c.Description()), " \x00"))
 }
 
 func TestTransmitNeedsLogin(t *testing.T) {
