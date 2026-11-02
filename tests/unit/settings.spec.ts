@@ -22,16 +22,16 @@ import { defaultSettings, mergeSettings, radioIdOf, rptoOptions, validHotspot } 
 
 describe('settings', () => {
   it('takes the radio ID from a 9-digit hotspot ID', () => {
-    expect(radioIdOf(310000101)).toBe(3100001);
-    expect(radioIdOf(3100001)).toBe(3100001);
+    expect(radioIdOf(300220101)).toBe(3002201);
+    expect(radioIdOf(3002201)).toBe(3002201);
   });
 
   it('accepts 7 and 9 digit hotspot IDs only', () => {
-    expect(validHotspot(3100001)).toBe(true);
-    expect(validHotspot(310000101)).toBe(true);
+    expect(validHotspot(3002201)).toBe(true);
+    expect(validHotspot(300220101)).toBe(true);
     expect(validHotspot(31000010)).toBe(false);
     expect(validHotspot(0)).toBe(false);
-    expect(validHotspot(3100001.5)).toBe(false);
+    expect(validHotspot(3002201.5)).toBe(false);
   });
 
   it('builds RPTO options from the static talkgroups', () => {

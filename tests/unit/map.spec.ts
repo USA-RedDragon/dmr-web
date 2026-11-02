@@ -138,9 +138,9 @@ describe('positions', () => {
   const p: Position = { id: 1, latitude: 41.8853, longitude: -87.6213, format: 'lrrp', accuracy: 10, speed: 9.5, heading: 45, at: 1000, slot: 2 };
 
   it('reads a fix and skips one without a position', () => {
-    expect(fromFix(3100002, 2, 41.8853, -87.6213, { format: 'lrrp', valid: true, accuracy: 10 }, 5)).toMatchObject({ id: 3100002, format: 'lrrp', accuracy: 10, speed: null, at: 5 });
-    expect(fromFix(3100002, 2, 0, 0, { format: 'lrrp', valid: false }, 5)).toBeNull();
-    expect(fromFix(3100002, 2, 95, 0, { format: 'nmea', valid: true }, 5)).toBeNull();
+    expect(fromFix(3002202, 2, 41.8853, -87.6213, { format: 'lrrp', valid: true, accuracy: 10 }, 5)).toMatchObject({ id: 3002202, format: 'lrrp', accuracy: 10, speed: null, at: 5 });
+    expect(fromFix(3002202, 2, 0, 0, { format: 'lrrp', valid: false }, 5)).toBeNull();
+    expect(fromFix(3002202, 2, 95, 0, { format: 'nmea', valid: true }, 5)).toBeNull();
   });
 
   it('keeps one position per station for a day', () => {

@@ -108,7 +108,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
         <div class="grid grid-cols-2 gap-3">
           <label class="flex flex-col gap-1.5 text-xs text-radio-muted">
             To radio or group
-            <input v-model="to" :class="[inputClass, 'font-mono text-sm']" placeholder="3100002 or TG 9" autocomplete="off" />
+            <input v-model="to" :class="[inputClass, 'font-mono text-sm']" placeholder="3002202 or TG 9" autocomplete="off" />
           </label>
           <label class="flex flex-col gap-1.5 text-xs text-radio-muted">
             Slot
@@ -196,7 +196,7 @@ const chip = (on: boolean) => (on ? 'border-radio-amber bg-radio-amber-soft font
     </div>
     <form aria-label="Send data" class="flex shrink-0 flex-col gap-2.5 rounded-2xl border border-radio-line bg-radio-raised p-3.5" @submit.prevent="send">
       <div class="grid grid-cols-[minmax(0,1fr)_84px] gap-2">
-        <input v-model="to" aria-label="To radio or group" :class="[inputClass, 'font-mono text-sm']" placeholder="3100002 or TG 9" autocomplete="off" />
+        <input v-model="to" aria-label="To radio or group" :class="[inputClass, 'font-mono text-sm']" placeholder="3002202 or TG 9" autocomplete="off" />
         <select v-model.number="slot" aria-label="Slot" :class="select"><option :value="2">TS2</option><option :value="1">TS1</option></select>
       </div>
       <div role="radiogroup" aria-label="Delivery" class="grid grid-cols-2 gap-1 rounded-xl border border-radio-line bg-radio-page p-1">

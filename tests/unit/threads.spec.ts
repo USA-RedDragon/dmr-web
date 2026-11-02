@@ -24,8 +24,8 @@ import { autoFormat, formatLabel, fromHub, type HubMessage, keyOf, matchHub, MAX
 describe('threads', () => {
   it('keys a peer and reads the key back', () => {
     expect(keyOf({ group: true, id: 91 })).toBe('g91');
-    expect(keyOf({ group: false, id: 3100002 })).toBe('u3100002');
-    expect(peerOf('u3100002')).toEqual({ group: false, id: 3100002 });
+    expect(keyOf({ group: false, id: 3002202 })).toBe('u3002202');
+    expect(peerOf('u3002202')).toEqual({ group: false, id: 3002202 });
     expect(peerOf('g91')).toEqual({ group: true, id: 91 });
     expect(peerOf('x1')).toBeNull();
     expect(peerOf('u0')).toBeNull();
@@ -58,8 +58,8 @@ describe('threads', () => {
 const hubMsg: HubMessage = {
   id: 7,
   received_at: '2026-10-23T14:00:00Z',
-  source_id: 3100002,
-  destination_id: 3100001,
+  source_id: 3002202,
+  destination_id: 3002201,
   group: false,
   format: 'defined_data',
   text: 'hello',
@@ -69,11 +69,11 @@ const hubMsg: HubMessage = {
 
 describe('hub messages', () => {
   it('puts an inbox message in the thread of its sender', () => {
-    expect(fromHub(hubMsg, 'inbox')).toMatchObject({ key: 'u3100002', dir: 'in', format: 'dd', status: 'received', hub: 7, at: Date.parse('2026-10-23T14:00:00Z') });
+    expect(fromHub(hubMsg, 'inbox')).toMatchObject({ key: 'u3002202', dir: 'in', format: 'dd', status: 'received', hub: 7, at: Date.parse('2026-10-23T14:00:00Z') });
   });
 
   it('puts an outbox message in the thread of its target, with its answer', () => {
-    expect(fromHub({ ...hubMsg, source_id: 3100001, destination_id: 3100002 }, 'outbox')).toMatchObject({ key: 'u3100002', dir: 'out', status: 'delivered' });
+    expect(fromHub({ ...hubMsg, source_id: 3002201, destination_id: 3002202 }, 'outbox')).toMatchObject({ key: 'u3002202', dir: 'out', status: 'delivered' });
     expect(fromHub({ ...hubMsg, response: 'nack' }, 'outbox')).toMatchObject({ status: 'failed' });
     expect(fromHub({ ...hubMsg, group: true, destination_id: 91, response: '' }, 'outbox')).toMatchObject({ key: 'g91', status: 'sent' });
   });

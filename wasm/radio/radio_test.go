@@ -36,8 +36,8 @@ import (
 )
 
 const (
-	hotspotID = 310000101
-	radioID   = 3100001
+	hotspotID = 300220101
+	radioID   = 3002201
 	step      = 10 * time.Millisecond
 )
 
@@ -364,7 +364,7 @@ func (h *hub) receive(slots [][9]byte, drop func(seq uint8) bool) {
 	h.t.Helper()
 	tx, err := voice.NewTransmitter(&voice.TransmitterConfig{ColorCode: 1, Slot: enums.Slot1, Source: layer2.SyncSourceBS, Queue: 64})
 	require.NoError(h.t, err)
-	call := voice.Call{Group: true, Target: 8, Source: 3100002, FID: 0xC2}
+	call := voice.Call{Group: true, Target: 8, Source: 3002202, FID: 0xC2}
 	require.NoError(h.t, tx.Start(0, call, nil))
 	for _, s := range slots {
 		require.NoError(h.t, tx.VocoderSlot(s))
@@ -383,7 +383,7 @@ func (h *hub) receive(slots [][9]byte, drop func(seq uint8) bool) {
 			if drop != nil && drop(d.Seq) {
 				continue
 			}
-			require.NoError(h.t, d.SetCall(true, 8, 3100002))
+			require.NoError(h.t, d.SetCall(true, 8, 3002202))
 			require.NoError(h.t, d.SetHint(o.Hint))
 			b, err := d.AppendBinary(nil)
 			require.NoError(h.t, err)
@@ -415,7 +415,7 @@ func TestReceiveCall(t *testing.T) {
 	require.Equal(t, 1, c.Slot)
 	require.True(t, c.Group)
 	require.Equal(t, uint32(8), c.Target)
-	require.Equal(t, uint32(3100002), c.Source)
+	require.Equal(t, uint32(3002202), c.Source)
 	require.Equal(t, radio.VocoderCodec2, c.Vocoder)
 	require.Equal(t, 18*160, h.s.audio[1])
 	require.True(t, h.s.has(radio.EventCallEnd))

@@ -24,9 +24,9 @@ import { hotspotOf, placeOf } from '@/store/account';
 
 describe('suffixes', () => {
   it('reads the suffixes of the radio ID only', () => {
-    expect(suffixes(3100001, [310000102, 310000101, 310000201, 3100001])).toEqual(['01', '02']);
-    expect(nextSuffix(3100001, [310000101, 310000102])).toBe('03');
-    expect(nextSuffix(3100001, [310000102])).toBe('01');
+    expect(suffixes(3002201, [300220102, 300220101, 300220201, 3002201])).toEqual(['01', '02']);
+    expect(nextSuffix(3002201, [300220101, 300220102])).toBe('03');
+    expect(nextSuffix(3002201, [300220102])).toBe('01');
   });
 
   it('words the taken suffixes', () => {
@@ -37,10 +37,10 @@ describe('suffixes', () => {
 
 describe('hotspotError', () => {
   it('wants 7 or 9 digits that start with the radio ID', () => {
-    expect(hotspotError('310000102', 3100001)).toBe('');
-    expect(hotspotError('3100001', 3100001)).toBe('');
-    expect(hotspotError('31000', 3100001)).toBe('Hotspot IDs are 7 or 9 digits and start with your radio ID (3100001).');
-    expect(hotspotError('310000201', 3100001)).not.toBe('');
+    expect(hotspotError('300220102', 3002201)).toBe('');
+    expect(hotspotError('3002201', 3002201)).toBe('');
+    expect(hotspotError('31000', 3002201)).toBe('Hotspot IDs are 7 or 9 digits and start with your radio ID (3002201).');
+    expect(hotspotError('300220201', 3002201)).not.toBe('');
   });
 });
 
@@ -68,8 +68,8 @@ describe('mergeStatics', () => {
 describe('hotspotOf', () => {
   it('reads the repeater JSON of the hub', () => {
     expect(
-      hotspotOf({ id: 310000101, callsign: 'N0CALL', description: 'dmr-web radio', city: 'Austin', state: 'TX', ts1_static_talkgroups: null, ts2_static_talkgroups: [{ id: 91 }] }),
-    ).toEqual({ id: 310000101, callsign: 'N0CALL', description: 'dmr-web radio', location: 'Austin, TX', ts1: [], ts2: [91] });
+      hotspotOf({ id: 300220101, callsign: 'N0CALL', description: 'dmr-web radio', city: 'Austin', state: 'TX', ts1_static_talkgroups: null, ts2_static_talkgroups: [{ id: 91 }] }),
+    ).toEqual({ id: 300220101, callsign: 'N0CALL', description: 'dmr-web radio', location: 'Austin, TX', ts1: [], ts2: [91] });
   });
 });
 
@@ -84,6 +84,6 @@ describe('placeOf', () => {
   });
 
   it('is used for the hub location', () => {
-    expect(hotspotOf({ id: 310000101, location: ', ,', city: 'Austin', state: 'TX', ts1_static_talkgroups: null, ts2_static_talkgroups: null }).location).toBe('Austin, TX');
+    expect(hotspotOf({ id: 300220101, location: ', ,', city: 'Austin', state: 'TX', ts1_static_talkgroups: null, ts2_static_talkgroups: null }).location).toBe('Austin, TX');
   });
 });

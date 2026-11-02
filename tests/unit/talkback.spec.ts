@@ -21,33 +21,33 @@ import { describe, expect, it } from 'vitest';
 
 import { left, live, rxEnd, rxStart, TALKBACK_MS, txEnd, txStart } from '@/lib/talkback';
 
-const self = 3100001;
+const self = 3002201;
 
 describe('talkback', () => {
   it('opens on a private call to this radio only', () => {
-    expect(rxStart(null, self, 3100002, self, false, 2)).toEqual({ id: 3100002, slot: 2, until: Infinity });
-    expect(rxStart(null, self, 3100002, 91, true, 2)).toBeNull();
-    expect(rxStart(null, self, 3100002, 3100003, false, 2)).toBeNull();
+    expect(rxStart(null, self, 3002202, self, false, 2)).toEqual({ id: 3002202, slot: 2, until: Infinity });
+    expect(rxStart(null, self, 3002202, 91, true, 2)).toBeNull();
+    expect(rxStart(null, self, 3002202, 3002203, false, 2)).toBeNull();
   });
 
   it('counts down after the over and after each reply', () => {
-    let tb = rxStart(null, self, 3100002, self, false, 2);
-    tb = rxEnd(tb, 3100002, 2, 1000);
+    let tb = rxStart(null, self, 3002202, self, false, 2);
+    tb = rxEnd(tb, 3002202, 2, 1000);
     expect(tb!.until).toBe(1000 + TALKBACK_MS);
     expect(live(tb, 1000 + TALKBACK_MS - 1)).not.toBeNull();
     expect(live(tb, 1000 + TALKBACK_MS)).toBeNull();
-    tb = txStart(tb, 3100002, false);
+    tb = txStart(tb, 3002202, false);
     expect(tb!.until).toBe(Infinity);
-    tb = txEnd(tb, 3100002, false, 5000);
+    tb = txEnd(tb, 3002202, false, 5000);
     expect(tb!.until).toBe(5000 + TALKBACK_MS);
   });
 
   it('ignores other stations and group calls', () => {
-    const tb = { id: 3100002, slot: 2, until: 9000 };
-    expect(rxEnd(tb, 3100003, 2, 1000)).toBe(tb);
-    expect(rxEnd(tb, 3100002, 1, 1000)).toBe(tb);
+    const tb = { id: 3002202, slot: 2, until: 9000 };
+    expect(rxEnd(tb, 3002203, 2, 1000)).toBe(tb);
+    expect(rxEnd(tb, 3002202, 1, 1000)).toBe(tb);
     expect(txStart(tb, 91, true)).toBe(tb);
-    expect(txEnd(tb, 3100003, false, 1000)).toBe(tb);
+    expect(txEnd(tb, 3002203, false, 1000)).toBe(tb);
   });
 
   it('says how much is left', () => {

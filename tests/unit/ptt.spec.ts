@@ -94,7 +94,7 @@ describe('RadioClient.microphone', () => {
 describe('radio store PTT', () => {
   function connected(): { radio: ReturnType<typeof useRadio>; worker: () => FakeWorker; emit: (m: FromWorker) => void } {
     const settings = useSettings();
-    settings.settings.hotspot.id = 3191868;
+    settings.settings.hotspot.id = 3002068;
     settings.settings.hotspot.password = 'x';
     const radio = useRadio();
     radio.init();

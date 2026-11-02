@@ -21,8 +21,8 @@ import { describe, expect, it } from 'vitest';
 import { ASK_MS, SHOW_MS, phaseOf } from '@/lib/positionRequest';
 import type { LocationRequest, Position } from '@/store/positions';
 
-const pos = (at: number): Position => ({ id: 3100002, latitude: 41.8853, longitude: -87.6213, format: 'lrrp', accuracy: 10, speed: null, heading: null, at, slot: 2 });
-const req = (startedAt: number, status: LocationRequest['status']): LocationRequest => ({ id: 1, target: 3100002, slot: 2, startedAt, status, reason: '' });
+const pos = (at: number): Position => ({ id: 3002202, latitude: 41.8853, longitude: -87.6213, format: 'lrrp', accuracy: 10, speed: null, heading: null, at, slot: 2 });
+const req = (startedAt: number, status: LocationRequest['status']): LocationRequest => ({ id: 1, target: 3002202, slot: 2, startedAt, status, reason: '' });
 
 describe('phaseOf', () => {
   const now = 10 * SHOW_MS;

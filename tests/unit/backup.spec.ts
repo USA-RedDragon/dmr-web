@@ -24,7 +24,7 @@ import { defaultSettings } from '@/store/settings';
 describe('backup', () => {
   const content = () => {
     const settings = defaultSettings();
-    settings.hotspot.id = 310000101;
+    settings.hotspot.id = 300220101;
     settings.hotspot.password = 'secret';
     return { settings, theme: 'dark' };
   };
@@ -72,13 +72,13 @@ describe('backup', () => {
 
   it('imports a part without touching the rest', () => {
     const cur = defaultSettings();
-    cur.hotspot.id = 310000101;
+    cur.hotspot.id = 300220101;
     cur.hotspot.password = 'mine';
     cur.hotspot.callsign = 'N0CALL';
     const from = content().settings;
     from.hotspot.callsign = 'N1CALL';
     const next = applyParts(cur, pickParts(from, 'dark', ['identity']).settings);
-    expect(next.hotspot).toEqual({ id: 310000101, password: 'mine', callsign: 'N1CALL', location: '' });
+    expect(next.hotspot).toEqual({ id: 300220101, password: 'mine', callsign: 'N1CALL', location: '' });
     const both = applyParts(cur, pickParts(from, 'dark', ['hotspot']).settings);
     expect(both.hotspot.password).toBe('secret');
     expect(both.hotspot.callsign).toBe('N0CALL');

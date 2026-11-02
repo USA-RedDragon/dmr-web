@@ -36,7 +36,7 @@ describe('ShareLocation', () => {
       host: 'hub.example.org',
       meta: { issuer: '', authorization_endpoint: '', token_endpoint: '', revocation_endpoint: '' },
       tokens: { access: '', refresh: '', expiresAt: 0, scope: [] },
-      user: { id: 3100001, callsign: 'N0CALL', username: 'n0call', positionTracking: false },
+      user: { id: 3002201, callsign: 'N0CALL', username: 'n0call', positionTracking: false },
     } as never;
     const wrapper = mount(ShareLocation, { global: { plugins: [pinia] } });
     const link = wrapper.find('a');

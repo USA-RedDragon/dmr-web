@@ -24,10 +24,10 @@ const blank = { callsign: '', name: '', city: '', state: '', country: '', flag: 
 
 describe('listable', () => {
   it('takes radio IDs and the parrot, not talkgroups or hotspots', () => {
-    expect(listable(3100001)).toBe(true);
+    expect(listable(3002201)).toBe(true);
     expect(listable(9990)).toBe(true);
     expect(listable(3100)).toBe(false);
-    expect(listable(310000101)).toBe(false);
+    expect(listable(300220101)).toBe(false);
   });
 });
 

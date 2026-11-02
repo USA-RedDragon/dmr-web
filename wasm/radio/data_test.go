@@ -38,7 +38,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const remoteID = 3100002
+const remoteID = 3002202
 
 type station struct {
 	t      *testing.T
@@ -357,7 +357,7 @@ func TestRadioCheckNoAnswer(t *testing.T) {
 	h := newHub(t, false)
 	h.login()
 	s := newStation(t, h, false)
-	require.NoError(t, h.r.CheckRadio(h.now, 31, 2, radio.CheckRadio, 3100099))
+	require.NoError(t, h.r.CheckRadio(h.now, 31, 2, radio.CheckRadio, 3002299))
 	s.run(10 * time.Second)
 
 	e, ok := h.s.first(radio.EventCheck)

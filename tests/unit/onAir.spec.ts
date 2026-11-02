@@ -24,7 +24,7 @@ describe('entryOf', () => {
   it('reads a DMRHub last heard row', () => {
     const e = entryOf({
       id: 7,
-      user: { id: 3100001, callsign: 'N0CALL' },
+      user: { id: 3002201, callsign: 'N0CALL' },
       start_time: '2026-10-23T08:00:00Z',
       duration: 12_400_000_000,
       active: false,
@@ -32,9 +32,9 @@ describe('entryOf', () => {
       is_to_talkgroup: true,
       to_talkgroup: { id: 3100, name: 'USA' },
       destination_id: 3100,
-      source_id: 3100001,
+      source_id: 3002201,
     });
-    expect(e).toMatchObject({ callsign: 'N0CALL', source: 3100001, target: 'TG 3100', seconds: 12, active: false });
+    expect(e).toMatchObject({ callsign: 'N0CALL', source: 3002201, target: 'TG 3100', seconds: 12, active: false });
   });
 
   it('falls back to the ID for an unknown user', () => {
@@ -45,10 +45,10 @@ describe('entryOf', () => {
       active: true,
       group_call: false,
       is_to_talkgroup: false,
-      destination_id: 3100002,
-      source_id: 3100009,
+      destination_id: 3002202,
+      source_id: 3002209,
     });
-    expect(e).toMatchObject({ callsign: '3100009', target: 'Private', active: true });
+    expect(e).toMatchObject({ callsign: '3002209', target: 'Private', active: true });
   });
 });
 
@@ -61,7 +61,7 @@ describe('mergeCall', () => {
     group_call: true,
     is_to_talkgroup: true,
     destination_id: 91,
-    source_id: 3100001,
+    source_id: 3002201,
     ...extra,
   });
 
