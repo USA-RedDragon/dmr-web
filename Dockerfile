@@ -1,3 +1,7 @@
+ARG PREVIOUS_IMAGE=ghcr.io/usa-reddragon/dmr-web:main
+
+FROM --platform=$BUILDPLATFORM ${PREVIOUS_IMAGE} AS previous
+
 FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS wasm
 
 WORKDIR /src/wasm
@@ -17,11 +21,24 @@ COPY --from=wasm /out/radio.wasm src/radio/radio.wasm
 COPY --from=wasm /out/wasm_exec.js src/radio/wasm_exec.js
 RUN npm run build:tsc && npx vite build
 
+FROM --platform=$BUILDPLATFORM alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f AS carry
+ARG CARRY_FIRST_BUILD
+COPY scripts/carry-assets.sh /carry-assets.sh
+COPY --from=web /src/dist /out/html
+RUN --mount=type=bind,from=previous,target=/previous \
+    sh /carry-assets.sh \
+      /previous/usr/share/nginx/carry-builds /out/carry-builds \
+      /previous/usr/share/nginx/html/assets /out/html/assets \
+ && if [ ! -f /previous/usr/share/nginx/carry-builds ] && [ -f /previous/usr/share/nginx/html/radio.wasm ]; then \
+      cp -p /previous/usr/share/nginx/html/radio.wasm /out/html/radio.wasm; \
+    fi
+
 FROM nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
 
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/headers.conf /etc/nginx/headers.conf
-COPY --from=web /src/dist /usr/share/nginx/html
+COPY --from=carry /out/html /usr/share/nginx/html
+COPY --from=carry /out/carry-builds /usr/share/nginx/carry-builds
 
 USER 101:101
 EXPOSE 8080
