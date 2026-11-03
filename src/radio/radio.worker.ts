@@ -18,6 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 import './wasm_exec.js';
+import radioWasm from './radio.wasm?url';
 
 import type { FromWorker, Here, LinkState, RadioConfig, RadioEvent, ToWorker } from './protocol';
 import { discover, HubRefusedError, type HubEndpoint } from './discover';
@@ -479,8 +480,7 @@ function handle(msg: ToWorker): void {
 
 async function boot(): Promise<void> {
   const go = new scope.Go();
-  const url = new URL('/radio.wasm', self.location.origin);
-  const { instance } = await WebAssembly.instantiateStreaming(fetch(url), go.importObject);
+  const { instance } = await WebAssembly.instantiateStreaming(fetch(radioWasm), go.importObject);
   void go.run(instance);
   if (!scope.dmrweb) {
     throw new Error('the radio module did not start');

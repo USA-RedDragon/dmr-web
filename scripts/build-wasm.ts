@@ -18,7 +18,7 @@
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,8 +26,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const wasmDir = join(root, 'wasm');
 
 const env = { ...process.env, GOOS: 'js', GOARCH: 'wasm', CGO_ENABLED: '0' };
-mkdirSync(join(root, 'public'), { recursive: true });
-execFileSync('go', ['build', '-trimpath', '-ldflags=-s -w', '-o', join(root, 'public', 'radio.wasm'), './cmd/radio'], {
+execFileSync('go', ['build', '-trimpath', '-ldflags=-s -w', '-o', join(root, 'src', 'radio', 'radio.wasm'), './cmd/radio'], {
   cwd: wasmDir,
   env,
   stdio: 'inherit',

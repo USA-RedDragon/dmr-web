@@ -22,6 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RadioConfig, ToWorker } from '@/radio/protocol';
 
 vi.mock('@/radio/wasm_exec.js', () => ({}));
+vi.mock('@/radio/radio.wasm?url', () => ({ default: '/assets/radio-test.wasm' }));
 
 vi.mock('@/radio/discover', () => ({
   discover: vi.fn(async () => ({ url: 'https://hub.example:62032/mmdvm', hashes: [] })),

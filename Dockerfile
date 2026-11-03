@@ -13,7 +13,7 @@ WORKDIR /src
 COPY package.json package-lock.json ./
 RUN CYPRESS_INSTALL_BINARY=0 npm ci
 COPY . .
-COPY --from=wasm /out/radio.wasm public/radio.wasm
+COPY --from=wasm /out/radio.wasm src/radio/radio.wasm
 COPY --from=wasm /out/wasm_exec.js src/radio/wasm_exec.js
 RUN npm run build:tsc && npx vite build
 

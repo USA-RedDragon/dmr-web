@@ -14,7 +14,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['favicon.svg', 'icons/*.png', 'radio.wasm'],
+      includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
         name: APP_NAME,
         short_name: APP_NAME,
