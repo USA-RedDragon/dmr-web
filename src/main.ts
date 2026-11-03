@@ -26,8 +26,10 @@ import './assets/main.css';
 
 import App from './App.vue';
 import { captureInstallPrompt } from './lib/install';
+import { staleBuildReloader } from './lib/staleBuild';
 import router from './router';
 
+window.addEventListener('vite:preloadError', staleBuildReloader(sessionStorage, Date.now, () => window.location.reload()));
 captureInstallPrompt();
 
 const app = createApp(App);
