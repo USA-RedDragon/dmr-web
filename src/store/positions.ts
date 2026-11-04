@@ -46,7 +46,7 @@ export type LocationRequest = { id: number; target: number; slot: number; starte
 /** LocationService is one of the location service IDs 5050 to 5059, and the APRS symbol that reporting to it gives. */
 export type LocationService = { id: number; symbol: string };
 
-/** LOCATION_SERVICES are the location service IDs, as BrandMeister assigns their APRS symbols. */
+/** LOCATION_SERVICES are the location service IDs and the APRS symbols that are in common use for them. */
 export const LOCATION_SERVICES: LocationService[] = [
   { id: 5050, symbol: 'House' },
   { id: 5051, symbol: 'Train' },

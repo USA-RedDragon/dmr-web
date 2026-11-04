@@ -32,8 +32,8 @@ import (
 
 // DefaultLocationServer is the radio ID that the radio registers with and
 // reports its position to unless Config says otherwise: 5057, one of the
-// location service IDs 5050 to 5059 that BrandMeister uses as its radios'
-// ARS and location server, and whose APRS symbol is a person.
+// location service IDs 5050 to 5059 in common use as the ARS and location
+// server of radios, and whose APRS symbol is a person.
 const DefaultLocationServer = 5057
 
 // ValidLocationServer reports whether id is one of the location service
