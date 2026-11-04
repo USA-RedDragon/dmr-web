@@ -24,6 +24,7 @@ import { loadModule, removeModule, saveModule, sha256Hex } from '@/lib/ambeStore
 import { live, rxEnd, rxStart, type Talkback, txEnd, txStart } from '@/lib/talkback';
 import { RadioClient } from '@/radio/client';
 import type { DataRate, DataSap, FromWorker, LinkState, RadioEvent, RadioStats } from '@/radio/protocol';
+import type { ListenCall, ListenTalkgroup } from '@/radio/listen';
 import { webTransportSupported } from '@/radio/transport';
 
 import { useContacts } from './contacts';
@@ -55,6 +56,17 @@ export type HeardEntry = {
   at: number;
   seconds: number;
   self: boolean;
+  /** callsign is the callsign that the hub sent for a call of listen mode. */
+  callsign?: string;
+};
+
+/** ListenState is what the listen monitor of the hub told a listen-only radio. */
+export type ListenState = {
+  network: string;
+  talkgroups: ListenTalkgroup[];
+  tuned: number;
+  error: string;
+  calls: Record<number, ListenCall>;
 };
 
 export type LogEntry = { at: number; text: string };
@@ -125,6 +137,7 @@ export const useRadio = defineStore('radio', () => {
   const ambe = reactive<AmbeState>({ status: 'none', name: '', sha256: '', version: 0, error: '' });
   const upSince = ref(0);
   const client = shallowRef<RadioClient | null>(null);
+  const listenState = reactive<ListenState>({ network: '', talkgroups: [], tuned: 0, error: '', calls: {} });
   let pendingAmbe: { bytes: Uint8Array; name: string; sha256: string } | null = null;
 
   const supported = webTransportSupported();
@@ -138,7 +151,9 @@ export const useRadio = defineStore('radio', () => {
   }
 
   function remember(entry: HeardEntry): void {
-    if (!entry.self) {
+    if (settingsStore.listenOnly) {
+      entry.callsign = listenState.calls[entry.source]?.callsign ?? '';
+    } else if (!entry.self) {
       contactsStore.heard(entry.source, entry.alias.trim().split(/\s+/)[0] ?? '', entry.at, entry.target, entry.group);
     }
     heard.value.unshift(entry);
@@ -513,11 +528,62 @@ export const useRadio = defineStore('radio', () => {
           positionsStore.requestStatus(msg.id, 'failed', msg.error ?? 'refused');
         }
         break;
+      case 'listen':
+        onListen(msg.message);
+        break;
       case 'fatal':
         fatal.value = msg.error;
         addLog(`Fatal: ${msg.error}`);
         break;
     }
+  }
+
+  function onListen(m: Extract<FromWorker, { type: 'listen' }>['message']): void {
+    switch (m.type) {
+      case 'hello': {
+        listenState.network = m.network;
+        listenState.talkgroups = m.talkgroups;
+        const want = settingsStore.settings.listenTalkgroup;
+        if (m.talkgroups.length > 0 && !m.talkgroups.some((t) => t.id === want)) {
+          tune(m.talkgroups[0]!.id);
+        }
+        break;
+      }
+      case 'tuned':
+        listenState.tuned = m.talkgroup;
+        listenState.error = m.error;
+        addLog(m.error ? `Tune refused: ${m.error}` : `Listening to TG ${m.talkgroup}`);
+        break;
+      case 'call': {
+        const { type: _type, ...call } = m;
+        void _type;
+        listenState.calls[call.source] = call;
+        break;
+      }
+    }
+  }
+
+  /** listen starts listen mode on the hub of the settings. Call it from a click, so the browser plays the audio. */
+  function listen(): void {
+    const s = settingsStore.settings;
+    if (!client.value) {
+      return;
+    }
+    void client.value.audio().catch(() => undefined);
+    Object.assign(listenState, { tuned: 0, error: '', calls: {} });
+    heard.value = [];
+    client.value.listen(s.hub.host, s.listenTalkgroup, s.jitterMs);
+  }
+
+  /** tune tunes listen mode to the talkgroup tg. */
+  function tune(tg: number): void {
+    settingsStore.settings.listenTalkgroup = tg;
+    client.value?.tune(tg);
+  }
+
+  /** resumeAudio starts the audio of listen mode after a reload, at the first click. */
+  function resumeAudio(): void {
+    void client.value?.audio().catch(() => undefined);
   }
 
   function init(): void {
@@ -726,6 +792,10 @@ export const useRadio = defineStore('radio', () => {
     init,
     connect,
     disconnect,
+    listen,
+    tune,
+    resumeAudio,
+    listenState,
     pttDown,
     sendText,
     check,

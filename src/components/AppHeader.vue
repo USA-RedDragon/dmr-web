@@ -42,8 +42,14 @@ const router = useRouter();
 
 const inSettings = computed(() => String(route.name ?? '').startsWith('settings'));
 
+const listening = computed(() => store.listenOnly && !account.loggedIn);
+
 const pill = computed(() => {
   const hub = store.settings.hub.host;
+  if (listening.value) {
+    const on = radio.link === 'up';
+    return { dot: on ? 'bg-radio-amber' : radio.link === 'failed' ? 'bg-radio-red' : 'bg-led-off', text: `Listening to ${hub.replace(/^https?:\/\//, '')}`, extra: [] };
+  }
   switch (radio.link) {
     case 'up':
       return { dot: 'bg-radio-green', text: hub, extra: ['WebTransport', `Hotspot ${store.settings.hotspot.id}`] };
@@ -60,6 +66,9 @@ const pill = computed(() => {
 
 const short = computed(() => {
   const host = store.settings.hub.host.replace(/^https?:\/\//, '');
+  if (listening.value) {
+    return radio.link === 'failed' ? 'No link' : 'Listening';
+  }
   switch (radio.link) {
     case 'failed':
       return 'No link';
@@ -69,6 +78,12 @@ const short = computed(() => {
       return host;
   }
 });
+
+function logInToTalk(): void {
+  radio.disconnect();
+  store.settings.mode = 'talk';
+  void router.push('/');
+}
 
 function toggleSettings(): void {
   if (inSettings.value) {
@@ -98,6 +113,15 @@ function toggleSettings(): void {
         <span class="truncate">{{ pill.text }}</span>
         <span v-for="x in pill.extra" :key="x" class="hidden text-radio-muted md:inline">{{ x }}</span>
       </div>
+      <button
+        v-if="listening"
+        type="button"
+        data-test="log-in-to-talk"
+        class="h-11 shrink-0 whitespace-nowrap rounded-[10px] border border-radio-line bg-radio-surface px-4 text-sm font-semibold text-radio-text rail:hidden"
+        @click="logInToTalk"
+      >
+        Log in to talk
+      </button>
       <button
         type="button"
         :aria-label="inSettings ? 'Close settings' : 'Settings'"

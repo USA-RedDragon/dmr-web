@@ -22,21 +22,27 @@
 <script setup lang="ts">
 import { LockOpen, Radio, ScrollText } from 'lucide-vue-next';
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import RadioLogo from '@/components/RadioLogo.vue';
 import { kvGet, kvSet } from '@/lib/kv';
+import { useAccount } from '@/store/account';
+import { useSettings } from '@/store/settings';
 
 const KEY = 'realRadioNoticeSeen';
 
-const open = ref(false);
+const store = useSettings();
+const account = useAccount();
+const unseen = ref(false);
+const talking = computed(() => store.loaded && (store.configured || account.loggedIn || store.settings.mode === 'talk'));
+const open = computed(() => unseen.value && talking.value);
 
 onMounted(async () => {
-  open.value = !(await kvGet<boolean>(KEY));
+  unseen.value = !(await kvGet<boolean>(KEY));
 });
 
 function understood(): void {
-  open.value = false;
+  unseen.value = false;
   void kvSet(KEY, true).catch(() => undefined);
 }
 

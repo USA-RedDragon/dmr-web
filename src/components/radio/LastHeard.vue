@@ -31,9 +31,10 @@ import type { HeardEntry } from '@/store/radio';
 
 import VocoderBadge from './VocoderBadge.vue';
 
-const props = withDefaults(defineProps<{ entries: HeardEntry[]; limit?: number; compact?: boolean }>(), {
+const props = withDefaults(defineProps<{ entries: HeardEntry[]; limit?: number; compact?: boolean; listen?: boolean }>(), {
   limit: 8,
   compact: false,
+  listen: false,
 });
 
 const names = useNames();
@@ -43,7 +44,7 @@ useInertOverflow(rowsBox);
 const shown = computed(() => props.entries.slice(0, props.limit));
 
 function callsign(e: HeardEntry): string {
-  return e.alias.trim().split(/\s+/)[0]?.toUpperCase() || names.callsign(e.source);
+  return e.callsign || e.alias.trim().split(/\s+/)[0]?.toUpperCase() || names.callsign(e.source);
 }
 
 function when(e: HeardEntry): string {
@@ -65,14 +66,14 @@ function when(e: HeardEntry): string {
       class="flex w-full items-center gap-1 border-radio-line"
       :class="[compact ? 'gap-0.5 py-0.5' : 'py-1.5', i > 0 || compact ? 'border-t' : '']"
     >
-      <StarButton v-if="!e.self" :id="e.source" :callsign="callsign(e)" :heard="{ at: e.at, target: e.target, group: e.group }" class="-ml-2.5" />
-      <span v-else class="-ml-2.5 size-11 shrink-0" aria-hidden="true" />
+      <StarButton v-if="!e.self && !listen" :id="e.source" :callsign="callsign(e)" :heard="{ at: e.at, target: e.target, group: e.group }" class="-ml-2.5" />
+      <span v-else-if="!listen" class="-ml-2.5 size-11 shrink-0" aria-hidden="true" />
       <div class="flex min-w-0 grow flex-col gap-0.5">
         <span class="truncate font-mono font-semibold" :class="compact ? 'text-sm' : ''">
           {{ callsign(e) || e.source }}<template v-if="e.self"> (you)</template>
         </span>
         <span class="truncate text-radio-muted" :class="compact ? 'text-[11px]' : 'text-xs'">
-          {{ e.group ? `TG ${e.target}` : 'Private' }} · TS{{ e.slot }} · {{ when(e) }} · {{ e.seconds }} s
+          {{ e.group ? `TG ${e.target}` : 'Private' }}<template v-if="!listen"> · TS{{ e.slot }}</template> · {{ when(e) }} · {{ e.seconds }} s
         </span>
       </div>
       <VocoderBadge :vocoder="e.vocoder" />

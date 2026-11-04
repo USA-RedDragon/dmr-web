@@ -21,11 +21,13 @@
 
 <script setup lang="ts">
 import { useEventListener, useMediaQuery, useWakeLock } from '@vueuse/core';
-import { computed, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 
 import HotspotPicker from '@/components/account/HotspotPicker.vue';
 import AppNav from '@/components/AppNav.vue';
 import LastHeard from '@/components/radio/LastHeard.vue';
+import ListenChooser from '@/components/radio/ListenChooser.vue';
+import ListenPanel from '@/components/radio/ListenPanel.vue';
 import OnAir from '@/components/radio/OnAir.vue';
 import LinkNotice from '@/components/radio/LinkNotice.vue';
 import MicDialogs from '@/components/radio/MicDialogs.vue';
@@ -42,7 +44,9 @@ const account = useAccount();
 const desktop = useMediaQuery('(min-width: 1024px)');
 const wake = useWakeLock();
 
-const showSetup = computed(() => !store.configured && !account.loggedIn);
+const firstVisit = computed(() => !store.configured && !account.loggedIn && store.settings.mode === '');
+const listening = computed(() => store.listenOnly && !account.loggedIn);
+const showSetup = computed(() => !store.configured && !account.loggedIn && !firstVisit.value && !listening.value);
 const choosing = computed(() => !store.configured && account.loggedIn);
 const idle = computed(() => radio.link === 'idle');
 const hubLink = computed(() => {
@@ -52,7 +56,26 @@ const hubLink = computed(() => {
     return 'https://dmrhub.net';
   }
 });
-const showFailure = computed(() => !radio.supported || radio.link === 'failed');
+const showFailure = computed(() => !firstVisit.value && !listening.value && (!radio.supported || radio.link === 'failed'));
+
+function pick(mode: 'listen' | 'talk'): void {
+  store.settings.mode = mode;
+  if (mode === 'listen') {
+    radio.listen();
+  }
+}
+
+onMounted(() => {
+  if (listening.value && radio.link === 'idle') {
+    radio.listen();
+  }
+});
+
+useEventListener(window, 'pointerdown', () => {
+  if (listening.value) {
+    radio.resumeAudio();
+  }
+});
 
 watch(
   () => radio.connected && store.settings.display.keepScreenOn,
@@ -72,7 +95,7 @@ function typing(e: KeyboardEvent): boolean {
 }
 
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
-  if (e.code !== store.settings.audio.pttKey || typing(e) || !radio.connected) {
+  if (e.code !== store.settings.audio.pttKey || typing(e) || !radio.connected || listening.value) {
     return;
   }
   e.preventDefault();
@@ -87,7 +110,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 });
 
 useEventListener(window, 'keyup', (e: KeyboardEvent) => {
-  if (e.code !== store.settings.audio.pttKey || typing(e) || !radio.connected) {
+  if (e.code !== store.settings.audio.pttKey || typing(e) || !radio.connected || listening.value) {
     return;
   }
   e.preventDefault();
@@ -121,7 +144,24 @@ function onLogin(): void {
 </script>
 
 <template>
-  <main v-if="showFailure" class="flex min-h-0 grow flex-col overflow-y-auto" :class="desktop ? 'p-8 pt-16' : 'gap-3 px-4 pt-3 pb-4'">
+  <main v-if="firstVisit" class="flex min-h-0 grow items-start justify-center overflow-y-auto" :class="desktop ? 'px-8 py-12' : 'px-4 py-4'">
+    <ListenChooser @pick="pick" />
+  </main>
+  <main v-else-if="listening && desktop" class="flex min-h-0 grow gap-8 overflow-y-auto p-[clamp(16px,3dvh,32px)] px-8">
+    <ListenPanel class="w-[clamp(640px,calc(100%-340px),780px)] shrink-0" />
+    <aside class="flex min-h-0 min-w-0 grow flex-col gap-4 overflow-y-auto">
+      <section class="min-h-0 overflow-y-auto rounded-[20px] border border-radio-line bg-radio-surface p-[22px]">
+        <LastHeard :entries="radio.heard" :limit="12" listen />
+      </section>
+    </aside>
+  </main>
+  <main v-else-if="listening" class="flex min-h-0 grow flex-col gap-4 overflow-y-auto px-4 pb-4">
+    <ListenPanel compact />
+    <section class="rounded-[20px] border border-radio-line bg-radio-surface px-4 py-2">
+      <LastHeard :entries="radio.heard" :limit="6" compact listen />
+    </section>
+  </main>
+  <main v-else-if="showFailure" class="flex min-h-0 grow flex-col overflow-y-auto" :class="desktop ? 'p-8 pt-16' : 'gap-3 px-4 pt-3 pb-4'">
     <LinkNotice mode="failed" :compact="!desktop" />
   </main>
   <main v-else-if="choosing && desktop" class="flex min-h-0 grow items-start justify-center overflow-y-auto px-8 py-12">
@@ -157,7 +197,7 @@ function onLogin(): void {
       </template>
     </RadioPanel>
   </main>
-  <LinkNotice v-if="radio.link === 'reconnecting'" mode="reconnecting" :compact="!desktop" />
-  <AppNav v-if="!desktop && store.configured && !showFailure" bar />
+  <LinkNotice v-if="radio.link === 'reconnecting' && !listening" mode="reconnecting" :compact="!desktop" />
+  <AppNav v-if="!desktop && store.configured && !showFailure && !listening" bar />
   <MicDialogs />
 </template>

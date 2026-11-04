@@ -36,6 +36,8 @@ const props = defineProps<{
   timeout?: { left: string; fraction: number };
   privateTag?: boolean;
   talkback?: { who: string; seconds: number; used: number } | null;
+  /** band replaces the two slot chips with one, for listen mode. */
+  band?: string;
 }>();
 
 const segments = computed(() => (props.compact ? 18 : 24));
@@ -46,7 +48,10 @@ const segments = computed(() => (props.compact ? 18 : 24));
     class="flex flex-col rounded-[14px] border-2 border-lcd-line bg-lcd-bg font-mono text-lcd-text shadow-[inset_0_2px_12px_rgba(0,0,0,0.45)]"
     :class="compact ? 'gap-[clamp(4px,1dvh,8px)] px-4 py-[clamp(8px,1.6dvh,14px)]' : 'gap-[clamp(8px,1.4dvh,12px)] px-6 py-[clamp(12px,2.2dvh,20px)]'"
   >
-    <div class="grid grid-cols-2 gap-2" :class="compact ? 'text-[11px]' : 'text-sm'">
+    <div v-if="band" class="truncate rounded-md border border-lcd-line bg-lcd-chip px-2.5 py-1.5 text-lcd-chip-text short:py-1" :class="compact ? 'text-[11px]' : 'text-sm'">
+      {{ band }}
+    </div>
+    <div v-else class="grid grid-cols-2 gap-2" :class="compact ? 'text-[11px]' : 'text-sm'">
       <div
         v-for="s in slots"
         :key="s.slot"

@@ -51,6 +51,10 @@ export type Settings = {
     private: { 1: boolean; 2: boolean };
   };
   display: { reduceMotion: boolean; keepScreenOn: boolean };
+  /** mode is what the visitor picked on the first visit: listen with no account, or talk. */
+  mode: '' | 'listen' | 'talk';
+  /** listenTalkgroup is the talkgroup that listen mode is tuned to, 0 for the first one of the hub. */
+  listenTalkgroup: number;
 };
 
 const KEY = 'settings';
@@ -76,6 +80,8 @@ export function defaultSettings(): Settings {
     talkgroups: { 1: [], 2: [{ id: 9990, name: 'Parrot', static: false }] },
     selected: { slot: 2, index: { 1: 0, 2: 0 }, manual: { 1: null, 2: null }, private: { 1: false, 2: false } },
     display: { reduceMotion: false, keepScreenOn: true },
+    mode: '',
+    listenTalkgroup: 0,
   };
 }
 
@@ -152,6 +158,8 @@ export const useSettings = defineStore('settings', () => {
   );
 
   const configured = computed(() => validHotspot(settings.value.hotspot.id) && settings.value.hotspot.password !== '');
+  /** listenOnly reports whether the radio runs as a listen-only monitor: no hotspot, and listen picked. */
+  const listenOnly = computed(() => !configured.value && settings.value.mode === 'listen');
   const radioId = computed(() => radioIdOf(settings.value.hotspot.id));
 
   function target(slot: Slot): number | null {
@@ -176,5 +184,5 @@ export const useSettings = defineStore('settings', () => {
     return s.talkgroups[slot][s.selected.index[slot]]?.name ?? '';
   }
 
-  return { settings, loaded, load, replace, configured, radioId, target, targetName, isPrivate };
+  return { settings, loaded, load, replace, configured, listenOnly, radioId, target, targetName, isPrivate };
 });
