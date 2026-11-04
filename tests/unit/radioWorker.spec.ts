@@ -24,7 +24,8 @@ import type { RadioConfig, ToWorker } from '@/radio/protocol';
 vi.mock('@/radio/wasm_exec.js', () => ({}));
 vi.mock('@/radio/radio.wasm?url', () => ({ default: '/assets/radio-test.wasm' }));
 
-vi.mock('@/radio/discover', () => ({
+vi.mock('@/radio/discover', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/radio/discover')>()),
   discover: vi.fn(async () => ({ url: 'https://hub.example:62032/mmdvm', hashes: [] })),
   HubRefusedError: class extends Error {},
 }));
@@ -265,5 +266,109 @@ describe('radio worker', () => {
     const answer = FakeSession.all[0]!.ask('{"ask":"weather"}\n');
     await settle();
     expect(answer).toEqual([]);
+  });
+});
+
+class FakeSocket {
+  static all: FakeSocket[] = [];
+  binaryType = 'blob';
+  readyState = 0;
+  sent: unknown[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((e: { data: unknown }) => void) | null = null;
+  onclose: ((e: { code: number; reason: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor(readonly url: string) {
+    FakeSocket.all.push(this);
+  }
+  send(data: unknown): void {
+    this.sent.push(data);
+  }
+  close(): void {}
+  open(): void {
+    this.readyState = 1;
+    this.onopen?.();
+  }
+}
+
+describe('radio worker in listen mode', () => {
+  let taken: number[];
+  let started: unknown[];
+  let posted: { type: string; state?: string; detail?: string }[];
+  let scope: { onmessage: ((e: { data: ToWorker }) => void) | null; dmrweb?: unknown };
+
+  beforeEach(async () => {
+    vi.resetModules();
+    FakeSocket.all = [];
+    taken = [];
+    started = [];
+    posted = [];
+    const dmr = {
+      start: (cfg: unknown) => {
+        started.push(cfg);
+        return { ok: true };
+      },
+      stop: () => ({ ok: true }),
+      packet: (_now: number, data: Uint8Array) => {
+        taken.push(data[4]!);
+        return -1;
+      },
+      tick: () => -1,
+      ptt: () => ({ ok: false, error: 'radio: listen only, this radio cannot transmit' }),
+    };
+    scope = globalThis as unknown as typeof scope;
+    vi.stubGlobal('WebSocket', FakeSocket);
+    vi.stubGlobal('postMessage', (m: { type: string; state?: string; detail?: string }) => void posted.push(m));
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('')));
+    vi.stubGlobal('WebAssembly', { instantiateStreaming: async () => ({ instance: {} }) });
+    vi.stubGlobal(
+      'Go',
+      class {
+        importObject = {};
+        run() {
+          scope.dmrweb = dmr;
+          return new Promise(() => undefined);
+        }
+      },
+    );
+    await import('@/radio/radio.worker');
+    scope.onmessage?.({ data: { type: 'listen', hub: 'hub.example', talkgroup: 91, jitterMs: 360 } });
+    await settle();
+  });
+
+  afterEach(() => {
+    scope.onmessage?.({ data: { type: 'disconnect' } });
+    scope.onmessage = null;
+    delete scope.dmrweb;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('starts a listen-only radio, tunes, and plays the packets of the monitor', async () => {
+    expect(started).toEqual([{ listen: true, jitterMs: 360, vocoder: 'auto' }]);
+    const ws = FakeSocket.all[0]!;
+    expect(ws.url).toBe('wss://hub.example/ws/listen');
+    ws.open();
+    ws.onmessage?.({ data: dmrd(1).buffer });
+    scope.onmessage?.({ data: { type: 'tune', talkgroup: 3100 } });
+    scope.onmessage?.({ data: { type: 'ptt', on: true, slot: 2, group: true, target: 3100 } });
+    await settle();
+    expect(taken).toEqual([1]);
+    expect(ws.sent).toEqual(['{"tune":91}', '{"tune":3100}']);
+    expect(posted).toContainEqual({ type: 'ptt', ok: false, error: 'radio: listen only, this radio cannot transmit' });
+  });
+
+  it('stops when the hub refuses the session, and connects again after a lost one', async () => {
+    FakeSocket.all[0]!.open();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    FakeSocket.all[0]!.onclose?.({ code: 1006, reason: '' });
+    expect(posted.filter((m) => m.type === 'link').at(-1)).toMatchObject({ state: 'reconnecting' });
+    vi.advanceTimersByTime(1000);
+    vi.useRealTimers();
+    await settle();
+    expect(FakeSocket.all).toHaveLength(2);
+    FakeSocket.all[1]!.onclose?.({ code: 1008, reason: 'too many listeners, try again later' });
+    await settle();
+    expect(posted.filter((m) => m.type === 'link').at(-1)).toMatchObject({ state: 'failed', detail: 'too many listeners, try again later' });
   });
 });

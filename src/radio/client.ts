@@ -147,6 +147,15 @@ export class RadioClient {
     this.post({ type: 'reportLocation', id });
   }
 
+  /** listen starts a listen-only session on the listen monitor of hub, tuned to talkgroup. */
+  listen(hub: string, talkgroup: number, jitterMs: number): void {
+    this.post({ type: 'listen', hub, talkgroup, jitterMs });
+  }
+
+  tune(talkgroup: number): void {
+    this.post({ type: 'tune', talkgroup });
+  }
+
   disconnect(): void {
     this.post({ type: 'disconnect' });
   }

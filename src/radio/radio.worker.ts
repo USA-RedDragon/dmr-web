@@ -23,13 +23,14 @@ import radioWasm from './radio.wasm?url';
 import type { FromWorker, Here, LinkState, RadioConfig, RadioEvent, ToWorker } from './protocol';
 import { discover, HubRefusedError, type HubEndpoint } from './discover';
 import { Anchors, isDMRD, moveSession, RecentBursts } from './handoff';
+import { ListenLink } from './listen';
 import { Transport } from './transport';
 
 type Result = { ok: boolean; error?: string; version?: number; transmit?: string };
 
 type DmrWeb = {
   start: (
-    config: Omit<RadioConfig, 'hub'>,
+    config: Omit<RadioConfig, 'hub'> | { listen: true; jitterMs: number; vocoder: string },
     callbacks: {
       send: (packet: Uint8Array) => void;
       event: (event: RadioEvent) => void;
@@ -94,6 +95,8 @@ const recent = new RecentBursts(DEDUP_MS, MOVE_DEDUP_MS);
 const anchors = new Anchors();
 let locationServer = 0;
 let reportingMs = 0;
+let listening: { hub: string; talkgroup: number; jitterMs: number } | null = null;
+let listenLink: ListenLink | null = null;
 
 function post(message: FromWorker, transfer?: Transferable[]): void {
   scope.postMessage(message, transfer);
@@ -349,6 +352,9 @@ function onEvent(event: RadioEvent, t: Transport): void {
 
 function disconnect(): void {
   wanted = false;
+  listening = null;
+  listenLink?.close();
+  listenLink = null;
   if (retryTimer !== null) {
     clearTimeout(retryTimer);
     retryTimer = null;
@@ -358,6 +364,75 @@ function disconnect(): void {
   transport = null;
   attempt = 0;
   link('idle');
+}
+
+/**
+ * listen starts a listen-only radio on the listen monitor of the hub,
+ * tuned to the talkgroup of l. It sends nothing but tunes: the radio
+ * module of a listen session cannot transmit.
+ */
+function listen(l: { hub: string; talkgroup: number; jitterMs: number }): void {
+  if (!dmr || listening !== l) {
+    return;
+  }
+  link(attempt === 0 ? 'connecting' : 'reconnecting');
+  const res = dmr.start(
+    { listen: true, jitterMs: l.jitterMs, vocoder: 'auto' },
+    {
+      send: () => undefined,
+      event: (event) => post({ type: 'event', event: { ...event } }),
+      audio: (slot, samples) => playback?.postMessage({ slot, samples }, [samples.buffer]),
+    },
+    performance.now(),
+  );
+  if (!res.ok) {
+    listening = null;
+    link('failed', res.error ?? 'the radio could not start');
+    return;
+  }
+  const ll: ListenLink = new ListenLink({
+    onOpen: () => {
+      attempt = 0;
+      link('up');
+      ll.tune(l.talkgroup);
+    },
+    onPacket: (data) => {
+      if (dmr && listenLink === ll) {
+        schedule(dmr.packet(performance.now(), data));
+      }
+    },
+    onMessage: (message) => {
+      if (listenLink === ll) {
+        post({ type: 'listen', message });
+      }
+    },
+    onClosed: (reason, refused) => {
+      if (listenLink !== ll) {
+        return;
+      }
+      listenLink = null;
+      stopRadio();
+      if (refused || listening !== l) {
+        listening = null;
+        link('failed', reason);
+        return;
+      }
+      attempt += 1;
+      if (attempt > MAX_ATTEMPTS) {
+        listening = null;
+        link('failed', reason);
+        return;
+      }
+      const retryInMs = Math.min(MAX_RETRY_MS, 1000 * 2 ** (attempt - 1));
+      link('reconnecting', reason, retryInMs);
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        listen(l);
+      }, retryInMs);
+    },
+  });
+  listenLink = ll;
+  ll.open(l.hub);
 }
 
 function handle(msg: ToWorker): void {
@@ -370,6 +445,19 @@ function handle(msg: ToWorker): void {
       return;
     case 'disconnect':
       disconnect();
+      return;
+    case 'listen': {
+      disconnect();
+      const l = { hub: msg.hub, talkgroup: msg.talkgroup, jitterMs: msg.jitterMs };
+      listening = l;
+      listen(l);
+      return;
+    }
+    case 'tune':
+      if (listening) {
+        listening.talkgroup = msg.talkgroup;
+        listenLink?.tune(msg.talkgroup);
+      }
       return;
     case 'ptt': {
       if (!dmr) {

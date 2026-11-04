@@ -17,6 +17,8 @@
 //
 // The source code is available at <https://github.com/USA-RedDragon/dmr-web>
 
+import type { ListenMessage } from './listen';
+
 export type VocoderChoice = 'auto' | 'codec2' | 'ambe';
 
 export type RadioConfig = {
@@ -109,6 +111,8 @@ export type LinkState = 'idle' | 'connecting' | 'up' | 'reconnecting' | 'failed'
 export type ToWorker =
   | { type: 'connect'; config: RadioConfig }
   | { type: 'disconnect' }
+  | { type: 'listen'; hub: string; talkgroup: number; jitterMs: number }
+  | { type: 'tune'; talkgroup: number }
   | { type: 'ptt'; on: boolean; slot: number; group: boolean; target: number }
   | { type: 'ambe'; bytes: Uint8Array }
   | { type: 'ambeRemove' }
@@ -137,6 +141,7 @@ export type FromWorker =
   | { type: 'requestLocation'; id: number; ok: boolean; error?: string }
   | { type: 'reportLocation'; id: number; ok: boolean; error?: string }
   | { type: 'sendData'; id: number; ok: boolean; error?: string }
+  | { type: 'listen'; message: ListenMessage }
   | { type: 'fatal'; error: string };
 
 export type PlaybackMessage = { slot: number; samples: Int16Array };
