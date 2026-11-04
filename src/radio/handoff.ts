@@ -159,10 +159,12 @@ export class RecentBursts {
 
 /**
  * Anchor is the last DMRD burst of a slot that the radio took with no
- * burst of its stream missing before it. A replica that takes the radio
- * over, or whose path to it moved, sends it every burst after its anchors.
+ * burst of its stream missing before it, and first, the first burst of
+ * that stream that it took. A replica that takes the radio over, or whose
+ * path to it moved, sends it every burst after its anchors, and the bursts
+ * of their streams before first, which the radio lost.
  */
-export type Anchor = { slot: number; stream: number; seq: number };
+export type Anchor = { slot: number; stream: number; seq: number; first: number };
 
 /**
  * ANCHOR_GAP is how many bursts of a stream after a missing one the radio
@@ -171,7 +173,14 @@ export type Anchor = { slot: number; stream: number; seq: number };
  */
 const ANCHOR_GAP = 64;
 
-type SlotAnchor = { stream: number; last: number | null; seq: number; ahead: Set<number> };
+type SlotAnchor = {
+  stream: number;
+  last: number | null;
+  seq: number;
+  first: number;
+  ahead: Set<number>;
+  behind: Set<number>;
+};
 
 /** Anchors keeps the anchor of each slot from the DMRD packets that the radio takes. */
 export class Anchors {
@@ -184,7 +193,7 @@ export class Anchors {
     const seq = data[4]!;
     const s = this.slots[i];
     if (!s || (stream !== s.stream && stream !== s.last)) {
-      this.slots[i] = { stream, last: s ? s.stream : null, seq, ahead: new Set() };
+      this.slots[i] = { stream, last: s ? s.stream : null, seq, first: seq, ahead: new Set(), behind: new Set() };
       return;
     }
     if (stream !== s.stream) {
@@ -192,6 +201,13 @@ export class Anchors {
     }
     const d = (seq - s.seq) & 0xff;
     if (d === 0 || d > 128) {
+      const b = (s.first - seq) & 0xff;
+      if (b > 0 && b <= 128) {
+        s.behind.add(seq);
+        while (s.behind.delete((s.first - 1) & 0xff)) {
+          s.first = (s.first - 1) & 0xff;
+        }
+      }
       return;
     }
     s.ahead.add(seq);
@@ -214,7 +230,7 @@ export class Anchors {
     const out: Anchor[] = [];
     this.slots.forEach((s, i) => {
       if (s) {
-        out.push({ slot: i + 1, stream: s.stream, seq: s.seq });
+        out.push({ slot: i + 1, stream: s.stream, seq: s.seq, first: s.first });
       }
     });
     return out;

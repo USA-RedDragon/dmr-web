@@ -169,22 +169,22 @@ describe('Transport', () => {
     const t = new Transport({
       onDatagram: () => undefined,
       onClosed: () => undefined,
-      anchors: () => [{ slot: 1, stream: 8201, seq: 2 }],
+      anchors: () => [{ slot: 1, stream: 8201, seq: 2, first: 0 }],
     });
     await t.connect('https://hub.example:62032/mmdvm');
     expect(fake.url).toBe('https://hub.example:62032/mmdvm?anchor=1');
     expect(await t.resume('tok')).toBe(true);
-    expect(fake.sent.join('')).toBe('{"resume":"tok","anchor":[{"slot":1,"stream":8201,"seq":2}]}\n');
+    expect(fake.sent.join('')).toBe('{"resume":"tok","anchor":[{"slot":1,"stream":8201,"seq":2,"first":0}]}\n');
   });
 
   it('answers the anchor question with the anchors', async () => {
     const fake = fakeWebTransport([], '');
     let seq = 2;
-    const t = new Transport({ onDatagram: () => undefined, onClosed: () => undefined, anchors: () => [{ slot: 2, stream: 9, seq }] });
+    const t = new Transport({ onDatagram: () => undefined, onClosed: () => undefined, anchors: () => [{ slot: 2, stream: 9, seq, first: 1 }] });
     await t.connect('https://hub.example:62032/mmdvm');
     seq = 5;
     const answer = fake.ask('{"ask":"anchor"}\n');
     await new Promise((r) => setTimeout(r, 10));
-    expect(answer.join('')).toBe('{"anchor":[{"slot":2,"stream":9,"seq":5}]}\n');
+    expect(answer.join('')).toBe('{"anchor":[{"slot":2,"stream":9,"seq":5,"first":1}]}\n');
   });
 });

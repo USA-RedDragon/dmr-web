@@ -66,8 +66,8 @@ describe('resume messages', () => {
 
   it('carries the anchors when the radio keeps them', () => {
     expect(resumeRequest('t0k', [])).toBe('{"resume":"t0k","anchor":[]}\n');
-    expect(resumeRequest('t0k', [{ slot: 2, stream: 9, seq: 4 }])).toBe(
-      '{"resume":"t0k","anchor":[{"slot":2,"stream":9,"seq":4}]}\n',
+    expect(resumeRequest('t0k', [{ slot: 2, stream: 9, seq: 4, first: 2 }])).toBe(
+      '{"resume":"t0k","anchor":[{"slot":2,"stream":9,"seq":4,"first":2}]}\n',
     );
   });
 
@@ -162,7 +162,7 @@ describe('anchor messages', () => {
 
   it('answers with the anchors on one line', () => {
     expect(anchorAnswer([])).toBe('{"anchor":[]}\n');
-    expect(anchorAnswer([{ slot: 1, stream: 7, seq: 3 }])).toBe('{"anchor":[{"slot":1,"stream":7,"seq":3}]}\n');
+    expect(anchorAnswer([{ slot: 1, stream: 7, seq: 3, first: 1 }])).toBe('{"anchor":[{"slot":1,"stream":7,"seq":3,"first":1}]}\n');
   });
 });
 
@@ -179,18 +179,18 @@ describe('Anchors', () => {
   });
 
   it('moves on with the bursts of a stream in order', () => {
-    expect(took([4, 5, 6]).list()).toEqual([{ slot: 1, stream: 81, seq: 6 }]);
+    expect(took([4, 5, 6]).list()).toEqual([{ slot: 1, stream: 81, seq: 6, first: 4 }]);
   });
 
   it('stays before a missing burst until it comes', () => {
     const a = took([1, 2, 5, 6]);
-    expect(a.list()).toEqual([{ slot: 1, stream: 81, seq: 2 }]);
+    expect(a.list()).toEqual([{ slot: 1, stream: 81, seq: 2, first: 1 }]);
     took([3, 4], 81, false, a);
-    expect(a.list()).toEqual([{ slot: 1, stream: 81, seq: 6 }]);
+    expect(a.list()).toEqual([{ slot: 1, stream: 81, seq: 6, first: 1 }]);
   });
 
-  it('ignores copies and older bursts', () => {
-    expect(took([10, 11, 11, 9, 3]).list()).toEqual([{ slot: 1, stream: 81, seq: 11 }]);
+  it('ignores copies, and takes an older burst only as the first', () => {
+    expect(took([10, 11, 11, 9, 3]).list()).toEqual([{ slot: 1, stream: 81, seq: 11, first: 9 }]);
   });
 
   it('gives a missing burst up 64 bursts later', () => {
@@ -198,27 +198,42 @@ describe('Anchors', () => {
     for (let s = 2; s <= 65; s++) {
       seqs.push(s);
     }
-    expect(took(seqs.slice(0, -1)).list()).toEqual([{ slot: 1, stream: 81, seq: 0 }]);
-    expect(took(seqs).list()).toEqual([{ slot: 1, stream: 81, seq: 65 }]);
+    expect(took(seqs.slice(0, -1)).list()).toEqual([{ slot: 1, stream: 81, seq: 0, first: 0 }]);
+    expect(took(seqs).list()).toEqual([{ slot: 1, stream: 81, seq: 65, first: 0 }]);
   });
 
   it('counts the sequence number round from 255 to 0', () => {
-    expect(took([254, 255, 0, 1]).list()).toEqual([{ slot: 1, stream: 81, seq: 1 }]);
+    expect(took([254, 255, 0, 1]).list()).toEqual([{ slot: 1, stream: 81, seq: 1, first: 254 }]);
   });
 
   it('starts again at a new stream and ignores the one before', () => {
     const a = took([1, 2, 3]);
     took([40, 41], 82, false, a);
     took([4], 81, false, a);
-    expect(a.list()).toEqual([{ slot: 1, stream: 82, seq: 41 }]);
+    expect(a.list()).toEqual([{ slot: 1, stream: 82, seq: 41, first: 40 }]);
+  });
+
+  it('tells the first burst that it took of the stream, so that a replica sends the lost start again', () => {
+    expect(took([25, 26, 27]).list()).toEqual([{ slot: 1, stream: 81, seq: 27, first: 25 }]);
+  });
+
+  it('moves the first burst back with the bursts that a replica sends again', () => {
+    const a = took([25, 26, 27, 22, 23]);
+    expect(a.list()).toEqual([{ slot: 1, stream: 81, seq: 27, first: 25 }]);
+    took([24], 81, false, a);
+    expect(a.list()).toEqual([{ slot: 1, stream: 81, seq: 27, first: 22 }]);
+  });
+
+  it('counts the first burst back round from 0 to 255', () => {
+    expect(took([1, 2, 0, 255]).list()).toEqual([{ slot: 1, stream: 81, seq: 2, first: 255 }]);
   });
 
   it('keeps an anchor for each slot', () => {
     const a = took([1, 2], 81, false);
     took([7], 90, true, a);
     expect(a.list()).toEqual([
-      { slot: 1, stream: 81, seq: 2 },
-      { slot: 2, stream: 90, seq: 7 },
+      { slot: 1, stream: 81, seq: 2, first: 1 },
+      { slot: 2, stream: 90, seq: 7, first: 7 },
     ]);
   });
 });

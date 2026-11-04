@@ -248,7 +248,7 @@ describe('radio worker', () => {
     old.send(5);
     await settle();
     const next = FakeSession.all[1]!;
-    expect(JSON.parse(next.requests.join(''))).toEqual({ resume: 'tok', anchor: [{ slot: 1, stream: 7, seq: 2 }] });
+    expect(JSON.parse(next.requests.join(''))).toEqual({ resume: 'tok', anchor: [{ slot: 1, stream: 7, seq: 2, first: 1 }] });
   });
 
   it('answers the anchor question with the anchor of the bursts that it took', async () => {
@@ -259,7 +259,7 @@ describe('radio worker', () => {
     await settle();
     const answer = s.ask('{"ask":"anchor"}\n');
     await settle();
-    expect(JSON.parse(answer.join(''))).toEqual({ anchor: [{ slot: 1, stream: 7, seq: 3 }] });
+    expect(JSON.parse(answer.join(''))).toEqual({ anchor: [{ slot: 1, stream: 7, seq: 3, first: 1 }] });
   });
 
   it('answers a question that it does not know with nothing', async () => {
