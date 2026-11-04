@@ -93,6 +93,9 @@ func (r *Radio) SetReporting(now time.Duration, interval time.Duration) {
 // ReportLocation queues one unsolicited LRRP report of this radio's
 // position to the location server, whether or not it shares its location.
 func (r *Radio) ReportLocation(now time.Duration) error {
+	if r.cfg.Listen {
+		return ErrListenOnly
+	}
 	if !r.here.Valid {
 		return ErrNoHere
 	}

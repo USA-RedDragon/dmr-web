@@ -25,6 +25,8 @@ import "errors"
 var (
 	// ErrNotConnected is a transmission while the hotspot is not logged in.
 	ErrNotConnected = errors.New("radio: not connected")
+	// ErrListenOnly is a transmission of a listen-only radio.
+	ErrListenOnly = errors.New("radio: listen only, this radio cannot transmit")
 	// ErrBusy is a transmission while one is already running.
 	ErrBusy = errors.New("radio: already transmitting")
 	// ErrNoAMBE is an AMBE codec while no AMBE module is loaded.

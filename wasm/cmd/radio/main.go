@@ -172,6 +172,7 @@ func (b *bridge) start(args []js.Value) any {
 		Codecs:   b.codecs(),
 		Vocoder:  b.choice,
 		ARS:      cfg.Get("ars").Truthy(),
+		Listen:   cfg.Get("listen").Truthy(),
 
 		LocationServer: id(cfg.Get("locationServer")),
 	}, b)

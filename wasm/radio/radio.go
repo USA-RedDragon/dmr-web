@@ -75,6 +75,11 @@ type Config struct {
 	// LocationServer is the ID that ARS registrations and position
 	// reports go to, from 5050 to 5059; 0 is DefaultLocationServer.
 	LocationServer uint32
+	// Listen makes a listen-only radio, which takes the DMRD packets of
+	// the listen monitor of a hub with no login, plays their voice, and
+	// never sends: every transmission fails with ErrListenOnly. It needs
+	// only Codecs and Jitter.
+	Listen bool
 }
 
 // Sink takes what the radio produces. Send and Audio must copy what they
@@ -141,19 +146,22 @@ func New(cfg *Config, sink Sink) (*Radio, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("radio: %w", ErrNotConnected)
 	}
-	rptc, err := rptcFor(cfg)
-	if err != nil {
-		return nil, err
-	}
-	peer, err := dmrdsession.NewPeer(&dmrdsession.PeerConfig{
-		Dialect:  dmrd.DialectMMDVM,
-		ID:       cfg.Hotspot,
-		Password: cfg.Password,
-		Config:   rptc,
-		Options:  []byte(cfg.Options),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("radio: session: %w", err)
+	var peer *dmrdsession.Peer
+	if !cfg.Listen {
+		rptc, err := rptcFor(cfg)
+		if err != nil {
+			return nil, err
+		}
+		peer, err = dmrdsession.NewPeer(&dmrdsession.PeerConfig{
+			Dialect:  dmrd.DialectMMDVM,
+			ID:       cfg.Hotspot,
+			Password: cfg.Password,
+			Config:   rptc,
+			Options:  []byte(cfg.Options),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("radio: session: %w", err)
+		}
 	}
 	r := &Radio{
 		cfg:     *cfg,
@@ -176,6 +184,9 @@ func New(cfg *Config, sink Sink) (*Radio, error) {
 			return nil, fmt.Errorf("radio: receiver: %w", err)
 		}
 		r.rx[i] = rxSlot{jitter: j, recv: rv, events: make([]voice.Event, 0, voice.MaxEvents)}
+		if cfg.Listen {
+			continue
+		}
 		es := enums.Slot1
 		if i == 1 {
 			es = enums.Slot2
@@ -251,7 +262,9 @@ func (r *Radio) TransmitVocoder() Vocoder {
 
 // Deadline returns when Tick must run next. ok is false when nothing waits.
 func (r *Radio) Deadline() (at time.Duration, ok bool) {
-	at, ok = r.peer.Deadline()
+	if r.peer != nil {
+		at, ok = r.peer.Deadline()
+	}
 	consider := func(t time.Duration, has bool) {
 		if has && (!ok || t < at) {
 			at, ok = t, true
@@ -260,7 +273,9 @@ func (r *Radio) Deadline() (at time.Duration, ok bool) {
 	for i := range r.rx {
 		consider(r.rx[i].jitter.Deadline())
 		consider(r.rx[i].recv.Deadline())
-		r.dslots[i].deadline(consider)
+		if !r.cfg.Listen {
+			r.dslots[i].deadline(consider)
+		}
 	}
 	if r.tx.active {
 		consider(r.tx.t.Deadline())
@@ -271,18 +286,27 @@ func (r *Radio) Deadline() (at time.Duration, ok bool) {
 
 // Tick runs the timers that are due at now.
 func (r *Radio) Tick(now time.Duration) {
-	r.out = r.peer.Tick(now, r.out[:0])
-	r.handle(now)
+	if r.peer != nil {
+		r.out = r.peer.Tick(now, r.out[:0])
+		r.handle(now)
+	}
 	for i := range r.rx {
 		r.drain(now, i)
-		r.dataTick(now, i)
+		if !r.cfg.Listen {
+			r.dataTick(now, i)
+		}
 	}
 	r.txTick(now)
 	r.triggerTick(now)
 }
 
-// Packet takes one datagram from the hub.
+// Packet takes one datagram from the hub. A listen-only radio takes only
+// DMRD packets.
 func (r *Radio) Packet(now time.Duration, b []byte) {
+	if r.peer == nil {
+		r.data(now, b)
+		return
+	}
 	r.received(now, b)
 	r.out = r.peer.Packet(now, b, r.out[:0])
 	r.handle(now)
@@ -290,8 +314,10 @@ func (r *Radio) Packet(now time.Duration, b []byte) {
 
 // Close logs out and closes the codecs.
 func (r *Radio) Close(now time.Duration) {
-	r.out = r.peer.Close(now, r.out[:0])
-	r.handle(now)
+	if r.peer != nil {
+		r.out = r.peer.Close(now, r.out[:0])
+		r.handle(now)
+	}
 	for i := range r.rx {
 		r.closeRX(i)
 	}
@@ -358,7 +384,9 @@ func (r *Radio) data(now time.Duration, b []byte) {
 		r.receive(now, i, &d.Burst, h)
 	}
 	r.drain(now, i)
-	r.dataIn(now, i, &d, h)
+	if !r.cfg.Listen {
+		r.dataIn(now, i, &d, h)
+	}
 }
 
 func (r *Radio) drain(now time.Duration, i int) {
@@ -520,6 +548,8 @@ func (r *Radio) closeTX() {
 // with one header would send it, so the voice keeps its timing.
 func (r *Radio) StartTransmit(now time.Duration, slot int, group bool, target uint32) error {
 	switch {
+	case r.cfg.Listen:
+		return ErrListenOnly
 	case !r.up:
 		return ErrNotConnected
 	case r.tx.active:

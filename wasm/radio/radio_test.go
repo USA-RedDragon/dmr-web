@@ -527,3 +527,42 @@ func TestTransmit(t *testing.T) {
 	require.Equal(t, radio.VocoderAMBE, radio.Transmit(radio.VocoderAMBE, true))
 	require.Equal(t, radio.VocoderCodec2, radio.Transmit(radio.VocoderAMBE, false))
 }
+
+func listenOnly(c *radio.Config) {
+	*c = radio.Config{Listen: true, Codecs: c.Codecs}
+}
+
+// TestListenReceivesWithoutLogin feeds a listen-only radio the DMRD packets
+// of a call, as the listen monitor of the hub sends them, with no login. It
+// plays the call and sends nothing.
+func TestListenReceivesWithoutLogin(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false, listenOnly)
+	h.receive(voiceSlots(), nil)
+
+	c, ok := h.s.first(radio.EventCallStart)
+	require.True(t, ok)
+	require.True(t, c.Group)
+	require.Equal(t, uint32(8), c.Target)
+	require.Equal(t, uint32(3002202), c.Source)
+	require.Equal(t, 18*160, h.s.audio[1])
+	require.True(t, h.s.has(radio.EventCallEnd))
+	require.False(t, h.s.has(radio.EventUp))
+	require.Empty(t, h.s.sent)
+	require.Empty(t, h.data)
+}
+
+func TestListenCannotTransmit(t *testing.T) {
+	t.Parallel()
+	h := newHub(t, false, listenOnly)
+	h.advance(100 * time.Millisecond)
+	require.ErrorIs(t, h.r.StartTransmit(h.now, 2, true, 91), radio.ErrListenOnly)
+	require.ErrorIs(t, h.r.SendText(h.now, 1, 2, true, 91, 0, "hi"), radio.ErrListenOnly)
+	require.ErrorIs(t, h.r.CheckRadio(h.now, 2, 2, radio.CheckRadio, 3002202), radio.ErrListenOnly)
+	require.ErrorIs(t, h.r.RequestLocation(h.now, 3, 2, 3002202), radio.ErrListenOnly)
+	require.ErrorIs(t, h.r.ReportLocation(h.now), radio.ErrListenOnly)
+	require.ErrorIs(t, h.r.Register(h.now), radio.ErrListenOnly)
+	require.ErrorIs(t, h.r.SendData(h.now, 4, 2, true, 91, false, enums.SAPShortData, enums.DataTypeRate12, []byte{1}), radio.ErrListenOnly)
+	h.r.Close(h.now)
+	require.Empty(t, h.s.sent)
+}

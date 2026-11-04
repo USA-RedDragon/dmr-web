@@ -247,6 +247,8 @@ func (r *Radio) CheckRadio(now time.Duration, id uint32, slot int, c Check, targ
 
 func (r *Radio) dataTarget(slot int, target uint32) (int, error) {
 	switch {
+	case r.cfg.Listen:
+		return 0, ErrListenOnly
 	case !r.up:
 		return 0, ErrNotConnected
 	case slot != 1 && slot != 2:
