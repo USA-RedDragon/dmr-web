@@ -21,7 +21,7 @@ COPY --from=wasm /out/radio.wasm src/radio/radio.wasm
 COPY --from=wasm /out/wasm_exec.js src/radio/wasm_exec.js
 RUN npm run build:tsc && npx vite build
 
-FROM --platform=$BUILDPLATFORM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS carry
+FROM --platform=$BUILDPLATFORM alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a AS carry
 ARG CARRY_FIRST_BUILD
 COPY scripts/carry-assets.sh /carry-assets.sh
 COPY --from=web /src/dist /out/html
@@ -33,7 +33,7 @@ RUN --mount=type=bind,from=previous,target=/previous \
       cp -p /previous/usr/share/nginx/html/radio.wasm /out/html/radio.wasm; \
     fi
 
-FROM nginx:1.31.8-alpine@sha256:b2f80f8f88146b0772fdcc7d92cea621aa8c2889fa8d07ed61d4884fcea53e09
+FROM nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
 
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/headers.conf /etc/nginx/headers.conf
