@@ -2,7 +2,7 @@ ARG PREVIOUS_IMAGE=ghcr.io/usa-reddragon/dmr-web:main
 
 FROM --platform=$BUILDPLATFORM ${PREVIOUS_IMAGE} AS previous
 
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:fa4881266890ef051f0ce63afdfaccb69bbe8186084387f4fafd60d7ecbabc71 AS wasm
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:dbaa054703263d06c8b49576667418473b6231f8c0fa69dee103207fdb8e3654 AS wasm
 
 WORKDIR /src/wasm
 COPY wasm/go.mod wasm/go.sum ./
