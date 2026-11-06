@@ -3,5 +3,13 @@
     "extends": [
         "local>USA-RedDragon/renovate-configs",
         "local>USA-RedDragon/renovate-configs:golang"
+    ],
+    "packageRules": [
+        {
+            "description": "The build carries the assets of the newest published image, so the previous image stays on its tag.",
+            "matchDatasources": ["docker"],
+            "matchPackageNames": ["ghcr.io/usa-reddragon/dmr-web"],
+            "enabled": false
+        }
     ]
 }
