@@ -1,4 +1,4 @@
-ARG PREVIOUS_IMAGE=ghcr.io/usa-reddragon/dmr-web:main
+ARG PREVIOUS_IMAGE=ghcr.io/usa-reddragon/dmr-web:main@sha256:b4eee665e310d0558866e025ec7fc2064eafcb82fe86dfc7259baf3d2118a055
 
 FROM --platform=$BUILDPLATFORM ${PREVIOUS_IMAGE} AS previous
 
