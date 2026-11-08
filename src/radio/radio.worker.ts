@@ -164,9 +164,11 @@ function lost(reason: string): void {
  * datagram takes the datagram data of t. The replica that the radio moves
  * to sends the bursts that the old one sent after the anchors of the radio
  * as soon as it takes the login over, in order, so the radio reads the new
- * session from the start. While the move goes on it holds the DMRD packets of the
- * old session aside, drops them once the new session resumes, and takes
- * them only when it does not.
+ * session from the start. The old replica ends the session once the new one
+ * takes it over, and answers a ping that comes before the resume answer
+ * with MSTNAK. So while the move goes on the radio holds all datagrams of
+ * the old session aside, drops them once the new session resumes, and
+ * takes them only when it does not.
  */
 function datagram(t: Transport, data: Uint8Array): void {
   if (!dmr) {
@@ -175,7 +177,7 @@ function datagram(t: Transport, data: Uint8Array): void {
   if (t !== pending && t !== transport) {
     return;
   }
-  if (t === transport && pending && isDMRD(data)) {
+  if (t === transport && pending) {
     held.push(data);
     return;
   }

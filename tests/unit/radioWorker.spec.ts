@@ -100,6 +100,10 @@ class FakeSession {
     this.incoming.enqueue(dmrd(seq));
   }
 
+  sendRaw(data: Uint8Array) {
+    this.incoming.enqueue(data);
+  }
+
   drain(token: string) {
     this.notices.enqueue(streamOf(`${JSON.stringify({ drain: true, resume: token })}\n`));
   }
@@ -230,6 +234,40 @@ describe('radio worker', () => {
     old.send(4);
     await settle();
     expect(taken).toEqual([1, 2, 3, 4]);
+  });
+
+  it('drops the MSTNAK of the old session that comes before the resume answer', async () => {
+    const nak = new TextEncoder().encode('MSTNAK\x00\x12\xd6\x87');
+    const old = FakeSession.all[0]!;
+    old.send(1);
+    await settle();
+    old.drain('tok');
+    await settle();
+    const next = FakeSession.all[1]!;
+    old.sendRaw(nak);
+    await settle();
+    expect(taken).toEqual([1]);
+    next.resumed(true);
+    await settle();
+    next.send(2);
+    await settle();
+    expect(taken).toEqual([1, 2]);
+  });
+
+  it('takes the MSTNAK of the old session in order when the resume fails', async () => {
+    const nak = new TextEncoder().encode('MSTNAK\x00\x12\xd6\x87');
+    const old = FakeSession.all[0]!;
+    old.send(1);
+    await settle();
+    old.drain('tok');
+    await settle();
+    const next = FakeSession.all[1]!;
+    old.send(2);
+    old.sendRaw(nak);
+    await settle();
+    next.resumed(false);
+    await settle();
+    expect(taken).toEqual([1, 2, nak[4]]);
   });
 
   it('opens its sessions as one that answers the anchor question', () => {
