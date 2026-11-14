@@ -2,7 +2,7 @@ ARG PREVIOUS_IMAGE=ghcr.io/usa-reddragon/dmr-web:main
 
 FROM --platform=$BUILDPLATFORM ${PREVIOUS_IMAGE} AS previous
 
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS wasm
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS wasm
 
 WORKDIR /src/wasm
 COPY wasm/go.mod wasm/go.sum ./
@@ -11,7 +11,7 @@ COPY wasm/ ./
 RUN CGO_ENABLED=0 GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o /out/radio.wasm ./cmd/radio \
  && cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" /out/wasm_exec.js
 
-FROM --platform=$BUILDPLATFORM node:26.13.0-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS web
+FROM --platform=$BUILDPLATFORM node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS web
 
 WORKDIR /src
 COPY package.json package-lock.json ./
@@ -21,7 +21,7 @@ COPY --from=wasm /out/radio.wasm src/radio/radio.wasm
 COPY --from=wasm /out/wasm_exec.js src/radio/wasm_exec.js
 RUN npm run build:tsc && npx vite build
 
-FROM --platform=$BUILDPLATFORM alpine:3.24@sha256:3f4d6b32e26703c6082839234f43769d5046b3ac7c910033911d1e71d8cd630a AS carry
+FROM --platform=$BUILDPLATFORM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS carry
 ARG CARRY_FIRST_BUILD
 COPY scripts/carry-assets.sh /carry-assets.sh
 COPY --from=web /src/dist /out/html
@@ -33,7 +33,7 @@ RUN --mount=type=bind,from=previous,target=/previous \
       cp -p /previous/usr/share/nginx/html/radio.wasm /out/html/radio.wasm; \
     fi
 
-FROM nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+FROM nginx:1.31.8-alpine@sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72
 
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/headers.conf /etc/nginx/headers.conf
