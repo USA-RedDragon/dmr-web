@@ -2,7 +2,7 @@ ARG PREVIOUS_IMAGE=ghcr.io/usa-reddragon/dmr-web:main
 
 FROM --platform=$BUILDPLATFORM ${PREVIOUS_IMAGE} AS previous
 
-FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS wasm
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS wasm
 
 WORKDIR /src/wasm
 COPY wasm/go.mod wasm/go.sum ./
@@ -33,7 +33,7 @@ RUN --mount=type=bind,from=previous,target=/previous \
       cp -p /previous/usr/share/nginx/html/radio.wasm /out/html/radio.wasm; \
     fi
 
-FROM nginx:1.31.8-alpine@sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72
+FROM nginx:1.31.9-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
 
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/headers.conf /etc/nginx/headers.conf
